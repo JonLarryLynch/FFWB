@@ -509,7 +509,29 @@ function drawRecords() {
 
   block('cabinet-box', ['trophy_cabinet'], (plot, cabinet) => {
     const shade = (v) => (v ? tint(Math.min(v, 3) * 0.14) : 'transparent');
-    table(plot, 'trophy_cabinet', 'player', [
+    // A shelf of the most decorated players: a cup per title, a medal per half won.
+    const shelf = document.createElement('div');
+    shelf.className = 'ffwb-shelf';
+    for (const c of cabinet.slice(0, 6)) {
+      const row = document.createElement('div');
+      row.className = 'ffwb-shelf-row';
+      const name = document.createElement('div');
+      name.className = 'ffwb-shelf-name';
+      name.textContent = c.player;
+      const items = document.createElement('div');
+      items.className = 'ffwb-shelf-items';
+      const add = (n, file, label) => { for (let i = 0; i < n; i += 1) { const im = document.createElement('img'); im.src = '/brand/' + file + '.svg'; im.alt = label; im.title = label; im.className = 'ffwb-shelf-' + (file === 'trophy-champion' ? 'cup' : 'medal'); items.append(im); } };
+      add(c.titles, 'trophy-champion', 'League title');
+      add(c.first_half, 'medal-first', 'First half');
+      add(c.second_half, 'medal-second', 'Second half');
+      const cups = c.fa_cup + c.league_cup + c.community_shield;
+      if (cups) { const more = document.createElement('span'); more.className = 'ffwb-shelf-more'; more.textContent = '+' + cups + ' cup' + (cups === 1 ? '' : 's'); items.append(more); }
+      row.append(name, items);
+      shelf.append(row);
+    }
+    const tableBox = document.createElement('div');
+    plot.replaceChildren(shelf, tableBox);
+    table(tableBox, 'trophy_cabinet', 'player', [
       { field: 'player', label: 'Player', cls: 'ffwb-strong' },
       { field: 'total', label: 'Total', num: true, fmt: fmtInt, cls: 'ffwb-strong' },
       { field: 'titles', label: 'League', num: true, fmt: fmtInt, shade },

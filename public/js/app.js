@@ -278,7 +278,7 @@ const el = (tag, cls, text) => {
   if (text != null) node.textContent = text;
   return node;
 };
-const tint = (share) => 'color-mix(in srgb, var(--ffwb-a) ' + Math.round(Math.max(0, Math.min(1, share)) * 100) + '%, transparent)';
+const tint = (share) => 'color-mix(in srgb, var(--ffwb-heat, var(--ffwb-a)) ' + Math.round(Math.max(0, Math.min(1, share)) * 100) + '%, transparent)';
 
 // One block of the page: draws when every source is ready, shows a failed line when one errors.
 function block(id, sources, draw) {

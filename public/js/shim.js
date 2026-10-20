@@ -167,9 +167,15 @@
     for (const [what, who] of items) {
       const d = document.createElement('div');
       d.className = 'ffwb-crown' + (what === 'Champion' ? ' ffwb-crown-top' : '');
+      const art = document.createElement('img');
+      art.className = 'ffwb-crown-art';
+      art.alt = '';
+      art.src = '/brand/' + (what === 'Champion' ? 'trophy-champion' : what === 'First half' ? 'medal-first' : 'medal-second') + '.svg';
+      const txt = document.createElement('div');
       const a = document.createElement('div'); a.className = 'ffwb-crown-what'; a.textContent = what;
       const b = document.createElement('div'); b.className = 'ffwb-crown-who'; b.textContent = who;
-      d.append(a, b);
+      txt.append(a, b);
+      d.append(art, txt);
       list.append(d);
     }
     const parts = [title, list];
