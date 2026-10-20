@@ -10,7 +10,7 @@ import { memoryStore } from './memory-store.mjs';
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const store = memoryStore();
 const api = createHandler(() => store, 'test');
-const types = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json' };
+const types = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
 const port = Number(process.argv[2] || 8787);
 
 http.createServer(async (req, res) => {

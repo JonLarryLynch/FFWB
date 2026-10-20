@@ -181,4 +181,31 @@ await t('a perfect bonus week stacks, and a postponed game means not perfect yet
   assert.equal(stacked.status, 200, JSON.stringify(stacked.body));
 });
 
+await t('EFL picks only count on weeks the commissioner switches on', async () => {
+  const fresh = memoryStore();
+  const champ = { teams: [{ shortName: 'Leicester' }, { shortName: 'Hull' }, { name: 'Norwich City FC', shortName: 'Norwich' }] };
+  const fakeFetch = async (url) => ({ ok: true, status: 200, json: async () => (url.includes('/teams') ? champ : { matches: [] }) });
+  const h = createHandler(() => fresh, 'p', { footballKey: 'k', fetch: fakeFetch });
+  const post = async (path, body) => { const r = await h(new Request('https://x.test/api/' + path, { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, body: await r.json() }; };
+  const picks = { player: 'jon', week: 8, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton'], lock: 'Man City' };
+  // Not an EFL week: the pick is ignored.
+  let r = await post('picks', { ...picks, efl: 'Leicester' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.weeks['8'].efl, undefined);
+  const clubs = await post('admin/efl-clubs', { passcode: 'p' });
+  assert.equal(clubs.status, 200, JSON.stringify(clubs.body));
+  assert.deepEqual(clubs.body.config.eflClubs, ['Hull', 'Leicester', 'Norwich']);
+  assert.equal((await post('admin/config', { passcode: 'p', eflWeeks: [8] })).status, 200);
+  r = await post('picks', { ...picks, efl: 'Wrexham' });
+  assert.equal(r.status, 400, 'a club not on the list is refused');
+  r = await post('picks', { ...picks, efl: 'Leicester' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.weeks['8'].efl, 'Leicester');
+  assert.equal((await post('admin/results', { passcode: 'p', week: 8, results: { Arsenal: 1 }, efl: { Leicester: 0.5 } })).status, 200);
+  const season = await (await h(new Request('https://x.test/api/season'))).json();
+  assert.deepEqual(season.config.eflWeeks, [8]);
+  assert.equal(season.eflResults['8'].Leicester, 0.5);
+  assert.equal(season.picks.jon['8'].efl, 'Leicester');
+});
+
 console.log(passed + ' tests passed');

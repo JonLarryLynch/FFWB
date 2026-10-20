@@ -74,9 +74,11 @@ dash.calc('season_picks', {
 dash.calc('standings', {
   title: 'Standings',
   description: 'Points per player over scored weeks, ranked by points, then total wins, lock wins and lock points (the league’s tiebreaks).',
-  inputs: ['season_picks'],
-  fn: (season_picks) => {
+  inputs: ['season_picks', 'efl_2026'],
+  fn: (season_picks, efl_2026) => {
     const by = new Map();
+    const alias = { 'Big Head': 'Jon', 'Danny B': 'Basler', 'Chelsea B': 'Chelsea Brian' };
+    const scoredWeeks = new Set(season_picks.filter((p) => p.scored).map((p) => p.week));
     for (const p of season_picks) {
       if (!p.scored) continue;
       if (!by.has(p.player)) by.set(p.player, { rank: 0, player: p.player, points: 0, wins: 0, lock_wins: 0, lock_points: 0 });
@@ -88,6 +90,14 @@ dash.calc('standings', {
         s.lock_points += p.points;
         if (p.result === 'W') s.lock_wins += 1;
       }
+    }
+    // EFL picks add their points (never doubled) to the player's total and that week.
+    for (const e of efl_2026 || []) {
+      const s = by.get(alias[e.player] || e.player);
+      if (!s || !scoredWeeks.has(Number(e.week)) || !e.points) continue;
+      s.points += e.points;
+      s.efl = (s.efl || 0) + e.points;
+      s['w' + e.week] = (s['w' + e.week] || 0) + e.points;
     }
     const order = (a, b) => b.points - a.points || b.wins - a.wins || b.lock_wins - a.lock_wins || b.lock_points - a.lock_points;
     const rows = [...by.values()].sort((a, b) => order(a, b) || a.player.localeCompare(b.player));
@@ -388,6 +398,7 @@ function drawSeason() {
       { field: 'wins', label: 'Wins', num: true, fmt: fmtInt },
       { field: 'lock_wins', label: 'Lock wins', num: true, fmt: fmtInt },
       { field: 'lock_points', label: 'Lock pts', num: true, fmt: fmtPts },
+      ...(standings.some((r) => r.efl) ? [{ field: 'efl', label: 'EFL', num: true, fmt: (v) => fmtPts(v || 0) }] : []),
       ...weeks.map((w) => ({ field: w, label: 'W' + w.slice(1), num: true, fmt: fmtPts, shade: (v) => tint((v / 6) * 0.5) })),
     ];
     table(plot, 'standings', 'player', cols, standings);

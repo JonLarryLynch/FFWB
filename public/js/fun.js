@@ -5,8 +5,8 @@
 dash.calc('race', {
   title: 'Title race by week',
   description: 'Running points and league position after each scored week. Ties are split on wins, lock wins and lock points to date, then alphabetically so every player has a place.',
-  inputs: ['season_picks'],
-  fn: (season_picks) => {
+  inputs: ['season_picks', 'efl_2026'],
+  fn: (season_picks, efl_2026) => {
     const weeks = [...new Set(season_picks.filter((p) => p.scored).map((p) => p.week))].sort((a, b) => a - b);
     const players = [...new Set(season_picks.filter((p) => p.scored).map((p) => p.player))];
     const tot = new Map(players.map((p) => [p, { player: p, points: 0, wins: 0, lock_wins: 0, lock_points: 0 }]));
@@ -23,6 +23,11 @@ dash.calc('race', {
           t.lock_points += p.points;
           if (p.result === 'W') t.lock_wins += 1;
         }
+      }
+      for (const e of efl_2026 || []) {
+        if (Number(e.week) !== week || !e.points || !tot.has(e.player)) continue;
+        tot.get(e.player).points += e.points;
+        got.set(e.player, got.get(e.player) + e.points);
       }
       const order = [...tot.values()].sort((a, b) => b.points - a.points || b.wins - a.wins || b.lock_wins - a.lock_wins || b.lock_points - a.lock_points || a.player.localeCompare(b.player));
       order.forEach((t, i) => rows.push({ week, player: t.player, position: i + 1, points: t.points, week_points: got.get(t.player) }));

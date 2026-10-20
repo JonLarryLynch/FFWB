@@ -27,7 +27,7 @@
 
   function PicksEditor(root, opts) {
     const admin = !!(opts && opts.admin);
-    const state = { season: null, player: null, week: null, std: [], lock: null, dirty: false, saving: false, message: null, errors: [], canOverride: false };
+    const state = { season: null, player: null, week: null, std: [], lock: null, efl: null, dirty: false, saving: false, message: null, errors: [], canOverride: false };
 
     const who = el('div', 'pk-who');
     const whoSelect = el('select', 'ffwb-select pk-name');
@@ -62,6 +62,20 @@
 
     const bonus = el('div', 'pk-bonus');
     const grid = el('div', 'pk-grid');
+    // The EFL pick: one Championship club, on weeks the commissioner switches it on.
+    const eflRow = el('label', 'pk-efl');
+    const eflLabel = el('span', 'pk-efl-label', 'EFL pick');
+    const eflSelect = el('select', 'ffwb-select pk-efl-select');
+    eflSelect.id = (admin ? 'admin' : 'player') + '-efl';
+    const eflResult = el('span', 'pk-efl-result');
+    eflRow.append(eflLabel, eflSelect, eflResult);
+    eflRow.hidden = true;
+    eflSelect.addEventListener('change', () => {
+      state.efl = eflSelect.value || null;
+      state.dirty = true;
+      state.message = null;
+      render();
+    });
     const errorsBox = el('ul', 'pk-errors');
     errorsBox.setAttribute('aria-live', 'polite');
     const overrideWrap = el('label', 'pk-override');
@@ -90,18 +104,20 @@
     everyone.append(everyoneTitle, everyoneTable);
 
     const editor = el('div', 'ffwb-card pk-editor');
-    editor.append(who, helpRow, bonus, grid, errorsBox, overrideWrap, bar);
+    editor.append(who, helpRow, bonus, grid, eflRow, errorsBox, overrideWrap, bar);
     root.replaceChildren(editor, everyone);
 
     const weekPicks = () => (state.season && state.player ? state.season.picks[state.player] || {} : {});
     const statusNow = () => weekStatus(state.season, state.week);
     const editable = () => admin || statusNow().open;
     const allowed = () => R.allowedStandard(weekPicks(), state.season.results, state.week);
+    const eflWeek = (week) => !!state.season && (state.season.config.eflWeeks || []).includes(week);
 
     function loadWeek() {
       const p = weekPicks()[String(state.week)];
       state.std = p ? [...(p.standard || [])] : [];
       state.lock = p ? p.lock || null : null;
+      state.efl = p ? p.efl || null : null;
       state.dirty = false;
       state.errors = [];
       state.canOverride = false;
@@ -143,6 +159,7 @@
       state.message = { kind: 'info', text: clearing ? 'Clearing...' : 'Saving...' };
       render();
       const body = { player: state.player, week: state.week, standard: clearing ? [] : state.std, lock: clearing ? null : state.lock };
+      if (!clearing && state.efl && eflWeek(state.week)) body.efl = state.efl;
       if (admin) {
         body.passcode = opts.passcode();
         if (override.checked) body.override = true;
@@ -159,7 +176,7 @@
           state.errors = [];
           state.canOverride = false;
           override.checked = false;
-          if (clearing) { state.std = []; state.lock = null; }
+          if (clearing) { state.std = []; state.lock = null; state.efl = null; }
           const name = state.season.config.players.find((p) => p.id === state.player).name;
           state.message = { kind: 'ok', text: clearing ? 'Week ' + state.week + ' cleared for ' + name + '.' : 'Saved ' + name + "'s picks for week " + state.week + '.' };
           if (opts && opts.onSaved) opts.onSaved();
@@ -179,6 +196,7 @@
     function renderEveryone() {
       const s = state.season;
       const res = s.results[String(state.week)] || {};
+      const eflRes = (s.eflResults || {})[String(state.week)] || {};
       const made = s.config.players.filter((p) => (s.picks[p.id] || {})[String(state.week)]).length;
       everyoneTitle.textContent = "See everyone's picks for week " + state.week + ' (' + made + ' of ' + s.config.players.length + ' in)';
       const t = el('table', 'ffwb-table pk-table');
@@ -199,9 +217,10 @@
         } else {
           for (const c of wp.standard) picksTd.append(el('span', 'pk-tag pk-' + (resultCode(res[c]) || 'none'), c));
           picksTd.append(el('span', 'pk-tag pk-locktag pk-' + (resultCode(res[wp.lock]) || 'none'), 'Lock: ' + wp.lock));
+          if (wp.efl) picksTd.append(el('span', 'pk-tag pk-efltag pk-' + (resultCode(eflRes[wp.efl]) || 'none'), 'EFL: ' + wp.efl));
         }
         let pts = '';
-        if (wp && anyResult) pts = fmt(wp.standard.reduce((a, c) => a + R.pickPoints(res[c], false), 0) + R.pickPoints(res[wp.lock], true));
+        if (wp && anyResult) pts = fmt(wp.standard.reduce((a, c) => a + R.pickPoints(res[c], false), 0) + R.pickPoints(res[wp.lock], true) + (wp.efl ? R.pickPoints(eflRes[wp.efl], false) : 0));
         tr.append(picksTd, el('td', 'ffwb-num ffwb-strong', pts));
         tbody.append(tr);
       }
@@ -276,11 +295,29 @@
         return tile;
       }));
 
+      // EFL pick, only on EFL weeks (or if one was saved before the week was switched off).
+      const showEfl = eflWeek(state.week);
+      eflRow.hidden = !showEfl;
+      if (showEfl) {
+        const list = [...(s.config.eflClubs || [])];
+        if (state.efl && !list.includes(state.efl)) list.unshift(state.efl);
+        const key = list.join('|');
+        if (eflSelect.dataset.list !== key) {
+          eflSelect.replaceChildren(new Option('No EFL pick', ''), ...list.map((c) => new Option(c, c)));
+          eflSelect.dataset.list = key;
+        }
+        eflSelect.value = state.efl || '';
+        eflSelect.disabled = !canEdit;
+        const er = state.efl ? ((s.eflResults || {})[String(state.week)] || {})[state.efl] : undefined;
+        eflResult.textContent = er !== undefined ? resultWord(er) : list.length ? 'Optional. A Championship club, worth 1 for a win and a half for a draw, never doubled.' : 'The commissioner has not loaded the Championship clubs yet.';
+        eflResult.className = 'pk-efl-result' + (er !== undefined ? ' pk-efl-done pk-' + resultCode(er) : ' ffwb-note');
+      }
+
       // Rule check as they go.
       const chosen = state.std.length + (state.lock ? 1 : 0);
       const verdict = chosen ? R.check({ clubs: s.config.clubs, weekPicks: weekPicks(), week: state.week, standard: state.std, lock: state.lock, openWeeks: s.openWeeks, results: s.results }) : null;
       const complete = state.std.length >= R.STANDARD_PICKS && !!state.lock;
-      count.textContent = state.std.length + ' of ' + max + ' picks' + (state.lock ? ' + lock' : ', no lock yet');
+      count.textContent = state.std.length + ' of ' + max + ' picks' + (state.lock ? ' + lock' : ', no lock yet') + (showEfl && state.efl ? ' + EFL' : '');
       count.className = 'pk-count' + (complete && verdict && verdict.ok ? ' pk-count-ok' : '');
       const problems = state.errors.length ? state.errors : verdict && !verdict.ok && complete ? verdict.errors : [];
       for (const e of problems) errorsBox.append(el('li', null, e));

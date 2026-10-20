@@ -264,6 +264,13 @@
   .pk-picks { white-space: normal !important; }
   .pk-tag { display: inline-block; margin: 0 0.25rem 0.25rem 0; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: var(--cds-font-size-caption); border: 1px solid var(--color-border-line); }
   .pk-locktag { font-weight: 700; border-color: var(--series-2); }
+  .pk-efltag { font-style: italic; border-style: dashed; }
+  .pk-efl { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.7rem; margin-top: 0.7rem; padding: 0.55rem 0.7rem; border: 1px dashed var(--color-border-line); border-radius: var(--cds-radius); }
+  .pk-efl[hidden] { display: none; }
+  .pk-efl-label { font-weight: 700; }
+  .pk-efl-select { min-width: 12rem; max-width: 100%; }
+  .pk-efl-result { flex: 1 1 14rem; margin: 0; }
+  .pk-efl-done { flex: 0 0 auto; font-size: 0.78rem; font-weight: 600; padding: 0.1rem 0.55rem; border-radius: 999px; }
   .ffwb-table tr.pk-me td { background: color-mix(in srgb, var(--series-1) 8%, transparent); }
 
   /* Commissioner */
@@ -285,6 +292,9 @@
   .pk-weekdot-done { background: color-mix(in srgb, var(--series-1) 18%, var(--color-panel)); }
   .pk-weekdot-past { color: var(--color-fg-muted); }
   .pk-weekdot-locked { background: var(--series-2); border-color: var(--series-2); color: var(--color-bg); font-weight: 600; }
+  .pk-weekdot-efl { background: var(--series-3); border-color: var(--series-3); color: var(--color-bg); font-weight: 600; }
+  .adm-textarea { display: block; width: 100%; margin: 0.5rem 0; resize: vertical; }
+  .res-efl { margin-top: 0.8rem; }
   .ffwb-table td.ffwb-wrap { white-space: normal; }
   .pk-bonus { padding: 0.6rem 0.8rem; border-radius: var(--cds-radius); background: color-mix(in srgb, var(--series-1) 14%, var(--color-panel)); border: 1px solid var(--series-1); font-weight: 600; }
   .res-feed { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.6rem 0.8rem; border-radius: var(--cds-radius); background: var(--color-bg); border: 1px dashed var(--color-border-line); }
@@ -416,3 +426,17 @@
   @media (max-width: 640px) {
     #standings-box th:nth-child(4), #standings-box td:nth-child(4), #standings-box th:nth-child(7), #standings-box td:nth-child(7), #standings-box th:nth-child(8), #standings-box td:nth-child(8) { display: none; }
   }
+
+/* Home screen tip, phones only. */
+.ffwb-hometip { display: flex; align-items: center; gap: 0.6rem; margin: 1rem 0 0; padding: 0.6rem 0.8rem; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-panel); font-size: var(--cds-font-size-caption); }
+.ffwb-hometip span { flex: 1; }
+.ffwb-hometip button { font: inherit; font-weight: 600; padding: 0.3rem 0.7rem; border-radius: 999px; border: 1px solid var(--series-1); background: transparent; color: var(--series-1); cursor: pointer; }
+
+/* Season winners, on the Table tab once a half is finished. */
+.ffwb-crowncard { border-color: var(--series-2); background: color-mix(in srgb, var(--series-2) 8%, var(--color-panel)); }
+.ffwb-crowns { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.6rem; margin-top: 0.4rem; }
+.ffwb-crown { padding: 0.55rem 0.75rem; border-radius: var(--cds-radius); background: var(--color-panel); border: 1px solid var(--color-border-line); }
+.ffwb-crown-top { border-color: var(--series-2); }
+.ffwb-crown-what { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.ffwb-crown-who { font-weight: 700; font-size: 1.05rem; }
+.ffwb-crown-top .ffwb-crown-who::before { content: "\1F3C6  "; }

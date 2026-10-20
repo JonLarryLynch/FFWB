@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#1b6e48"/>
+  <g transform="translate(256 196)">
+    <circle r="96" fill="#ffffff"/>
+    <polygon points="0,-38 36,-12 22,31 -22,31 -36,-12" fill="#15201a"/>
+    <g stroke="#15201a" stroke-width="8" stroke-linecap="round">
+      <line x1="0" y1="-38" x2="0" y2="-92"/>
+      <line x1="36" y1="-12" x2="88" y2="-30"/>
+      <line x1="22" y1="31" x2="55" y2="76"/>
+      <line x1="-22" y1="31" x2="-55" y2="76"/>
+      <line x1="-36" y1="-12" x2="-88" y2="-30"/>
+    </g>
+  </g>
+  <text x="256" y="430" text-anchor="middle" font-family="'Barlow Condensed','Arial Narrow',Arial,sans-serif" font-weight="700" font-size="128" letter-spacing="6" fill="#ffffff">FWB</text>
+</svg>

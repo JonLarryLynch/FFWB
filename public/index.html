@@ -6,6 +6,14 @@
 <title>Football FWB League</title>
 <meta name="description" content="The Football FWB pick'em league: make your picks, see the table, awards, player cards, records and past seasons.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#1b6e48">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="FWB">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="css/site.css">
 </head>
 <body>
@@ -36,6 +44,7 @@
 
   <!-- Table -->
   <section class="ffwb-page" id="table" role="tabpanel" aria-labelledby="tab-table" hidden>
+    <div class="ffwb-card ffwb-crowncard" id="crowns" hidden></div>
     <div class="ffwb-card" id="standings-box">
       <h2 class="ffwb-h">Standings</h2>
       <p class="ffwb-note">The last five weeks are shown (three on phones). Ties are split on total wins, then lock wins, then lock points.</p>

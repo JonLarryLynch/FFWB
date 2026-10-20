@@ -3,7 +3,8 @@
 // The league's week numbers are the Premier League matchdays, so a postponed game played later
 // still belongs to its original week, as the league rules say.
 
-const API = 'https://api.football-data.org/v4/competitions/PL/matches?matchday=';
+const BASE = 'https://api.football-data.org/v4/competitions/';
+const API = BASE + 'PL/matches?matchday=';
 
 // Other names the feed may use for each club, written as normalize() returns them.
 const ALIASES = {
@@ -86,13 +87,37 @@ export function weekFromMatches(matches, clubs) {
   return { results, finished, pending, postponed, games: (matches || []).length, unmatched: [...new Set(unmatched)] };
 }
 
-export async function fetchWeek(week, key, fetchImpl) {
-  const res = await fetchImpl(API + week, { headers: { 'X-Auth-Token': key } });
+async function getJSON(url, key, fetchImpl) {
+  const res = await fetchImpl(url, { headers: { 'X-Auth-Token': key } });
   if (res.status === 403 || res.status === 400) throw new Error('football-data.org refused the API key. Check FOOTBALL_DATA_KEY on Netlify.');
   if (res.status === 429) throw new Error('football-data.org says too many requests. It will try again at the next check.');
   if (!res.ok) throw new Error('football-data.org answered ' + res.status + '.');
-  const body = await res.json();
-  return body.matches || [];
+  return res.json();
+}
+
+export async function fetchWeek(week, key, fetchImpl) {
+  return (await getJSON(API + week, key, fetchImpl)).matches || [];
+}
+
+// A competition's clubs, by the short names the feed uses (ELC is the Championship).
+export async function fetchTeams(code, key, fetchImpl) {
+  const body = await getJSON(BASE + code + '/teams', key, fetchImpl);
+  return [...new Set((body.teams || []).map((t) => t.shortName || t.name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+// EFL picks for a Premier League week: Championship games played on the same dates as that matchday.
+// A club with two games in that window is left for the commissioner to decide.
+export async function fetchEflWeek(plMatches, eflClubs, key, fetchImpl) {
+  const days = (plMatches || []).map((m) => String(m.utcDate || '').slice(0, 10)).filter(Boolean).sort();
+  if (!days.length || !eflClubs.length) return null;
+  const url = BASE + 'ELC/matches?dateFrom=' + days[0] + '&dateTo=' + days[days.length - 1];
+  const matches = (await getJSON(url, key, fetchImpl)).matches || [];
+  const seen = {};
+  for (const m of matches) for (const t of [m.homeTeam, m.awayTeam]) { const c = matchClub(t, eflClubs); if (c) seen[c] = (seen[c] || 0) + 1; }
+  const twice = Object.keys(seen).filter((c) => seen[c] > 1);
+  const week = weekFromMatches(matches, eflClubs);
+  for (const c of twice) delete week.results[c];
+  return { ...week, twice, from: days[0], to: days[days.length - 1] };
 }
 
 // Which weeks to check: the current week, the week before if it is still incomplete,
@@ -116,6 +141,9 @@ export async function runFetch(store, key, fetchImpl, onlyWeek) {
     try {
       const matches = await fetchWeek(week, key, fetchImpl);
       doc.weeks[String(week)] = { ...weekFromMatches(matches, config.clubs), checkedAt: doc.checkedAt };
+      if ((config.eflWeeks || []).includes(week)) {
+        doc.weeks[String(week)].efl = await fetchEflWeek(matches, config.eflClubs || [], key, fetchImpl);
+      }
     } catch (err) {
       doc.error = err.message;
       break;

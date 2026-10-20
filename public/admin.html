@@ -6,6 +6,14 @@
 <meta name="robots" content="noindex">
 <title>Football FWB Commissioner</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#1b6e48">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="FWB">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="css/site.css">
 </head>
 <body class="ffwb-admin">
@@ -39,6 +47,10 @@
         </div>
         <div class="res-feed" id="res-feed" aria-live="polite"></div>
         <div class="res-list" id="res-grid"></div>
+        <div class="res-efl" id="res-efl" hidden>
+          <h3 class="ffwb-h">EFL picks</h3>
+          <div class="res-list" id="res-efl-grid"></div>
+        </div>
         <div class="pk-actions">
           <button class="pk-save" type="button" id="res-save" disabled>Save results</button>
           <button class="pk-clear" type="button" id="res-all-l">Mark the rest as losses</button>
@@ -61,6 +73,23 @@
           <p class="ffwb-note">Click a week to close it to picks, say at the first kickoff, and click again to reopen it. Filled orange means closed by you, green means results are in.</p>
           <div class="pk-weekdots" id="closed-weeks"></div>
           <p class="pk-message" id="cw-message" aria-live="polite"></p>
+        </section>
+
+        <section class="ffwb-card" id="efl-card">
+          <h2 class="ffwb-h">EFL picks</h2>
+          <p class="ffwb-note">Switch the EFL pick on for any week. Players then get one optional Championship pick that week, worth 1 for a win and a half for a draw, never doubled, and added to their season total.</p>
+          <div class="pk-weekdots" id="efl-weeks"></div>
+          <h3 class="ffwb-h">Championship clubs</h3>
+          <p class="ffwb-note" id="efl-clubs-note"></p>
+          <div class="pk-actions">
+            <button class="pk-clear" type="button" id="efl-load">Load clubs from the feed</button>
+          </div>
+          <details class="ffwb-more" id="efl-edit">
+            <summary>Edit the list by hand</summary>
+            <textarea class="adm-input adm-textarea" id="efl-list" rows="8" aria-label="Championship clubs, one per line"></textarea>
+            <button class="pk-save" type="button" id="efl-save-list">Save list</button>
+          </details>
+          <p class="pk-message" id="efl-message" aria-live="polite"></p>
         </section>
 
         <section class="ffwb-card" id="backup-card">

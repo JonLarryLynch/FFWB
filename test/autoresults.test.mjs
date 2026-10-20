@@ -1,7 +1,7 @@
 // Tests for fetching results from football-data.org, using week 7's real scores (17-19 Oct 2026)
 // in the feed's documented format. Run with: node test/autoresults.test.mjs
 import assert from 'node:assert/strict';
-import { matchClub, weekFromMatches, weeksToCheck } from '../netlify/lib/autoresults.mjs';
+import { matchClub, weekFromMatches, weeksToCheck, fetchEflWeek } from '../netlify/lib/autoresults.mjs';
 import { createHandler } from '../netlify/lib/handler.mjs';
 import { memoryStore } from './memory-store.mjs';
 import seed from '../netlify/lib/seed.mjs';
@@ -91,6 +91,22 @@ await t('a refused key or no key gives a clear message', async () => {
   const r2 = await none(new Request('https://x.test/api/admin/fetch-results', { method: 'POST', body: JSON.stringify({ passcode: 'p' }) }));
   assert.equal(r2.status, 503);
   assert.match((await r2.json()).error, /FOOTBALL_DATA_KEY/);
+});
+
+await t('EFL results come from Championship games on the same dates', async () => {
+  const pl = [{ utcDate: '2026-10-24T11:30:00Z' }, { utcDate: '2026-10-26T19:00:00Z' }];
+  let asked = '';
+  const elc = { matches: [
+    { status: 'FINISHED', homeTeam: team('Leicester City FC', 'Leicester'), awayTeam: team('Hull City AFC', 'Hull'), score: { fullTime: { home: 2, away: 2 } } },
+    { status: 'FINISHED', homeTeam: team('Norwich City FC', 'Norwich'), awayTeam: team('Stoke City FC', 'Stoke'), score: { fullTime: { home: 0, away: 1 } } },
+    { status: 'TIMED', homeTeam: team('Stoke City FC', 'Stoke'), awayTeam: team('Hull City AFC', 'Hull'), score: { fullTime: { home: null, away: null } } },
+  ] };
+  const out = await fetchEflWeek(pl, ['Hull', 'Leicester', 'Norwich', 'Stoke'], 'k', async (url) => { asked = url; return { ok: true, status: 200, json: async () => elc }; });
+  assert.match(asked, /ELC\/matches\?dateFrom=2026-10-24&dateTo=2026-10-26/);
+  assert.equal(out.results.Leicester, 0.5);
+  assert.equal(out.results.Norwich, 0);
+  assert.equal(out.results.Hull, undefined, 'Hull plays twice in the window, so the commissioner decides');
+  assert.deepEqual(out.twice.sort(), ['Hull', 'Stoke']);
 });
 
 console.log(passed + ' tests passed');

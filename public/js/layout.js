@@ -37,6 +37,29 @@
     head.append(b);
   }
 
+  // On a phone, a one-time tip on adding the site to the home screen, until it is dismissed or done.
+  (function homeTip() {
+    const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+    let dismissed = false;
+    try { dismissed = localStorage.getItem('ffwb-home-tip') === 'no'; } catch (err) { /* show it */ }
+    if (standalone || dismissed || !(window.matchMedia && matchMedia('(max-width: 640px)').matches)) return;
+    const footer = document.querySelector('.ffwb-footer');
+    if (!footer) return;
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const tip = document.createElement('div');
+    tip.className = 'ffwb-hometip';
+    const text = document.createElement('span');
+    text.textContent = ios
+      ? 'Add FWB to your home screen: tap Share, then Add to Home Screen.'
+      : 'Add FWB to your home screen: open the browser menu, then Add to Home screen.';
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = 'Got it';
+    close.addEventListener('click', () => { tip.remove(); try { localStorage.setItem('ffwb-home-tip', 'no'); } catch (err) { /* fine */ } });
+    tip.append(text, close);
+    footer.before(tip);
+  })();
+
   // Links from the old layout, like #records, still land in the right place.
   const OLD = { season: 'table', awards: 'stats', players: 'stats', alltime: 'history', records: 'history', archive: 'history' };
   const asked = location.hash.slice(1);

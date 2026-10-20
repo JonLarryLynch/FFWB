@@ -81,6 +81,46 @@
       return b;
     }));
   }
+  // ---------- EFL weeks and clubs ----------
+  const eflWeeksBox = document.getElementById('efl-weeks');
+  const eflMsg = document.getElementById('efl-message');
+  const eflList = document.getElementById('efl-list');
+  function renderEfl() {
+    if (!season) return;
+    const on = new Set(season.config.eflWeeks || []);
+    eflWeeksBox.replaceChildren(...Array.from({ length: R.WEEKS }, (_, i) => i + 1).map((w) => {
+      const b = el('button', 'pk-weekdot' + (on.has(w) ? ' pk-weekdot-efl' : ''), String(w));
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(on.has(w)));
+      b.title = on.has(w) ? 'EFL pick is on. Click to switch it off.' : 'Click to switch the EFL pick on for this week.';
+      b.addEventListener('click', async () => {
+        const next = new Set(on);
+        if (next.has(w)) next.delete(w); else next.add(w);
+        const out = await adminPost('config', { eflWeeks: [...next] });
+        if (out.ok) { say(eflMsg, 'ok', next.has(w) ? 'The EFL pick is on for week ' + w + '.' : 'The EFL pick is off for week ' + w + '. Any EFL picks already made that week no longer count.'); window.FFWB.reload(); }
+        else say(eflMsg, 'bad', out.error);
+      });
+      return b;
+    }));
+    const clubs = season.config.eflClubs || [];
+    document.getElementById('efl-clubs-note').textContent = clubs.length
+      ? clubs.length + ' clubs on the list: ' + clubs.join(', ') + '.'
+      : 'No clubs on the list yet. Load them from the feed so players pick from a dropdown.';
+    if (document.activeElement !== eflList) eflList.value = clubs.join('\n');
+  }
+  document.getElementById('efl-load').addEventListener('click', async () => {
+    say(eflMsg, 'info', 'Loading the Championship clubs...');
+    const out = await adminPost('efl-clubs', {});
+    if (out.ok) { say(eflMsg, 'ok', 'Loaded ' + out.config.eflClubs.length + ' Championship clubs.'); window.FFWB.reload(); }
+    else say(eflMsg, 'bad', out.error);
+  });
+  document.getElementById('efl-save-list').addEventListener('click', async () => {
+    const list = eflList.value.split('\n').map((x) => x.trim()).filter(Boolean);
+    const out = await adminPost('config', { eflClubs: list });
+    if (out.ok) { say(eflMsg, 'ok', 'Saved ' + out.config.eflClubs.length + ' clubs.'); window.FFWB.reload(); }
+    else say(eflMsg, 'bad', out.error);
+  });
+
   document.getElementById('cw-down').addEventListener('click', () => { if (cw > 1) { cw -= 1; renderWeeks(); } });
   document.getElementById('cw-up').addEventListener('click', () => { if (cw < R.WEEKS) { cw += 1; renderWeeks(); } });
   document.getElementById('cw-save').addEventListener('click', async () => {
@@ -96,6 +136,7 @@
   const CHOICES = [[1, 'W', 'Won'], [0.5, 'D', 'Drew'], [0, 'L', 'Lost'], ['P', 'P', 'Postponed']];
   let resWeek = null;
   let draft = {};
+  let eflDraft = {};
   let resDirty = false;
   let suggested = null;
   let feedOn = false;
@@ -108,9 +149,25 @@
     for (const [club, v] of Object.entries(feed.results || {})) {
       if (draft[club] === undefined && season.config.clubs.includes(club)) { draft[club] = v; prefilled.add(club); resDirty = true; }
     }
+    const efl = feed.efl && feed.efl.results ? feed.efl.results : {};
+    for (const club of Object.keys(eflPicked())) {
+      if (eflDraft[club] === undefined && efl[club] !== undefined) { eflDraft[club] = efl[club]; prefilled.add('efl:' + club); resDirty = true; }
+    }
   }
+  // EFL clubs picked this week, with how many players picked each.
+  function eflPicked() {
+    const out = {};
+    if (!season) return out;
+    for (const weeks of Object.values(season.picks)) {
+      const p = weeks[String(resWeek)];
+      if (p && p.efl) out[p.efl] = (out[p.efl] || 0) + 1;
+    }
+    return out;
+  }
+  const isEflWeek = () => (season.config.eflWeeks || []).includes(resWeek);
   function loadResults() {
     draft = { ...(season.results[String(resWeek)] || {}) };
+    eflDraft = { ...((season.eflResults || {})[String(resWeek)] || {}) };
     resDirty = false;
     prefilled = new Set();
     addFeed();
@@ -137,6 +194,7 @@
       text += '.';
       if (prefilled.size) text += ' ' + prefilled.size + ' results are filled in below and marked "from the feed". Check them, then save.';
       feedBox.append(el('p', 'res-feed-line', text));
+      if (feed.efl && feed.efl.twice && feed.efl.twice.length) feedBox.append(el('p', 'ffwb-note', 'EFL: ' + feed.efl.twice.join(', ') + ' played twice that week, so enter those by hand.'));
       if (feed.unmatched && feed.unmatched.length) feedBox.append(el('p', 'pk-message pk-message-bad', 'The feed has teams this site does not recognise: ' + feed.unmatched.join(', ') + '. Enter those results by hand and tell Claude so the names can be matched.'));
     }
     if (suggested && suggested.error) feedBox.append(el('p', 'pk-message pk-message-bad', 'The last check had a problem: ' + suggested.error));
@@ -191,6 +249,35 @@
       row.append(name, btns);
       return row;
     }));
+    // EFL picks for this week.
+    const eflBox = document.getElementById('res-efl');
+    const ep = eflPicked();
+    const eflClubs = Object.keys(ep).sort((a, b) => a.localeCompare(b));
+    eflBox.hidden = !isEflWeek() || !eflClubs.length;
+    const feedEfl = (feedFor(resWeek) || {}).efl || {};
+    document.getElementById('res-efl-grid').replaceChildren(...eflClubs.map((club) => {
+      const row = el('div', 'res-row');
+      const name = el('div', 'res-club');
+      name.append(el('span', 'ffwb-strong', club), el('span', 'ffwb-muted res-picked', 'picked by ' + ep[club]));
+      if (prefilled.has('efl:' + club) && eflDraft[club] === (feedEfl.results || {})[club]) name.append(el('span', 'res-tag', 'from the feed'));
+      const btns = el('div', 'res-btns');
+      for (const [value, code, word] of CHOICES) {
+        const b = el('button', 'res-btn res-' + code, code);
+        b.type = 'button';
+        b.title = word;
+        b.setAttribute('aria-label', club + ' ' + word);
+        b.setAttribute('aria-pressed', String(eflDraft[club] === value));
+        b.addEventListener('click', () => {
+          if (eflDraft[club] === value) delete eflDraft[club]; else eflDraft[club] = value;
+          resDirty = true;
+          renderResults();
+        });
+        btns.append(b);
+      }
+      row.append(name, btns);
+      return row;
+    }));
+
     const n = Object.keys(draft).length;
     const saveBtn = document.getElementById('res-save');
     saveBtn.disabled = !resDirty;
@@ -203,6 +290,7 @@
   document.getElementById('res-next').addEventListener('click', () => { if (resWeek < R.WEEKS) { resWeek += 1; loadResults(); renderResults(); } });
   document.getElementById('res-all-l').addEventListener('click', () => {
     for (const c of season.config.clubs) if (draft[c] === undefined) draft[c] = 0;
+    if (isEflWeek()) for (const c of Object.keys(eflPicked())) if (eflDraft[c] === undefined) eflDraft[c] = 0;
     resDirty = true;
     renderResults();
   });
@@ -224,7 +312,9 @@
   });
   document.getElementById('res-save').addEventListener('click', async () => {
     say(resMsg, 'info', 'Saving...');
-    const out = await adminPost('results', { week: resWeek, results: draft });
+    const body = { week: resWeek, results: draft };
+    if (isEflWeek() || Object.keys(eflDraft).length) body.efl = eflDraft;
+    const out = await adminPost('results', body);
     if (out.ok) {
       resDirty = false;
       const moved = out.config && out.config.currentWeek !== season.config.currentWeek;
@@ -290,6 +380,7 @@
     if (!s) return;
     if (!resDirty) { if (resWeek !== null) loadResults(); }
     renderWeeks();
+    renderEfl();
     renderResults();
     picksEditor.setSeason(s);
   });

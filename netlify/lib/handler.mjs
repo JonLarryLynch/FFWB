@@ -1,13 +1,15 @@
 // The Football FWB league API. Storage is passed in, so the same code runs on Netlify and in tests.
 //
 // Store layout:
-//   config          { season, players: [{ id, name }], clubs: [...], currentWeek, lockedWeeks: [...] }
-//   results         { weeks: { "1": { club: 1 | 0.5 | 0 | "P" } }, history: [...] }
-//   picks/<player>  { player, weeks: { "1": { standard: [...], lock, by, at } }, history: [...] }
+//   config          { season, players: [{ id, name }], clubs: [...], currentWeek, lockedWeeks: [...],
+//                     eflWeeks: [...], eflClubs: [...] }
+//   results         { weeks: { "1": { club: 1 | 0.5 | 0 | "P" } }, efl: { "4": { eflClub: ... } }, history: [...] }
+//   picks/<player>  { player, weeks: { "1": { standard: [...], lock, efl?, by, at } }, history: [...] }
+//   auto/results    results fetched from football-data.org, as suggestions for the commissioner
 import crypto from 'node:crypto';
 import rules from '../../public/js/rules.js';
 import seed from './seed.mjs';
-import { runFetch } from './autoresults.mjs';
+import { runFetch, fetchTeams } from './autoresults.mjs';
 
 const HISTORY_KEEP = 150;
 const RESULT_VALUES = new Set([1, 0.5, 0, 'P']);
@@ -76,9 +78,10 @@ export function createHandler(getStore, getPasscode, extras = {}) {
 
   const publicView = ({ config, results, picks }) => ({
     ok: true,
-    config,
+    config: { eflWeeks: [], eflClubs: [], ...config },
     openWeeks: openWeeks(config, results),
     results: results.weeks,
+    eflResults: results.efl || {},
     picks: Object.fromEntries(Object.entries(picks).map(([id, d]) => [id, d.weeks])),
     serverTime: new Date().toISOString(),
   });
@@ -112,6 +115,10 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         if (!isAdmin && isClosed(config, results, week)) return fail(403, 'Week ' + week + ' is closed, so its picks can no longer be changed. Ask the commissioner if something is wrong.');
 
         const clearing = (!body.standard || body.standard.length === 0) && !body.lock;
+        // The EFL pick only exists in weeks the commissioner has switched it on for.
+        const eflWeek = (config.eflWeeks || []).includes(week);
+        const efl = eflWeek && body.efl ? String(body.efl).trim().slice(0, 60) : null;
+        if (efl && (config.eflClubs || []).length && !config.eflClubs.includes(efl)) return fail(400, efl + ' is not on the list of EFL clubs.');
         let next = null;
         if (!clearing) {
           const standard = (body.standard || []).map(String);
@@ -119,6 +126,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           const verdict = rules.check({ clubs: config.clubs, weekPicks: all.picks[player.id].weeks, week, standard, lock, openWeeks: openWeeks(config, results), results: results.weeks });
           if (!verdict.ok && !(isAdmin && body.override)) return fail(400, verdict.errors[0], { errors: verdict.errors, canOverride: isAdmin });
           next = { standard, lock, by: isAdmin ? 'Commissioner' : player.name, at: new Date().toISOString() };
+          if (efl) next.efl = efl;
         }
         const doc = await update(store, 'picks/' + player.id, (d) => {
           const before = d.weeks[String(week)] || null;
@@ -147,9 +155,20 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           if (!RESULT_VALUES.has(v)) return fail(400, 'A result must be a win, draw, loss or postponed.');
           clean[club] = v;
         }
+        // EFL results for the clubs players picked that week, if it is an EFL week.
+        const eflClean = {};
+        for (const [club, v] of Object.entries(body.efl || {})) {
+          if (v === null || v === '') continue;
+          if (!RESULT_VALUES.has(v)) return fail(400, 'A result must be a win, draw, loss or postponed.');
+          eflClean[String(club).slice(0, 60)] = v;
+        }
         const doc = await update(store, 'results', (d) => {
           const before = d.weeks[String(week)] || null;
           if (Object.keys(clean).length) d.weeks[String(week)] = clean; else delete d.weeks[String(week)];
+          if (body.efl !== undefined) {
+            d.efl = d.efl || {};
+            if (Object.keys(eflClean).length) d.efl[String(week)] = eflClean; else delete d.efl[String(week)];
+          }
           d.history = [{ at: new Date().toISOString(), week, by: 'Commissioner', from: before, to: Object.keys(clean).length ? clean : null }, ...(d.history || [])].slice(0, HISTORY_KEEP);
           return d;
         }, () => ({ weeks: {}, history: [] }));
@@ -158,7 +177,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         if (week === config.currentWeek && Object.keys(clean).length === config.clubs.length && week < rules.WEEKS) {
           cfg = await update(store, 'config', (c) => { if (c.currentWeek === week) c.currentWeek = week + 1; return c; }, () => config);
         }
-        return json(200, { ok: true, results: doc.weeks, config: cfg });
+        return json(200, { ok: true, results: doc.weeks, eflResults: doc.efl || {}, config: cfg });
       }
 
       if (route === 'admin/config' && req.method === 'POST') {
@@ -171,6 +190,8 @@ export function createHandler(getStore, getPasscode, extras = {}) {
             if (Number.isInteger(w) && w >= 1 && w <= rules.WEEKS) c.currentWeek = w;
           }
           if (Array.isArray(body.lockedWeeks)) c.lockedWeeks = [...new Set(body.lockedWeeks.map(Number).filter((w) => w >= 1 && w <= rules.WEEKS))].sort((a, b) => a - b);
+          if (Array.isArray(body.eflWeeks)) c.eflWeeks = [...new Set(body.eflWeeks.map(Number).filter((w) => w >= 1 && w <= rules.WEEKS))].sort((a, b) => a - b);
+          if (Array.isArray(body.eflClubs)) c.eflClubs = [...new Set(body.eflClubs.map((x) => String(x).trim().slice(0, 60)).filter(Boolean))].sort((a, b) => a.localeCompare(b));
           return c;
         }, () => seed.config);
         return json(200, { ok: true, config: cfg });
@@ -194,6 +215,19 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         const doc = await runFetch(store, key, extras.fetch || fetch, Number.isInteger(week) ? week : undefined);
         if (doc && doc.error) return fail(502, doc.error, { suggested: doc });
         return json(200, { ok: true, configured: true, suggested: doc });
+      }
+
+      if (route === 'admin/efl-clubs' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        const key = typeof extras.footballKey === 'function' ? extras.footballKey() : extras.footballKey;
+        if (!key) return fail(503, 'Add your football-data.org key on Netlify as FOOTBALL_DATA_KEY, then redeploy, to load the Championship clubs.');
+        await ensureSeeded(store);
+        let names;
+        try { names = await fetchTeams('ELC', key, extras.fetch || fetch); } catch (err) { return fail(502, err.message); }
+        if (!names.length) return fail(502, 'football-data.org sent no Championship clubs.');
+        const cfg = await update(store, 'config', (c) => { c.eflClubs = names; return c; }, () => seed.config);
+        return json(200, { ok: true, config: cfg });
       }
 
       if (route === 'admin/log' && req.method === 'POST') {
