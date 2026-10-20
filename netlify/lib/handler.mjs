@@ -115,7 +115,7 @@ export function createHandler(getStore, getPasscode) {
         if (!clearing) {
           const standard = (body.standard || []).map(String);
           const lock = body.lock ? String(body.lock) : null;
-          const verdict = rules.check({ clubs: config.clubs, weekPicks: all.picks[player.id].weeks, week, standard, lock, openWeeks: openWeeks(config, results) });
+          const verdict = rules.check({ clubs: config.clubs, weekPicks: all.picks[player.id].weeks, week, standard, lock, openWeeks: openWeeks(config, results), results: results.weeks });
           if (!verdict.ok && !(isAdmin && body.override)) return fail(400, verdict.errors[0], { errors: verdict.errors, canOverride: isAdmin });
           next = { standard, lock, by: isAdmin ? 'Commissioner' : player.name, at: new Date().toISOString() };
         }

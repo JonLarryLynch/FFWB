@@ -24,6 +24,21 @@
     return isLock ? base * 2 : base;
   }
 
+  // A week where every pick, lock included, won. A postponed or missing result means not yet.
+  function isPerfect(p, weekResults) {
+    if (!p || !p.lock || !weekResults) return false;
+    return [...(p.standard || []), p.lock].every((c) => weekResults[c] === 1);
+  }
+
+  // How many regular picks a player may make in a week. Normally 4; after a perfect week,
+  // one more than they had that week, so a perfect bonus week earns another (the greenout rule).
+  // The bonus is optional: a player may always pick just 4.
+  function allowedStandard(weekPicks, results, week) {
+    const prev = (weekPicks || {})[String(week - 1)];
+    if (week > 1 && isPerfect(prev, (results || {})[String(week - 1)])) return (prev.standard || []).length + 1;
+    return STANDARD_PICKS;
+  }
+
   // How a player has used each club in one half: picks of any kind, and locks.
   // weekPicks is { week: { standard: [...], lock } }. skipWeek leaves one week out.
   function usage(weekPicks, half, skipWeek) {
@@ -45,12 +60,17 @@
   // clubs: the season's 20 clubs. weekPicks: the player's picks for every week.
   // openWeeks: weeks still open for picking, used to judge whether every club can still reach 3.
   // Returns { ok, errors, owed, slotsLeft } where owed and slotsLeft describe the half after this week.
-  function check({ clubs, weekPicks, week, standard, lock, openWeeks }) {
+  function check({ clubs, weekPicks, week, standard, lock, openWeeks, results }) {
     const errors = [];
     const valid = new Set(clubs);
     if (!Number.isInteger(week) || week < 1 || week > WEEKS) errors.push('Pick a week from 1 to ' + WEEKS + '.');
     const std = Array.isArray(standard) ? standard : [];
-    if (std.length !== STANDARD_PICKS) errors.push('Pick ' + STANDARD_PICKS + ' clubs plus a lock (you have ' + std.length + ').');
+    const allowed = allowedStandard(weekPicks, results, week);
+    if (std.length < STANDARD_PICKS || std.length > allowed) {
+      errors.push(allowed > STANDARD_PICKS
+        ? 'Pick ' + STANDARD_PICKS + ' to ' + allowed + ' clubs plus a lock this week, since last week was perfect (you have ' + std.length + ').'
+        : 'Pick ' + STANDARD_PICKS + ' clubs plus a lock (you have ' + std.length + ').');
+    }
     if (!lock) errors.push('Choose your lock.');
     for (const c of [...std, ...(lock ? [lock] : [])]) if (!valid.has(c)) errors.push(c + ' is not a club this season.');
     if (new Set(std).size !== std.length) errors.push('Each club can only be picked once a week.');
@@ -94,5 +114,5 @@
     return { ok: errors.length === 0, errors, owed: after.owed, slotsLeft };
   }
 
-  return { WEEKS, HALF_END, STANDARD_PICKS, MIN_PER_HALF, MAX_LOCKS_PER_HALF, halfOf, weeksInHalf, pickPoints, usage, check };
+  return { WEEKS, HALF_END, STANDARD_PICKS, MIN_PER_HALF, MAX_LOCKS_PER_HALF, halfOf, weeksInHalf, pickPoints, isPerfect, allowedStandard, usage, check };
 });

@@ -150,4 +150,35 @@ await t('two saves at once for different players both land', async () => {
   assert.ok(s.picks.alex['8'] && s.picks.ben['8'] && s.picks.sam['8']);
 });
 
+await t('a perfect week earns one bonus pick the next week, and only then', async () => {
+  const fresh = memoryStore();
+  const h = createHandler(() => fresh, 'p');
+  const go = async (body) => { const r = await h(new Request('https://x.test/api/picks', { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, body: await r.json() }; };
+  const five = ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton', 'Everton'];
+  // Basler won everything in week 7; Brendan did not.
+  assert.equal((await go({ player: 'basler', week: 8, standard: five, lock: 'Man City' })).status, 200);
+  assert.equal((await go({ player: 'basler', week: 8, standard: five.slice(0, 4), lock: 'Man City' })).status, 200, 'the bonus is optional');
+  const six = await go({ player: 'basler', week: 8, standard: [...five, 'Leeds'], lock: 'Man City' });
+  assert.equal(six.status, 400);
+  assert.match(six.body.error, /4 to 5 clubs/);
+  const b = await go({ player: 'brendan', week: 8, standard: five, lock: 'Man City' });
+  assert.equal(b.status, 400);
+});
+
+await t('a perfect bonus week stacks, and a postponed game means not perfect yet', async () => {
+  const fresh = memoryStore();
+  const h = createHandler(() => fresh, 'p');
+  const post = async (path, body) => { const r = await h(new Request('https://x.test/api/' + path, { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, body: await r.json() }; };
+  const five = ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton', 'Everton'];
+  assert.equal((await post('picks', { player: 'basler', week: 8, standard: five, lock: 'Man City' })).status, 200);
+  const season = await (await h(new Request('https://x.test/api/season'))).json();
+  const wins = Object.fromEntries(season.config.clubs.map((c) => [c, 1]));
+  assert.equal((await post('admin/results', { passcode: 'p', week: 8, results: { ...wins, Everton: 'P' } })).status, 200);
+  const notYet = await post('picks', { player: 'basler', week: 9, standard: [...five.slice(0, 4), 'Leeds'], lock: 'Man U' });
+  assert.equal(notYet.status, 400, 'week 8 has a postponed game, so no bonus yet');
+  assert.equal((await post('admin/results', { passcode: 'p', week: 8, results: wins })).status, 200);
+  const stacked = await post('picks', { player: 'basler', week: 9, standard: [...five, 'Leeds'], lock: 'Man U' });
+  assert.equal(stacked.status, 200, JSON.stringify(stacked.body));
+});
+
 console.log(passed + ' tests passed');

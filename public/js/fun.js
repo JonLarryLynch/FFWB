@@ -107,7 +107,7 @@ dash.calc('awards', {
     }
 
     const best = pick(race, (r) => r.week_points, Math.max);
-    out.push({ award: 'Nearest to perfect', winner: names([...new Set(best.map((r) => r.player))]), detail: num(best[0].week_points) + ' of a possible 6' + (best.length === 1 ? ' in week ' + best[0].week : '') });
+    out.push({ award: 'Best single week', winner: names([...new Set(best.map((r) => r.player))]), detail: num(best[0].week_points) + ' points' + (best.length === 1 ? ' in week ' + best[0].week : '') });
 
     if (herd.length) {
       const sheep = pick(herd, (r) => r.herd, Math.max);

@@ -81,6 +81,7 @@
     const weekPicks = () => (state.season && state.player ? state.season.picks[state.player] || {} : {});
     const statusNow = () => weekStatus(state.season, state.week);
     const editable = () => admin || statusNow().open;
+    const allowed = () => R.allowedStandard(weekPicks(), state.season.results, state.week);
 
     function loadWeek() {
       const p = weekPicks()[String(state.week)];
@@ -102,12 +103,12 @@
         state.std = state.std.filter((c) => c !== club);
         if (state.lock) state.std.push(state.lock);
         state.lock = club;
-      } else if (state.std.length < R.STANDARD_PICKS) {
+      } else if (state.std.length < allowed()) {
         state.std.push(club);
       } else if (!state.lock) {
         state.lock = club;
       } else {
-        state.message = { kind: 'warn', text: 'You already have 4 picks and a lock. Tap one of them to take it off first.' };
+        state.message = { kind: 'warn', text: 'You already have ' + allowed() + ' picks and a lock. Tap one of them to take it off first.' };
       }
       state.dirty = true;
       state.canOverride = false;
@@ -231,6 +232,7 @@
       }
 
       const canEdit = editable();
+      const max = allowed();
       help.textContent = canEdit
         ? 'Tap a club once to pick it, tap it again to make it your lock, and a third time to take it off. Numbers show how often you have picked each club this half; every club needs 3 picks a half and no club can be your lock more than 4 times.'
         : 'This week is closed, so its picks are shown as they stand.' + (admin ? '' : ' Ask the commissioner if something needs fixing.');
@@ -263,12 +265,17 @@
 
       // Rule check as they go.
       const chosen = state.std.length + (state.lock ? 1 : 0);
-      const verdict = chosen ? R.check({ clubs: s.config.clubs, weekPicks: weekPicks(), week: state.week, standard: state.std, lock: state.lock, openWeeks: s.openWeeks }) : null;
+      const verdict = chosen ? R.check({ clubs: s.config.clubs, weekPicks: weekPicks(), week: state.week, standard: state.std, lock: state.lock, openWeeks: s.openWeeks, results: s.results }) : null;
       status.replaceChildren();
       const count = el('div', 'pk-count');
-      count.append(el('span', 'ffwb-strong', state.std.length + ' of 4 picks'), el('span', null, ' · '), el('span', 'ffwb-strong', state.lock ? 'Lock: ' + state.lock : 'No lock yet'));
+      if (max > R.STANDARD_PICKS) {
+        const prevPicks = weekPicks()[String(state.week - 1)];
+        status.append(el('div', 'pk-bonus', 'Perfect week ' + (state.week - 1) + '! You get ' + (max - R.STANDARD_PICKS === 1 ? 'a bonus pick' : (max - R.STANDARD_PICKS) + ' bonus picks') + ' this week: up to ' + max + ' clubs plus your lock. Using ' + (max - R.STANDARD_PICKS === 1 ? 'it' : 'them') + ' is optional.' + (prevPicks && prevPicks.standard.length > R.STANDARD_PICKS ? ' Your bonus stacked, because last week was a perfect bonus week too.' : '')));
+      }
+      count.append(el('span', 'ffwb-strong', state.std.length + ' of ' + max + ' picks'), el('span', null, ' · '), el('span', 'ffwb-strong', state.lock ? 'Lock: ' + state.lock : 'No lock yet'));
       status.append(count);
-      const problems = state.errors.length ? state.errors : verdict && !verdict.ok && chosen === 5 ? verdict.errors : [];
+      const complete = state.std.length >= R.STANDARD_PICKS && !!state.lock;
+      const problems = state.errors.length ? state.errors : verdict && !verdict.ok && complete ? verdict.errors : [];
       if (problems.length) {
         const ul = el('ul', 'pk-errors');
         for (const e of problems) ul.append(el('li', null, e));
@@ -278,7 +285,7 @@
       }
 
       const saved = weekPicks()[String(state.week)];
-      save.disabled = !canEdit || state.saving || chosen !== 5 || (!state.dirty && !!saved) || (!!verdict && !verdict.ok && !(admin && override.checked));
+      save.disabled = !canEdit || state.saving || !complete || (!state.dirty && !!saved) || (!!verdict && !verdict.ok && !(admin && override.checked));
       save.textContent = saved ? 'Save changes' : 'Save picks';
       clear.hidden = !canEdit || !saved;
       clear.disabled = state.saving;

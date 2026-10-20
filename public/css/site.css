@@ -286,3 +286,4 @@
   .pk-weekdot-past { color: var(--color-fg-muted); }
   .pk-weekdot-locked { background: var(--series-2); border-color: var(--series-2); color: var(--color-bg); font-weight: 600; }
   .ffwb-table td.ffwb-wrap { white-space: normal; }
+  .pk-bonus { padding: 0.6rem 0.8rem; border-radius: var(--cds-radius); background: color-mix(in srgb, var(--series-1) 14%, var(--color-panel)); border: 1px solid var(--series-1); font-weight: 600; }
