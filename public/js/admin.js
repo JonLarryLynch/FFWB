@@ -494,12 +494,14 @@
   const shameList = document.getElementById('shame-list');
   function renderShame() {
     if (!season || document.activeElement === shameList) return;
-    shameList.value = (season.config.shameClub || []).map((m) => m.name + (m.note ? ' (' + m.note + ')' : '')).join('\n');
+    shameList.value = (season.config.shameClub || []).map((m) => m.name + (m.aka ? ' aka ' + m.aka : '') + (m.note ? ' (' + m.note + ')' : '')).join('\n');
   }
   document.getElementById('shame-save').addEventListener('click', async () => {
     const list = shameList.value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
       const m = l.match(/^(.*?)\s*\((.*)\)\s*$/);
-      return m ? { name: m[1].trim(), note: m[2].trim() } : { name: l };
+      const [who, note] = m ? [m[1].trim(), m[2].trim()] : [l, ''];
+      const [name, aka] = who.split(/\s+aka\s+/i).map((x) => x.trim());
+      return { name, ...(aka ? { aka } : {}), ...(note ? { note } : {}) };
     });
     const out = await adminPost('config', { shameClub: list });
     const msg = document.getElementById('shame-message');

@@ -505,3 +505,4 @@
 .sh-badge { display: inline-block; margin-left: 0.5rem; padding: 0.05rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: var(--brand-claret); color: var(--brand-cream); vertical-align: middle; }
 .pk-shame { margin-top: 0.7rem; padding: 0.55rem 0.75rem; border-radius: var(--cds-radius); border: 1px solid var(--brand-claret); background: color-mix(in srgb, var(--brand-claret) 10%, var(--color-panel)); font-weight: 600; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sh-platinum { background: color-mix(in srgb, #c9ccd6 18%, var(--color-panel)); } :root:not([data-theme="light"]) .sh-platinum .sh-note, :root:not([data-theme="light"]) .sh-note { color: #e8808c; } :root:not([data-theme="light"]) .sh-platinum .sh-note { color: #d4d7e0; } }
+.sh-aka { font-family: var(--font-anthropic-sans); font-size: 0.85rem; font-weight: 500; letter-spacing: 0; color: var(--color-fg-muted); }

@@ -32,7 +32,7 @@
   // Members in order of joining: the founders first, then anyone new this season.
   function members(season) {
     if (!season) return [];
-    const list = (season.config.shameClub || []).map((m) => ({ name: m.name, note: m.note || '', founder: true, offences: [] }));
+    const list = (season.config.shameClub || []).map((m) => ({ name: m.name, aka: m.aka || '', note: m.note || '', founder: true, offences: [] }));
     const by = new Map(list.map((m) => [m.name.toLowerCase(), m]));
     for (const o of offences(season)) {
       const k = o.player.toLowerCase();
@@ -64,6 +64,7 @@
       const name = document.createElement('div');
       name.className = 'sh-name';
       name.textContent = m.name;
+      if (m.aka) { const aka = document.createElement('span'); aka.className = 'sh-aka'; aka.textContent = ' aka ' + m.aka; name.append(aka); }
       card.append(name);
       if (m.note) { const n = document.createElement('div'); n.className = 'sh-note'; n.textContent = m.note; card.append(n); }
       const lines = m.offences.length ? m.offences.map((o) => 'Week ' + o.week + ': ' + o.home + ' v ' + o.away) : ['Founding member'];
