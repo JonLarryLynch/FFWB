@@ -22,7 +22,7 @@
   const fixturesFor = (season, week) => (season.fixtures || {})[String(week)] || null;
   const kickedOff = (season, week) => {
     const f = fixturesFor(season, week);
-    return !!(f && f.kickoff) && Date.now() >= Date.parse(f.kickoff) && !(season.config.reopenedWeeks || []).includes(week);
+    return !!season.config.autoClose && !!(f && f.kickoff) && Date.now() >= Date.parse(f.kickoff) && !(season.config.reopenedWeeks || []).includes(week);
   };
 
   function weekStatus(season, week) {
@@ -265,7 +265,9 @@
       for (const node of [grid, bar]) node.hidden = !showEditor;
       const canEdit = showEditor && editable();
       const fx = fixturesFor(s, state.week);
-      const closesAt = st.open && fx && fx.kickoff && !(s.config.reopenedWeeks || []).includes(state.week) ? ' Picks lock at the first kickoff, ' + whenLong(fx.kickoff) + '.' : '';
+      const closesAt = !(st.open && fx && fx.kickoff) ? ''
+        : s.config.autoClose && !(s.config.reopenedWeeks || []).includes(state.week) ? ' Picks lock at the first kickoff, ' + whenLong(fx.kickoff) + '.'
+          : Date.now() < Date.parse(fx.kickoff) ? ' First kickoff ' + whenLong(fx.kickoff) + '.' : '';
       help.textContent = (!showEditor ? (admin ? 'Choose a player to edit their picks.' : 'Choose your name to make your picks.')
         : canEdit ? 'Tap once to pick, twice for your lock, three times to remove.'
           : 'This week is closed.' + (admin ? '' : ' Ask the commissioner if something needs fixing.')) + closesAt;

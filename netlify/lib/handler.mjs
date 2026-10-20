@@ -30,7 +30,9 @@ function passcodeMatches(given, expected) {
 
 // When a week's first game kicks off, or null if the fixtures are not known.
 const kickoffOf = (fixtures, week) => (fixtures && fixtures.weeks && fixtures.weeks[String(week)] && fixtures.weeks[String(week)].kickoff) || null;
+// Closing at kickoff is a setting the commissioner switches on; it is off unless they do.
 export function kickedOff(config, fixtures, week, now = Date.now()) {
+  if (!config.autoClose) return false;
   const k = kickoffOf(fixtures, week);
   return !!k && now >= Date.parse(k) && !(config.reopenedWeeks || []).includes(week);
 }
@@ -107,7 +109,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
 
   const publicView = ({ config, results, picks, fixtures }) => ({
     ok: true,
-    config: { eflWeeks: [], eflClubs: [], reopenedWeeks: [], ...config },
+    config: { eflWeeks: [], eflClubs: [], reopenedWeeks: [], autoClose: false, ...config },
     openWeeks: openWeeks(config, results, fixtures),
     fixtures: fixtures ? fixtures.weeks : {},
     fixturesCheckedAt: fixtures ? fixtures.checkedAt : null,
@@ -224,6 +226,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
             if (Number.isInteger(w) && w >= 1 && w <= rules.WEEKS) c.currentWeek = w;
           }
           if (Array.isArray(body.lockedWeeks)) c.lockedWeeks = [...new Set(body.lockedWeeks.map(Number).filter((w) => w >= 1 && w <= rules.WEEKS))].sort((a, b) => a - b);
+          if (typeof body.autoClose === 'boolean') c.autoClose = body.autoClose;
           if (Array.isArray(body.reopenedWeeks)) c.reopenedWeeks = [...new Set(body.reopenedWeeks.map(Number).filter((w) => w >= 1 && w <= rules.WEEKS))].sort((a, b) => a - b);
           if (Array.isArray(body.eflWeeks)) c.eflWeeks = [...new Set(body.eflWeeks.map(Number).filter((w) => w >= 1 && w <= rules.WEEKS))].sort((a, b) => a - b);
           if (Array.isArray(body.eflClubs)) c.eflClubs = [...new Set(body.eflClubs.map((x) => String(x).trim().slice(0, 60)).filter(Boolean))].sort((a, b) => a.localeCompare(b));

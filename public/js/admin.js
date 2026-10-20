@@ -68,7 +68,9 @@
     const locked = new Set(season.config.lockedWeeks || []);
     const reopened = new Set(season.config.reopenedWeeks || []);
     const fx = (w) => (season.fixtures || {})[String(w)] || {};
-    const started = (w) => !!fx(w).kickoff && Date.now() >= Date.parse(fx(w).kickoff);
+    const auto = !!season.config.autoClose;
+    autoBox.checked = auto;
+    const started = (w) => auto && !!fx(w).kickoff && Date.now() >= Date.parse(fx(w).kickoff);
     closedBox.replaceChildren(...Array.from({ length: R.WEEKS }, (_, i) => i + 1).map((w) => {
       const hasResults = Object.keys(season.results[String(w)] || {}).length > 0;
       const kicked = kickedOff(season, w);
@@ -134,6 +136,14 @@
     const out = await adminPost('config', { eflClubs: list });
     if (out.ok) { say(eflMsg, 'ok', 'Saved ' + out.config.eflClubs.length + ' clubs.'); window.FFWB.reload(); }
     else say(eflMsg, 'bad', out.error);
+  });
+
+  const autoBox = document.getElementById('auto-close');
+  autoBox.addEventListener('change', async () => {
+    const on = autoBox.checked;
+    const out = await adminPost('config', { autoClose: on });
+    if (out.ok) { say(cwMsg, 'ok', on ? 'Weeks now close at their first kickoff.' : 'Weeks stay open after kickoff until you close them or enter a result.'); window.FFWB.reload(); }
+    else { autoBox.checked = !on; say(cwMsg, 'bad', out.error); }
   });
 
   document.getElementById('cw-down').addEventListener('click', () => { if (cw > 1) { cw -= 1; renderWeeks(); } });
@@ -406,7 +416,8 @@
     if (!w) return { title: 'Still to pick', text: 'No week is open for picks right now.' };
     const missing = season.config.players.filter((p) => !(season.picks[p.id] || {})[String(w)]).map((p) => p.name);
     const ko = ((season.fixtures || {})[String(w)] || {}).kickoff;
-    const lockLine = ko ? 'Week ' + w + ' picks lock ' + whenLong(ko) + '.' : 'Week ' + w + ' picks are open.';
+    const lockLine = ko && season.config.autoClose ? 'Week ' + w + ' picks lock ' + whenLong(ko) + '.'
+      : ko && Date.now() < Date.parse(ko) ? 'Week ' + w + ' kicks off ' + whenLong(ko) + '.' : 'Week ' + w + ' picks are open.';
     const text = !missing.length ? "Everyone's in for week " + w + '. ' + siteUrl
       : lockLine + ' Still waiting on ' + listNames(missing) + '. Make yours at ' + siteUrl;
     return { title: 'Still to pick for week ' + w + ' (' + missing.length + ')', text };

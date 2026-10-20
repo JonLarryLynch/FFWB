@@ -81,7 +81,8 @@
             <button class="pk-save" type="button" id="cw-save">Set as current week</button>
           </div>
           <h3 class="ffwb-h">Close a week early</h3>
-          <p class="ffwb-note">Each week closes by itself at its first kickoff. Click a week to close it early, or to reopen one that has kicked off (say, to let someone in late), and click again to undo. Orange is closed by you, grey has kicked off, outlined is reopened by you, green has results in.</p>
+          <label class="pk-override adm-toggle"><input type="checkbox" id="auto-close"><span>Close each week at its first kickoff</span></label>
+          <p class="ffwb-note">Off means people can keep picking until you close the week or enter a result, like the sheet. With it on, click a week that has kicked off to reopen it for someone late. Click any week to close it early, and again to undo. Orange is closed by you, grey has kicked off, outlined is reopened by you, green has results in.</p>
           <div class="pk-weekdots" id="closed-weeks"></div>
           <p class="pk-message" id="cw-message" aria-live="polite"></p>
         </section>
