@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Football FWB Commissioner</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<div class="ffwb-shell">
+<div class="ffwb">
+  <header>
+    <h1 class="ffwb-title">Commissioner</h1>
+    <p class="ffwb-asof" id="as-of"></p>
+    <p class="ffwb-quiet"><a href="/">Back to the league</a></p>
+  </header>
+
+  <section class="ffwb-card" id="gate">
+    <h2 class="ffwb-h">Enter the commissioner passcode</h2>
+    <p class="ffwb-note">This page is for entering results, opening and closing weeks, and fixing anyone's picks.</p>
+    <div class="adm-row">
+      <input class="adm-input" type="password" id="passcode" autocomplete="current-password" aria-label="Commissioner passcode">
+      <button class="pk-save" type="button" id="gate-go">Sign in</button>
+    </div>
+    <p class="pk-message" id="gate-message"></p>
+  </section>
+
+  <div id="admin-app" hidden>
+    <div class="adm-grid">
+      <section class="ffwb-card" id="results-card">
+        <h2 class="ffwb-h">Results</h2>
+        <p class="ffwb-note">Set each club's result for the week: W, D, L or P for postponed. A postponed game scores nothing until you come back and give it a result. As soon as any result is saved, that week closes to picks. Once all 20 clubs have one, the next week opens.</p>
+        <div class="pk-weekbar">
+          <button class="pk-step" type="button" id="res-prev" aria-label="Previous week">‹</button>
+          <div class="pk-weektitle"><span class="pk-weekname" id="res-week">Week</span></div>
+          <button class="pk-step" type="button" id="res-next" aria-label="Next week">›</button>
+        </div>
+        <div class="res-list" id="res-grid"></div>
+        <div class="pk-actions">
+          <button class="pk-save" type="button" id="res-save" disabled>Save results</button>
+          <button class="pk-clear" type="button" id="res-all-l">Mark the rest as losses</button>
+        </div>
+        <p class="pk-message" id="res-message" aria-live="polite"></p>
+      </section>
+
+      <div class="ffwb-page">
+        <section class="ffwb-card" id="weeks-card">
+          <h2 class="ffwb-h">Weeks</h2>
+          <p class="ffwb-note">Players can pick the current week and any later week. Earlier weeks, and any week with results in, are closed.</p>
+          <div class="adm-row">
+            <button class="pk-step" type="button" id="cw-down" aria-label="Earlier week">‹</button>
+            <span class="pk-weekname" id="cw-value">Week</span>
+            <button class="pk-step" type="button" id="cw-up" aria-label="Later week">›</button>
+            <button class="pk-save" type="button" id="cw-save">Set as current week</button>
+          </div>
+          <h3 class="ffwb-h">Close a week early</h3>
+          <p class="ffwb-note">Click a week to close it to picks, say at the first kickoff, and click again to reopen it. Filled orange means closed by you, green means results are in.</p>
+          <div class="pk-weekdots" id="closed-weeks"></div>
+          <p class="pk-message" id="cw-message" aria-live="polite"></p>
+        </section>
+
+        <section class="ffwb-card" id="backup-card">
+          <h2 class="ffwb-h">Backup</h2>
+          <p class="ffwb-note">Download everything (picks, results and the change log) as one file to keep somewhere safe.</p>
+          <div class="adm-row">
+            <button class="pk-clear" type="button" id="backup">Download backup</button>
+            <button class="pk-clear" type="button" id="sign-out">Sign out</button>
+          </div>
+          <p class="pk-message" id="backup-message" aria-live="polite"></p>
+        </section>
+      </div>
+    </div>
+
+    <h2 class="ffwb-h" style="margin-top: 1.5rem">Anyone's picks</h2>
+    <p class="ffwb-note">Fix or fill in picks for any player and any week, including closed weeks. If picks break a rule you will see why, and you can choose to save them anyway.</p>
+    <div id="admin-picks" data-admin="1"></div>
+
+    <section class="ffwb-card" id="log-card" style="margin-top: 1rem">
+      <div class="adm-row" style="justify-content: space-between">
+        <h2 class="ffwb-h">Change log</h2>
+        <button class="pk-clear" type="button" id="log-refresh">Refresh</button>
+      </div>
+      <p class="ffwb-note">Every saved change to picks or results, newest first. Players do not sign in, so if someone changes another player's picks, it shows here.</p>
+      <div class="ffwb-plot ffwb-tall" id="log"></div>
+    </section>
+  </div>
+</div>
+</div>
+
+<script src="js/rules.js"></script>
+<script src="js/shim.js"></script>
+<script src="js/picks.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

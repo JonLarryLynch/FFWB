@@ -1,0 +1,203 @@
+// The Football FWB league API. Storage is passed in, so the same code runs on Netlify and in tests.
+//
+// Store layout:
+//   config          { season, players: [{ id, name }], clubs: [...], currentWeek, lockedWeeks: [...] }
+//   results         { weeks: { "1": { club: 1 | 0.5 | 0 | "P" } }, history: [...] }
+//   picks/<player>  { player, weeks: { "1": { standard: [...], lock, by, at } }, history: [...] }
+import crypto from 'node:crypto';
+import rules from '../../public/js/rules.js';
+import seed from './seed.mjs';
+
+const HISTORY_KEEP = 150;
+const RESULT_VALUES = new Set([1, 0.5, 0, 'P']);
+
+const json = (status, body) =>
+  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+const fail = (status, error, extra) => json(status, { ok: false, error, ...extra });
+
+function passcodeMatches(given, expected) {
+  if (!expected || typeof given !== 'string' || !given) return false;
+  const a = crypto.createHash('sha256').update(given).digest();
+  const b = crypto.createHash('sha256').update(String(expected)).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+// A week is closed to players once its week has passed, the commissioner closes it, or any result is in.
+function isClosed(config, results, week) {
+  const r = results.weeks[String(week)];
+  const hasResults = !!r && Object.values(r).some((v) => v !== null && v !== undefined);
+  return week < config.currentWeek || (config.lockedWeeks || []).includes(week) || hasResults;
+}
+const openWeeks = (config, results) => {
+  const out = [];
+  for (let w = 1; w <= rules.WEEKS; w += 1) if (!isClosed(config, results, w)) out.push(w);
+  return out;
+};
+
+export function createHandler(getStore, getPasscode) {
+  // Fill an empty store from the sheet snapshot. onlyIfNew means a second, overlapping run changes nothing.
+  async function ensureSeeded(store) {
+    const config = await store.get('config', { type: 'json' });
+    if (config) return config;
+    await Promise.all([
+      store.setJSON('config', seed.config, { onlyIfNew: true }),
+      store.setJSON('results', { weeks: seed.results, history: [] }, { onlyIfNew: true }),
+      ...seed.config.players.map((p) =>
+        store.setJSON('picks/' + p.id, { player: p.id, weeks: seed.picks[p.id] || {}, history: [] }, { onlyIfNew: true })),
+    ]);
+    return store.get('config', { type: 'json' });
+  }
+
+  async function loadAll(store) {
+    const config = await ensureSeeded(store);
+    const [results, docs] = await Promise.all([
+      store.get('results', { type: 'json' }),
+      Promise.all(config.players.map((p) => store.get('picks/' + p.id, { type: 'json' }))),
+    ]);
+    const picks = {};
+    config.players.forEach((p, i) => { picks[p.id] = docs[i] || { player: p.id, weeks: {}, history: [] }; });
+    return { config, results: results || { weeks: {}, history: [] }, picks };
+  }
+
+  // Read, change and write one document, retrying if someone else wrote it in between.
+  async function update(store, key, change, fallback) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const current = await store.getWithMetadata(key, { type: 'json' });
+      const doc = current ? current.data : fallback();
+      const next = change(structuredClone(doc));
+      const written = current
+        ? await store.setJSON(key, next, { onlyIfMatch: current.etag })
+        : await store.setJSON(key, next, { onlyIfNew: true });
+      if (written.modified) return next;
+    }
+    throw new Error('Someone else was saving at the same moment. Please try again.');
+  }
+
+  const publicView = ({ config, results, picks }) => ({
+    ok: true,
+    config,
+    openWeeks: openWeeks(config, results),
+    results: results.weeks,
+    picks: Object.fromEntries(Object.entries(picks).map(([id, d]) => [id, d.weeks])),
+    serverTime: new Date().toISOString(),
+  });
+
+  return async function handler(req) {
+    const url = new URL(req.url);
+    const route = url.pathname.replace(/^\/api\/?/, '').replace(/\/$/, '');
+    const store = getStore();
+    let body = {};
+    if (req.method === 'POST') {
+      try { body = await req.json(); } catch { return fail(400, 'The request was not valid JSON.'); }
+    }
+    const passcode = typeof getPasscode === 'function' ? getPasscode() : getPasscode;
+    const isAdmin = passcodeMatches(body.passcode, passcode);
+    const needAdmin = () => {
+      if (!passcode) return fail(503, 'The commissioner passcode has not been set up on Netlify yet.');
+      if (!isAdmin) return fail(401, 'That passcode is not right.');
+      return null;
+    };
+
+    try {
+      if (route === 'season' && req.method === 'GET') return json(200, publicView(await loadAll(store)));
+
+      if (route === 'picks' && req.method === 'POST') {
+        const all = await loadAll(store);
+        const { config, results } = all;
+        const player = config.players.find((p) => p.id === body.player);
+        if (!player) return fail(400, 'Choose a player.');
+        const week = Number(body.week);
+        if (!Number.isInteger(week) || week < 1 || week > rules.WEEKS) return fail(400, 'Choose a week from 1 to 38.');
+        if (!isAdmin && isClosed(config, results, week)) return fail(403, 'Week ' + week + ' is closed, so its picks can no longer be changed. Ask the commissioner if something is wrong.');
+
+        const clearing = (!body.standard || body.standard.length === 0) && !body.lock;
+        let next = null;
+        if (!clearing) {
+          const standard = (body.standard || []).map(String);
+          const lock = body.lock ? String(body.lock) : null;
+          const verdict = rules.check({ clubs: config.clubs, weekPicks: all.picks[player.id].weeks, week, standard, lock, openWeeks: openWeeks(config, results) });
+          if (!verdict.ok && !(isAdmin && body.override)) return fail(400, verdict.errors[0], { errors: verdict.errors, canOverride: isAdmin });
+          next = { standard, lock, by: isAdmin ? 'Commissioner' : player.name, at: new Date().toISOString() };
+        }
+        const doc = await update(store, 'picks/' + player.id, (d) => {
+          const before = d.weeks[String(week)] || null;
+          if (next) d.weeks[String(week)] = next; else delete d.weeks[String(week)];
+          d.history = [{ at: new Date().toISOString(), week, by: isAdmin ? 'Commissioner' : player.name, from: before, to: next }, ...(d.history || [])].slice(0, HISTORY_KEEP);
+          return d;
+        }, () => ({ player: player.id, weeks: {}, history: [] }));
+        return json(200, { ok: true, weeks: doc.weeks });
+      }
+
+      if (route === 'admin/check' && req.method === 'POST') {
+        const denied = needAdmin();
+        return denied || json(200, { ok: true });
+      }
+
+      if (route === 'admin/results' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        const { config } = await loadAll(store);
+        const week = Number(body.week);
+        if (!Number.isInteger(week) || week < 1 || week > rules.WEEKS) return fail(400, 'Choose a week from 1 to 38.');
+        const clean = {};
+        for (const [club, v] of Object.entries(body.results || {})) {
+          if (!config.clubs.includes(club)) return fail(400, club + ' is not a club this season.');
+          if (v === null || v === '') continue;
+          if (!RESULT_VALUES.has(v)) return fail(400, 'A result must be a win, draw, loss or postponed.');
+          clean[club] = v;
+        }
+        const doc = await update(store, 'results', (d) => {
+          const before = d.weeks[String(week)] || null;
+          if (Object.keys(clean).length) d.weeks[String(week)] = clean; else delete d.weeks[String(week)];
+          d.history = [{ at: new Date().toISOString(), week, by: 'Commissioner', from: before, to: Object.keys(clean).length ? clean : null }, ...(d.history || [])].slice(0, HISTORY_KEEP);
+          return d;
+        }, () => ({ weeks: {}, history: [] }));
+        // Once every club has a result for the current week, open the next one.
+        let cfg = config;
+        if (week === config.currentWeek && Object.keys(clean).length === config.clubs.length && week < rules.WEEKS) {
+          cfg = await update(store, 'config', (c) => { if (c.currentWeek === week) c.currentWeek = week + 1; return c; }, () => config);
+        }
+        return json(200, { ok: true, results: doc.weeks, config: cfg });
+      }
+
+      if (route === 'admin/config' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        await ensureSeeded(store);
+        const cfg = await update(store, 'config', (c) => {
+          if (body.currentWeek !== undefined) {
+            const w = Number(body.currentWeek);
+            if (Number.isInteger(w) && w >= 1 && w <= rules.WEEKS) c.currentWeek = w;
+          }
+          if (Array.isArray(body.lockedWeeks)) c.lockedWeeks = [...new Set(body.lockedWeeks.map(Number).filter((w) => w >= 1 && w <= rules.WEEKS))].sort((a, b) => a - b);
+          return c;
+        }, () => seed.config);
+        return json(200, { ok: true, config: cfg });
+      }
+
+      if (route === 'admin/log' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        const { config, results, picks } = await loadAll(store);
+        const names = Object.fromEntries(config.players.map((p) => [p.id, p.name]));
+        const entries = [
+          ...(results.history || []).map((h) => ({ ...h, kind: 'results', player: null })),
+          ...Object.entries(picks).flatMap(([id, d]) => (d.history || []).map((h) => ({ ...h, kind: 'picks', player: names[id] || id }))),
+        ].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 300);
+        return json(200, { ok: true, entries });
+      }
+
+      if (route === 'admin/backup' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        const all = await loadAll(store);
+        return json(200, { ok: true, exportedAt: new Date().toISOString(), ...all });
+      }
+
+      return fail(404, 'There is nothing at this address.');
+    } catch (err) {
+      console.error(err);
+      return fail(500, err && err.message ? err.message : 'Something went wrong on the server.');
+    }
+  };
+}

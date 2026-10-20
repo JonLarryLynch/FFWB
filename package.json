@@ -1,0 +1,8 @@
+{
+  "name": "ffwb",
+  "private": true,
+  "description": "The Football FWB pick'em league site.",
+  "dependencies": {
+    "@netlify/blobs": "11.1.1"
+  }
+}

@@ -1,0 +1,7 @@
+# The site is the public folder. The league API is netlify/functions/api.mjs, served at /api/*.
+[build]
+  publish = "public"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
