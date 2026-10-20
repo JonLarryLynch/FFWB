@@ -1,0 +1,126 @@
+// Fetches Premier League results from football-data.org and turns them into W/D/L/P per club.
+// Results are saved as suggestions (store key "auto/results") for the commissioner to review and save.
+// The league's week numbers are the Premier League matchdays, so a postponed game played later
+// still belongs to its original week, as the league rules say.
+
+const API = 'https://api.football-data.org/v4/competitions/PL/matches?matchday=';
+
+// Other names the feed may use for each club, written as normalize() returns them.
+const ALIASES = {
+  'Bournemouth': ['afc bournemouth'],
+  'Brighton': ['brighton hove', 'brighton hove albion'],
+  'Coventry City': ['coventry'],
+  'Hull City': ['hull'],
+  'Ipswich Town': ['ipswich'],
+  'Leeds': ['leeds united'],
+  'Man City': ['manchester city'],
+  'Man U': ['man united', 'manchester united', 'man utd'],
+  'Newcastle': ['newcastle united'],
+  'Nottingham Forest': ['nottingham', 'nottm forest'],
+  'Tottenham': ['tottenham hotspur', 'spurs'],
+  'West Ham': ['west ham united'],
+  'Wolves': ['wolverhampton wanderers', 'wolverhampton'],
+  'Leicester': ['leicester city'],
+  'Sheffield Utd': ['sheffield united'],
+  'Norwich City': ['norwich'],
+  'Burnley': ['burnley'],
+  'Southampton': ['southampton'],
+  'Watford': ['watford'],
+  'West Brom': ['west bromwich albion'],
+};
+
+export function normalize(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/&/g, ' ')
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\b(afc|fc)\b/g, ' ')
+    .replace(/\band\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Which of the season's clubs a team from the feed is, or null.
+export function matchClub(team, clubs) {
+  const names = [team && team.name, team && team.shortName].filter(Boolean).map(normalize);
+  for (const club of clubs) {
+    const known = new Set([normalize(club), ...(ALIASES[club] || []).map(normalize)]);
+    if (names.some((n) => known.has(n))) return club;
+  }
+  // Last resort: a club whose name starts the feed's name, like "brentford" in "brentford fc".
+  for (const club of clubs) {
+    const c = normalize(club);
+    if (names.some((n) => n.startsWith(c + ' ') || c.startsWith(n + ' '))) return club;
+  }
+  return null;
+}
+
+const POSTPONED = new Set(['POSTPONED', 'SUSPENDED', 'CANCELLED']);
+const DONE = new Set(['FINISHED', 'AWARDED']);
+
+// One week from the feed's matches: { results: { club: 1 | 0.5 | 0 | 'P' }, finished, pending, postponed, unmatched }.
+export function weekFromMatches(matches, clubs) {
+  const results = {};
+  const unmatched = [];
+  let finished = 0;
+  let pending = 0;
+  let postponed = 0;
+  for (const m of matches || []) {
+    const home = matchClub(m.homeTeam, clubs);
+    const away = matchClub(m.awayTeam, clubs);
+    if (!home) unmatched.push((m.homeTeam && (m.homeTeam.shortName || m.homeTeam.name)) || 'unknown team');
+    if (!away) unmatched.push((m.awayTeam && (m.awayTeam.shortName || m.awayTeam.name)) || 'unknown team');
+    if (POSTPONED.has(m.status)) {
+      postponed += 1;
+      if (home) results[home] = 'P';
+      if (away) results[away] = 'P';
+      continue;
+    }
+    const ft = (m.score && m.score.fullTime) || {};
+    if (!DONE.has(m.status) || ft.home == null || ft.away == null) { pending += 1; continue; }
+    finished += 1;
+    const h = ft.home > ft.away ? 1 : ft.home < ft.away ? 0 : 0.5;
+    if (home) results[home] = h;
+    if (away) results[away] = h === 0.5 ? 0.5 : 1 - h;
+  }
+  return { results, finished, pending, postponed, games: (matches || []).length, unmatched: [...new Set(unmatched)] };
+}
+
+export async function fetchWeek(week, key, fetchImpl) {
+  const res = await fetchImpl(API + week, { headers: { 'X-Auth-Token': key } });
+  if (res.status === 403 || res.status === 400) throw new Error('football-data.org refused the API key. Check FOOTBALL_DATA_KEY on Netlify.');
+  if (res.status === 429) throw new Error('football-data.org says too many requests. It will try again at the next check.');
+  if (!res.ok) throw new Error('football-data.org answered ' + res.status + '.');
+  const body = await res.json();
+  return body.matches || [];
+}
+
+// Which weeks to check: the current week, the week before if it is still incomplete,
+// and any week that still has a postponed game. At most five, to stay inside the free plan's limit.
+export function weeksToCheck(config, savedWeeks) {
+  const weeks = new Set([config.currentWeek]);
+  const prev = savedWeeks[String(config.currentWeek - 1)] || {};
+  if (config.currentWeek > 1 && Object.keys(prev).length < config.clubs.length) weeks.add(config.currentWeek - 1);
+  for (const [w, res] of Object.entries(savedWeeks)) if (Object.values(res).includes('P')) weeks.add(Number(w));
+  return [...weeks].filter((w) => w >= 1 && w <= 38).sort((a, b) => a - b).slice(-5);
+}
+
+export async function runFetch(store, key, fetchImpl, onlyWeek) {
+  const config = await store.get('config', { type: 'json' });
+  if (!config) return null;
+  const saved = (await store.get('results', { type: 'json' })) || { weeks: {} };
+  const prior = (await store.get('auto/results', { type: 'json' })) || { weeks: {} };
+  const weeks = onlyWeek ? [onlyWeek] : weeksToCheck(config, saved.weeks || {});
+  const doc = { checkedAt: new Date().toISOString(), weeks: { ...prior.weeks }, error: null };
+  for (const week of weeks) {
+    try {
+      const matches = await fetchWeek(week, key, fetchImpl);
+      doc.weeks[String(week)] = { ...weekFromMatches(matches, config.clubs), checkedAt: doc.checkedAt };
+    } catch (err) {
+      doc.error = err.message;
+      break;
+    }
+  }
+  await store.setJSON('auto/results', doc);
+  return doc;
+}

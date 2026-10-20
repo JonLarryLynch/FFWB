@@ -7,6 +7,7 @@
 import crypto from 'node:crypto';
 import rules from '../../public/js/rules.js';
 import seed from './seed.mjs';
+import { runFetch } from './autoresults.mjs';
 
 const HISTORY_KEEP = 150;
 const RESULT_VALUES = new Set([1, 0.5, 0, 'P']);
@@ -34,7 +35,7 @@ const openWeeks = (config, results) => {
   return out;
 };
 
-export function createHandler(getStore, getPasscode) {
+export function createHandler(getStore, getPasscode, extras = {}) {
   // Fill an empty store from the sheet snapshot. onlyIfNew means a second, overlapping run changes nothing.
   async function ensureSeeded(store) {
     const config = await store.get('config', { type: 'json' });
@@ -173,6 +174,26 @@ export function createHandler(getStore, getPasscode) {
           return c;
         }, () => seed.config);
         return json(200, { ok: true, config: cfg });
+      }
+
+      if (route === 'admin/suggested' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        const doc = await store.get('auto/results', { type: 'json' });
+        const key = typeof extras.footballKey === 'function' ? extras.footballKey() : extras.footballKey;
+        return json(200, { ok: true, configured: !!key, suggested: doc || { weeks: {}, checkedAt: null, error: null } });
+      }
+
+      if (route === 'admin/fetch-results' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        const key = typeof extras.footballKey === 'function' ? extras.footballKey() : extras.footballKey;
+        if (!key) return fail(503, 'Add your football-data.org key on Netlify as FOOTBALL_DATA_KEY, then redeploy, to fetch results.');
+        await ensureSeeded(store);
+        const week = body.week ? Number(body.week) : undefined;
+        const doc = await runFetch(store, key, extras.fetch || fetch, Number.isInteger(week) ? week : undefined);
+        if (doc && doc.error) return fail(502, doc.error, { suggested: doc });
+        return json(200, { ok: true, configured: true, suggested: doc });
       }
 
       if (route === 'admin/log' && req.method === 'POST') {

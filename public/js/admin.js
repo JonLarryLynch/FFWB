@@ -46,6 +46,7 @@
       gateMsg.textContent = '';
       window.FFWB.reload();
       loadLog();
+      loadSuggested();
     } else {
       showGate(out.error || 'That passcode is not right.');
     }
@@ -96,9 +97,57 @@
   let resWeek = null;
   let draft = {};
   let resDirty = false;
+  let suggested = null;
+  let feedOn = false;
+  let prefilled = new Set();
+  const feedFor = (w) => (suggested && suggested.weeks && suggested.weeks[String(w)]) || null;
+  // Add the feed's results for any club that has no result yet, leaving anything already set alone.
+  function addFeed() {
+    const feed = feedFor(resWeek);
+    if (!feed) return;
+    for (const [club, v] of Object.entries(feed.results || {})) {
+      if (draft[club] === undefined && season.config.clubs.includes(club)) { draft[club] = v; prefilled.add(club); resDirty = true; }
+    }
+  }
   function loadResults() {
     draft = { ...(season.results[String(resWeek)] || {}) };
     resDirty = false;
+    prefilled = new Set();
+    addFeed();
+  }
+  const feedBox = document.getElementById('res-feed');
+  const ago = (iso) => {
+    const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    return mins < 2 ? 'just now' : mins < 90 ? mins + ' minutes ago' : new Date(iso).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  };
+  function renderFeed() {
+    feedBox.replaceChildren();
+    if (!feedOn) {
+      feedBox.append(el('p', 'ffwb-note', 'Automatic results are off. Add your football-data.org key on Netlify as FOOTBALL_DATA_KEY and redeploy to turn them on.'));
+      return;
+    }
+    const feed = feedFor(resWeek);
+    if (!feed) {
+      feedBox.append(el('p', 'ffwb-note', 'Results for week ' + resWeek + ' have not been fetched yet. The site checks every two hours, or click Check for results now.'));
+    } else {
+      const left = feed.games - feed.finished - feed.postponed;
+      let text = 'From football-data.org, checked ' + ago(feed.checkedAt) + ': ' + feed.finished + ' of ' + feed.games + ' games finished';
+      if (feed.postponed) text += ', ' + feed.postponed + ' postponed';
+      if (left > 0) text += ', ' + left + ' still to play';
+      text += '.';
+      if (prefilled.size) text += ' ' + prefilled.size + ' results are filled in below and marked "from the feed". Check them, then save.';
+      feedBox.append(el('p', 'res-feed-line', text));
+      if (feed.unmatched && feed.unmatched.length) feedBox.append(el('p', 'pk-message pk-message-bad', 'The feed has teams this site does not recognise: ' + feed.unmatched.join(', ') + '. Enter those results by hand and tell Claude so the names can be matched.'));
+    }
+    if (suggested && suggested.error) feedBox.append(el('p', 'pk-message pk-message-bad', 'The last check had a problem: ' + suggested.error));
+  }
+  async function loadSuggested() {
+    const out = await adminPost('suggested', {});
+    if (!out.ok) return;
+    suggested = out.suggested;
+    feedOn = out.configured;
+    if (season && resWeek !== null) addFeed();
+    renderResults();
   }
   function renderResults() {
     if (!season) return;
@@ -106,6 +155,7 @@
       resWeek = season.config.currentWeek;
       loadResults();
     }
+    renderFeed();
     resWeekName.textContent = 'Week ' + resWeek;
     const picked = {};
     for (const weeks of Object.values(season.picks)) {
@@ -117,6 +167,11 @@
       const row = el('div', 'res-row');
       const name = el('div', 'res-club');
       name.append(el('span', 'ffwb-strong', club), el('span', 'ffwb-muted res-picked', picked[club] ? ' · picked by ' + picked[club] : ''));
+      const feed = feedFor(resWeek);
+      const fv = feed && feed.results ? feed.results[club] : undefined;
+      const saved = (season.results[String(resWeek)] || {})[club];
+      if (prefilled.has(club) && draft[club] === fv) name.append(el('span', 'res-tag', 'from the feed'));
+      else if (fv !== undefined && saved !== undefined && fv !== saved) name.append(el('span', 'res-tag res-tag-warn', 'feed says ' + resultCode(fv)));
       const btns = el('div', 'res-btns');
       btns.setAttribute('role', 'group');
       btns.setAttribute('aria-label', club + ' result');
@@ -139,7 +194,8 @@
     const n = Object.keys(draft).length;
     const saveBtn = document.getElementById('res-save');
     saveBtn.disabled = !resDirty;
-    if (resDirty) say(resMsg, 'warn', n + ' of ' + season.config.clubs.length + ' results set. Not saved yet.');
+    if (resMsg.dataset.keep) { /* keep the last action's message */ }
+    else if (resDirty) say(resMsg, 'warn', n + ' of ' + season.config.clubs.length + ' results set. Not saved yet.');
     else if (!resMsg.dataset.keep) say(resMsg, 'info', n ? n + ' of ' + season.config.clubs.length + ' results saved for week ' + resWeek + '.' : 'No results entered for week ' + resWeek + ' yet.');
     delete resMsg.dataset.keep;
   }
@@ -148,6 +204,22 @@
   document.getElementById('res-all-l').addEventListener('click', () => {
     for (const c of season.config.clubs) if (draft[c] === undefined) draft[c] = 0;
     resDirty = true;
+    renderResults();
+  });
+  document.getElementById('res-fetch').addEventListener('click', async () => {
+    const btn = document.getElementById('res-fetch');
+    btn.disabled = true;
+    say(resMsg, 'info', 'Checking football-data.org for week ' + resWeek + '...');
+    const out = await adminPost('fetch-results', { week: resWeek });
+    btn.disabled = false;
+    if (out.suggested) suggested = out.suggested;
+    if (out.ok) feedOn = true;
+    addFeed();
+    resMsg.dataset.keep = '1';
+    if (out.ok) {
+      const f = feedFor(resWeek);
+      say(resMsg, 'ok', f ? 'Checked. ' + f.finished + ' of ' + f.games + ' games in week ' + resWeek + ' are finished.' : 'Checked.');
+    } else say(resMsg, 'bad', out.error);
     renderResults();
   });
   document.getElementById('res-save').addEventListener('click', async () => {
