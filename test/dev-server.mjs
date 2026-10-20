@@ -6,10 +6,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHandler } from '../netlify/lib/handler.mjs';
 import { memoryStore } from './memory-store.mjs';
+import { fakeFetch } from './fake-feed.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const store = memoryStore();
-const api = createHandler(() => store, 'test');
+const api = createHandler(() => store, 'test', process.env.FAKE_FEED ? { footballKey: 'fake', fetch: fakeFetch() } : {});
 const types = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
 const port = Number(process.argv[2] || 8787);
 

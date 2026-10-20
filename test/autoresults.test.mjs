@@ -71,7 +71,8 @@ await t('the commissioner can fetch results, which are saved as suggestions only
   const post = async (path, body) => { const r = await api(new Request('https://x.test/api/' + path, { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, body: await r.json() }; };
   const r = await post('admin/fetch-results', { passcode: 'p', week: 8 });
   assert.equal(r.status, 200, JSON.stringify(r.body));
-  assert.equal(calls[0].url, 'https://api.football-data.org/v4/competitions/PL/matches?matchday=8');
+  assert.equal(calls[0].url, 'https://api.football-data.org/v4/competitions/PL/matches', 'kickoff times first');
+  assert.equal(calls[1].url, 'https://api.football-data.org/v4/competitions/PL/matches?matchday=8');
   assert.equal(calls[0].key, 'KEY');
   assert.equal(r.body.suggested.weeks['8'].finished, 6);
   const season = await (await api(new Request('https://x.test/api/season'))).json();
@@ -107,6 +108,54 @@ await t('EFL results come from Championship games on the same dates', async () =
   assert.equal(out.results.Norwich, 0);
   assert.equal(out.results.Hull, undefined, 'Hull plays twice in the window, so the commissioner decides');
   assert.deepEqual(out.twice.sort(), ['Hull', 'Stoke']);
+});
+
+await t('a week closes at its first kickoff, and the commissioner can reopen it', async () => {
+  const store = memoryStore();
+  const soon = new Date(Date.now() - 60000).toISOString();
+  const later = new Date(Date.now() + 86400000).toISOString();
+  const fixtures = { matches: [
+    { matchday: 8, status: 'TIMED', utcDate: soon, homeTeam: team('Arsenal FC', 'Arsenal'), awayTeam: team('Chelsea FC', 'Chelsea') },
+    { matchday: 8, status: 'POSTPONED', utcDate: new Date(Date.now() - 864e5).toISOString(), homeTeam: team('Wolverhampton Wanderers FC', 'Wolves'), awayTeam: team('Everton FC', 'Everton') },
+    { matchday: 9, status: 'TIMED', utcDate: later, homeTeam: team('Liverpool FC', 'Liverpool'), awayTeam: team('Brentford FC', 'Brentford') },
+  ] };
+  let calls = 0;
+  const api = createHandler(() => store, 'p', { footballKey: 'K', fetch: async () => { calls += 1; return new Response(JSON.stringify(fixtures), { status: 200 }); } });
+  const get = async () => (await api(new Request('https://x.test/api/season'))).json();
+  const post = async (path, body) => { const r = await api(new Request('https://x.test/api/' + path, { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, body: await r.json() }; };
+  let s = await get();
+  assert.equal(calls, 1, 'fixtures fetched on the first visit');
+  await get();
+  assert.equal(calls, 1, 'and not again for 12 hours');
+  assert.equal(s.fixtures['8'].kickoff, soon, 'a postponed game does not set the kickoff');
+  assert.deepEqual(s.fixtures['8'].games.Arsenal, { vs: 'Chelsea', home: true, at: soon, off: false });
+  assert.equal(s.fixtures['9'].games.Brentford.vs, 'Liverpool');
+  assert.ok(!s.openWeeks.includes(8) && s.openWeeks.includes(9));
+  const picks = { player: 'ben', week: 8, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton'], lock: 'Man City' };
+  const r = await post('picks', picks);
+  assert.equal(r.status, 403);
+  assert.match(r.body.error, /kicked off/);
+  assert.equal((await post('admin/config', { passcode: 'p', reopenedWeeks: [8] })).status, 200);
+  s = await get();
+  assert.ok(s.openWeeks.includes(8));
+  assert.equal((await post('picks', picks)).status, 200);
+});
+
+await t('backups are saved, listed and downloadable, newest 12 kept', async () => {
+  const { saveBackup, listBackups } = await import('../netlify/lib/backup.mjs');
+  const store = memoryStore();
+  const api = createHandler(() => store, 'p');
+  await api(new Request('https://x.test/api/season'));
+  for (let i = 0; i < 14; i += 1) { await saveBackup(store); await new Promise((r) => setTimeout(r, 2)); }
+  const keys = await listBackups(store);
+  assert.equal(keys.length, 12);
+  const post = async (path, body) => { const r = await api(new Request('https://x.test/api/' + path, { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, body: await r.json() }; };
+  const list = await post('admin/backups', { passcode: 'p' });
+  assert.deepEqual(list.body.backups, keys);
+  const one = await post('admin/backup', { passcode: 'p', key: keys[0] });
+  assert.equal(one.status, 200);
+  assert.equal(one.body.config.players.length, 15);
+  assert.equal((await post('admin/backup', { passcode: 'p', key: 'config' })).status, 400);
 });
 
 console.log(passed + ' tests passed');

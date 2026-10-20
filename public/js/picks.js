@@ -16,11 +16,22 @@
   const resultCode = (v) => (v === 1 ? 'W' : v === 0.5 ? 'D' : v === 0 ? 'L' : v === 'P' ? 'P' : '');
   const fmt = (n) => String(Math.round(n * 10) / 10);
 
+  // Kickoff times, in the viewer's own time zone.
+  const when = (iso) => new Date(iso).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  const whenLong = (iso) => new Date(iso).toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const fixturesFor = (season, week) => (season.fixtures || {})[String(week)] || null;
+  const kickedOff = (season, week) => {
+    const f = fixturesFor(season, week);
+    return !!(f && f.kickoff) && Date.now() >= Date.parse(f.kickoff) && !(season.config.reopenedWeeks || []).includes(week);
+  };
+
   function weekStatus(season, week) {
     const res = season.results[String(week)];
     const hasResults = !!res && Object.keys(res).length > 0;
-    if (season.openWeeks.includes(week)) return { open: true, label: week === season.config.currentWeek ? 'Open now' : 'Open' };
+    // The page may have been open since before kickoff, so check the clock here too.
+    if (season.openWeeks.includes(week) && !kickedOff(season, week)) return { open: true, label: week === season.config.currentWeek ? 'Open now' : 'Open' };
     if (hasResults) return { open: false, label: 'Results in' };
+    if (kickedOff(season, week)) return { open: false, label: 'Kicked off' };
     if ((season.config.lockedWeeks || []).includes(week)) return { open: false, label: 'Closed by the commissioner' };
     return { open: false, label: 'Closed' };
   }
@@ -253,9 +264,11 @@
       const showEditor = !!state.player;
       for (const node of [grid, bar]) node.hidden = !showEditor;
       const canEdit = showEditor && editable();
-      help.textContent = !showEditor ? (admin ? 'Choose a player to edit their picks.' : 'Choose your name to make your picks.')
+      const fx = fixturesFor(s, state.week);
+      const closesAt = st.open && fx && fx.kickoff && !(s.config.reopenedWeeks || []).includes(state.week) ? ' Picks lock at the first kickoff, ' + whenLong(fx.kickoff) + '.' : '';
+      help.textContent = (!showEditor ? (admin ? 'Choose a player to edit their picks.' : 'Choose your name to make your picks.')
         : canEdit ? 'Tap once to pick, twice for your lock, three times to remove.'
-          : 'This week is closed.' + (admin ? '' : ' Ask the commissioner if something needs fixing.');
+          : 'This week is closed.' + (admin ? '' : ' Ask the commissioner if something needs fixing.')) + closesAt;
       bonus.hidden = true;
       errorsBox.replaceChildren();
       errorsBox.hidden = true;
@@ -284,13 +297,15 @@
         tile.disabled = !canEdit;
         tile.setAttribute('aria-pressed', String(isLock || isPick));
         tile.append(el('span', 'pk-tile-name', club));
+        const game = fx && fx.games ? fx.games[club] : null;
+        if (game) tile.append(el('span', 'pk-tile-game', (game.home ? 'v ' : '@ ') + game.vs + (game.off ? ' · postponed' : ' · ' + when(game.at))));
         const short = used < R.MIN_PER_HALF;
         tile.append(el('span', 'pk-tile-meta' + (short ? ' pk-tile-short' : ''), (short ? used + ' of 3' : used + ' picked') + (locks ? ' · ' + locks + ' lock' + (locks === 1 ? '' : 's') : '')));
         const r = res[club];
         if (r !== undefined) tile.append(el('span', 'pk-tile-badge pk-' + resultCode(r), resultWord(r)));
         else if (isLock) tile.append(el('span', 'pk-tile-badge pk-badge-lock', 'Lock'));
         else if (isPick) tile.append(el('span', 'pk-tile-badge pk-badge-pick', 'Pick'));
-        tile.setAttribute('aria-label', club + (isLock ? ', your lock' : isPick ? ', picked' : '') + '. Picked ' + used + ' times and locked ' + locks + ' times this half.');
+        tile.setAttribute('aria-label', club + (game ? (game.home ? ' at home to ' : ' away at ') + game.vs + ', ' + whenLong(game.at) : '') + (isLock ? ', your lock' : isPick ? ', picked' : '') + '. Picked ' + used + ' times and locked ' + locks + ' times this half.');
         tile.addEventListener('click', () => tap(club));
         return tile;
       }));
@@ -367,7 +382,7 @@
     };
   }
 
-  window.FFWBPicks = { PicksEditor, weekStatus, resultCode, resultWord };
+  window.FFWBPicks = { PicksEditor, weekStatus, resultCode, resultWord, kickedOff, when, whenLong };
 
   // On the main page, mount the editor in the Make picks tab and load the live season.
   const mount = document.getElementById('picks-app');

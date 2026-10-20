@@ -60,6 +60,17 @@
       </section>
 
       <div class="ffwb-page">
+        <section class="ffwb-card" id="chat-card">
+          <h2 class="ffwb-h">For the group chat</h2>
+          <h3 class="ffwb-h" id="nudge-title">Still to pick</h3>
+          <textarea class="adm-input adm-textarea" id="nudge-text" rows="3" aria-label="Reminder message"></textarea>
+          <div class="adm-row"><button class="pk-clear" type="button" id="nudge-copy">Copy reminder</button></div>
+          <h3 class="ffwb-h" id="recap-title">Weekly recap</h3>
+          <textarea class="adm-input adm-textarea" id="recap-text" rows="7" aria-label="Weekly recap"></textarea>
+          <div class="adm-row"><button class="pk-clear" type="button" id="recap-copy">Copy recap</button></div>
+          <p class="pk-message" id="chat-message" aria-live="polite"></p>
+        </section>
+
         <section class="ffwb-card" id="weeks-card">
           <h2 class="ffwb-h">Weeks</h2>
           <p class="ffwb-note">Players can pick the current week and any later week. Earlier weeks, and any week with results in, are closed.</p>
@@ -70,7 +81,7 @@
             <button class="pk-save" type="button" id="cw-save">Set as current week</button>
           </div>
           <h3 class="ffwb-h">Close a week early</h3>
-          <p class="ffwb-note">Click a week to close it to picks, say at the first kickoff, and click again to reopen it. Filled orange means closed by you, green means results are in.</p>
+          <p class="ffwb-note">Each week closes by itself at its first kickoff. Click a week to close it early, or to reopen one that has kicked off (say, to let someone in late), and click again to undo. Orange is closed by you, grey has kicked off, outlined is reopened by you, green has results in.</p>
           <div class="pk-weekdots" id="closed-weeks"></div>
           <p class="pk-message" id="cw-message" aria-live="polite"></p>
         </section>
@@ -94,11 +105,12 @@
 
         <section class="ffwb-card" id="backup-card">
           <h2 class="ffwb-h">Backup</h2>
-          <p class="ffwb-note">Download everything (picks, results and the change log) as one file to keep somewhere safe.</p>
+          <p class="ffwb-note">The site saves a backup every Tuesday morning and keeps the last 12. You can also download everything (picks, results and the change log) as one file right now.</p>
           <div class="adm-row">
-            <button class="pk-clear" type="button" id="backup">Download backup</button>
+            <button class="pk-clear" type="button" id="backup">Download backup now</button>
             <button class="pk-clear" type="button" id="sign-out">Sign out</button>
           </div>
+          <div class="adm-backups" id="backup-list"></div>
           <p class="pk-message" id="backup-message" aria-live="polite"></p>
         </section>
       </div>

@@ -292,8 +292,12 @@
   .pk-weekdot-done { background: color-mix(in srgb, var(--series-1) 18%, var(--color-panel)); }
   .pk-weekdot-past { color: var(--color-fg-muted); }
   .pk-weekdot-locked { background: var(--series-2); border-color: var(--series-2); color: var(--color-bg); font-weight: 600; }
+  .pk-weekdot-kicked { background: var(--cds-chart-muted); border-color: var(--cds-chart-muted); color: var(--color-fg); }
+  .pk-weekdot-reopened { border: 2px solid var(--series-2); font-weight: 600; }
+  .adm-backup-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .adm-backup { font-size: var(--cds-font-size-caption); padding: 0.3rem 0.65rem; }
   .pk-weekdot-efl { background: var(--series-3); border-color: var(--series-3); color: var(--color-bg); font-weight: 600; }
-  .adm-textarea { display: block; width: 100%; margin: 0.5rem 0; resize: vertical; }
+  .adm-textarea { display: block; box-sizing: border-box; width: 100%; margin: 0.5rem 0; resize: vertical; }
   .res-efl { margin-top: 0.8rem; }
   .ffwb-table td.ffwb-wrap { white-space: normal; }
   .pk-bonus { padding: 0.6rem 0.8rem; border-radius: var(--cds-radius); background: color-mix(in srgb, var(--series-1) 14%, var(--color-panel)); border: 1px solid var(--series-1); font-weight: 600; }
@@ -440,3 +444,7 @@
 .ffwb-crown-what { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .ffwb-crown-who { font-weight: 700; font-size: 1.05rem; }
 .ffwb-crown-top .ffwb-crown-who::before { content: "\1F3C6  "; }
+
+/* Opponent and kickoff on each club tile. */
+.pk-tile-game { font-size: 0.72rem; color: var(--color-fg-muted); line-height: 1.25; }
+.pk-tile-pick .pk-tile-game, .pk-tile-lock .pk-tile-game { color: var(--color-fg); }

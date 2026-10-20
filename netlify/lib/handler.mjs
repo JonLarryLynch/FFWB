@@ -6,10 +6,13 @@
 //   results         { weeks: { "1": { club: 1 | 0.5 | 0 | "P" } }, efl: { "4": { eflClub: ... } }, history: [...] }
 //   picks/<player>  { player, weeks: { "1": { standard: [...], lock, efl?, by, at } }, history: [...] }
 //   auto/results    results fetched from football-data.org, as suggestions for the commissioner
+//   fixtures        { checkedAt, weeks: { "8": { kickoff, games: { club: { vs, home, at, off } } } } }
+//   backups/<date>  a full copy of the league, saved by the Tuesday job
 import crypto from 'node:crypto';
 import rules from '../../public/js/rules.js';
 import seed from './seed.mjs';
-import { runFetch, fetchTeams } from './autoresults.mjs';
+import { runFetch, fetchTeams, fetchFixtures } from './autoresults.mjs';
+import { saveBackup, listBackups } from './backup.mjs';
 
 const HISTORY_KEEP = 150;
 const RESULT_VALUES = new Set([1, 0.5, 0, 'P']);
@@ -25,17 +28,26 @@ function passcodeMatches(given, expected) {
   return crypto.timingSafeEqual(a, b);
 }
 
-// A week is closed to players once its week has passed, the commissioner closes it, or any result is in.
-function isClosed(config, results, week) {
+// When a week's first game kicks off, or null if the fixtures are not known.
+const kickoffOf = (fixtures, week) => (fixtures && fixtures.weeks && fixtures.weeks[String(week)] && fixtures.weeks[String(week)].kickoff) || null;
+export function kickedOff(config, fixtures, week, now = Date.now()) {
+  const k = kickoffOf(fixtures, week);
+  return !!k && now >= Date.parse(k) && !(config.reopenedWeeks || []).includes(week);
+}
+
+// A week is closed to players once its week has passed, its first game kicks off (unless the commissioner
+// reopened it), the commissioner closes it, or any result is in.
+function isClosed(config, results, week, fixtures) {
   const r = results.weeks[String(week)];
   const hasResults = !!r && Object.values(r).some((v) => v !== null && v !== undefined);
-  return week < config.currentWeek || (config.lockedWeeks || []).includes(week) || hasResults;
+  return week < config.currentWeek || (config.lockedWeeks || []).includes(week) || hasResults || kickedOff(config, fixtures, week);
 }
-const openWeeks = (config, results) => {
+const openWeeks = (config, results, fixtures) => {
   const out = [];
-  for (let w = 1; w <= rules.WEEKS; w += 1) if (!isClosed(config, results, w)) out.push(w);
+  for (let w = 1; w <= rules.WEEKS; w += 1) if (!isClosed(config, results, w, fixtures)) out.push(w);
   return out;
 };
+const FIXTURES_STALE_MS = 12 * 60 * 60 * 1000;
 
 export function createHandler(getStore, getPasscode, extras = {}) {
   // Fill an empty store from the sheet snapshot. onlyIfNew means a second, overlapping run changes nothing.
@@ -53,13 +65,30 @@ export function createHandler(getStore, getPasscode, extras = {}) {
 
   async function loadAll(store) {
     const config = await ensureSeeded(store);
-    const [results, docs] = await Promise.all([
+    const [results, docs, fixtures] = await Promise.all([
       store.get('results', { type: 'json' }),
       Promise.all(config.players.map((p) => store.get('picks/' + p.id, { type: 'json' }))),
+      store.get('fixtures', { type: 'json' }),
     ]);
     const picks = {};
     config.players.forEach((p, i) => { picks[p.id] = docs[i] || { player: p.id, weeks: {}, history: [] }; });
-    return { config, results: results || { weeks: {}, history: [] }, picks };
+    return { config, results: results || { weeks: {}, history: [] }, picks, fixtures: fixtures || null };
+  }
+
+  // Keep kickoff times fresh: if they are more than 12 hours old, fetch them again (one call to the feed).
+  // A problem with the feed never stops the page loading.
+  async function freshFixtures(store, all) {
+    const key = typeof extras.footballKey === 'function' ? extras.footballKey() : extras.footballKey;
+    const f = all.fixtures;
+    const last = f ? Date.parse(f.attemptedAt || f.checkedAt) : 0;
+    if (!key || Date.now() - last < FIXTURES_STALE_MS) return all;
+    try {
+      all.fixtures = await fetchFixtures(store, all.config, key, extras.fetch || fetch);
+    } catch (err) {
+      console.error('Fixtures check failed: ' + err.message);
+      if (f) await store.setJSON('fixtures', { ...f, attemptedAt: new Date().toISOString(), error: err.message });
+    }
+    return all;
   }
 
   // Read, change and write one document, retrying if someone else wrote it in between.
@@ -76,10 +105,12 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     throw new Error('Someone else was saving at the same moment. Please try again.');
   }
 
-  const publicView = ({ config, results, picks }) => ({
+  const publicView = ({ config, results, picks, fixtures }) => ({
     ok: true,
-    config: { eflWeeks: [], eflClubs: [], ...config },
-    openWeeks: openWeeks(config, results),
+    config: { eflWeeks: [], eflClubs: [], reopenedWeeks: [], ...config },
+    openWeeks: openWeeks(config, results, fixtures),
+    fixtures: fixtures ? fixtures.weeks : {},
+    fixturesCheckedAt: fixtures ? fixtures.checkedAt : null,
     results: results.weeks,
     eflResults: results.efl || {},
     picks: Object.fromEntries(Object.entries(picks).map(([id, d]) => [id, d.weeks])),
@@ -103,16 +134,19 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     };
 
     try {
-      if (route === 'season' && req.method === 'GET') return json(200, publicView(await loadAll(store)));
+      if (route === 'season' && req.method === 'GET') return json(200, publicView(await freshFixtures(store, await loadAll(store))));
 
       if (route === 'picks' && req.method === 'POST') {
         const all = await loadAll(store);
-        const { config, results } = all;
+        const { config, results, fixtures } = all;
         const player = config.players.find((p) => p.id === body.player);
         if (!player) return fail(400, 'Choose a player.');
         const week = Number(body.week);
         if (!Number.isInteger(week) || week < 1 || week > rules.WEEKS) return fail(400, 'Choose a week from 1 to 38.');
-        if (!isAdmin && isClosed(config, results, week)) return fail(403, 'Week ' + week + ' is closed, so its picks can no longer be changed. Ask the commissioner if something is wrong.');
+        if (!isAdmin && isClosed(config, results, week, fixtures)) {
+          const why = kickedOff(config, fixtures, week) ? 'Week ' + week + "'s first game has kicked off, so its picks are locked." : 'Week ' + week + ' is closed, so its picks can no longer be changed.';
+          return fail(403, why + ' Ask the commissioner if something is wrong.');
+        }
 
         const clearing = (!body.standard || body.standard.length === 0) && !body.lock;
         // The EFL pick only exists in weeks the commissioner has switched it on for.
@@ -123,7 +157,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         if (!clearing) {
           const standard = (body.standard || []).map(String);
           const lock = body.lock ? String(body.lock) : null;
-          const verdict = rules.check({ clubs: config.clubs, weekPicks: all.picks[player.id].weeks, week, standard, lock, openWeeks: openWeeks(config, results), results: results.weeks });
+          const verdict = rules.check({ clubs: config.clubs, weekPicks: all.picks[player.id].weeks, week, standard, lock, openWeeks: openWeeks(config, results, fixtures), results: results.weeks });
           if (!verdict.ok && !(isAdmin && body.override)) return fail(400, verdict.errors[0], { errors: verdict.errors, canOverride: isAdmin });
           next = { standard, lock, by: isAdmin ? 'Commissioner' : player.name, at: new Date().toISOString() };
           if (efl) next.efl = efl;
@@ -190,6 +224,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
             if (Number.isInteger(w) && w >= 1 && w <= rules.WEEKS) c.currentWeek = w;
           }
           if (Array.isArray(body.lockedWeeks)) c.lockedWeeks = [...new Set(body.lockedWeeks.map(Number).filter((w) => w >= 1 && w <= rules.WEEKS))].sort((a, b) => a - b);
+          if (Array.isArray(body.reopenedWeeks)) c.reopenedWeeks = [...new Set(body.reopenedWeeks.map(Number).filter((w) => w >= 1 && w <= rules.WEEKS))].sort((a, b) => a - b);
           if (Array.isArray(body.eflWeeks)) c.eflWeeks = [...new Set(body.eflWeeks.map(Number).filter((w) => w >= 1 && w <= rules.WEEKS))].sort((a, b) => a - b);
           if (Array.isArray(body.eflClubs)) c.eflClubs = [...new Set(body.eflClubs.map((x) => String(x).trim().slice(0, 60)).filter(Boolean))].sort((a, b) => a.localeCompare(b));
           return c;
@@ -245,8 +280,20 @@ export function createHandler(getStore, getPasscode, extras = {}) {
       if (route === 'admin/backup' && req.method === 'POST') {
         const denied = needAdmin();
         if (denied) return denied;
+        if (body.key) {
+          if (!/^backups\/[0-9T:.\-Z]+$/.test(String(body.key))) return fail(400, 'That is not a backup.');
+          const saved = await store.get(String(body.key), { type: 'json' });
+          return saved ? json(200, { ok: true, ...saved }) : fail(404, 'That backup is gone.');
+        }
         const all = await loadAll(store);
         return json(200, { ok: true, exportedAt: new Date().toISOString(), ...all });
+      }
+
+      if (route === 'admin/backups' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        if (body.saveNow) await saveBackup(store);
+        return json(200, { ok: true, backups: await listBackups(store) });
       }
 
       return fail(404, 'There is nothing at this address.');

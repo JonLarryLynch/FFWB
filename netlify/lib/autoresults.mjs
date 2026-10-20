@@ -120,6 +120,32 @@ export async function fetchEflWeek(plMatches, eflClubs, key, fetchImpl) {
   return { ...week, twice, from: days[0], to: days[days.length - 1] };
 }
 
+// The whole season's fixtures in one call: per week, the first kickoff and each club's game.
+// Postponed or cancelled games do not set a week's first kickoff.
+export function fixturesFromMatches(matches, clubs) {
+  const weeks = {};
+  for (const m of matches || []) {
+    const w = String(m.matchday || '');
+    if (!w || !m.utcDate) continue;
+    const wk = weeks[w] || (weeks[w] = { kickoff: null, games: {} });
+    const home = matchClub(m.homeTeam, clubs);
+    const away = matchClub(m.awayTeam, clubs);
+    const off = POSTPONED.has(m.status);
+    const short = (t) => (t && (t.shortName || t.name)) || '';
+    if (home) wk.games[home] = { vs: away || short(m.awayTeam), home: true, at: m.utcDate, off };
+    if (away) wk.games[away] = { vs: home || short(m.homeTeam), home: false, at: m.utcDate, off };
+    if (!off && (!wk.kickoff || m.utcDate < wk.kickoff)) wk.kickoff = m.utcDate;
+  }
+  return weeks;
+}
+
+export async function fetchFixtures(store, config, key, fetchImpl) {
+  const body = await getJSON(BASE + 'PL/matches', key, fetchImpl);
+  const doc = { checkedAt: new Date().toISOString(), weeks: fixturesFromMatches(body.matches || [], config.clubs), error: null };
+  await store.setJSON('fixtures', doc);
+  return doc;
+}
+
 // Which weeks to check: the current week, the week before if it is still incomplete,
 // and any week that still has a postponed game. At most five, to stay inside the free plan's limit.
 export function weeksToCheck(config, savedWeeks) {
@@ -137,7 +163,10 @@ export async function runFetch(store, key, fetchImpl, onlyWeek) {
   const prior = (await store.get('auto/results', { type: 'json' })) || { weeks: {} };
   const weeks = onlyWeek ? [onlyWeek] : weeksToCheck(config, saved.weeks || {});
   const doc = { checkedAt: new Date().toISOString(), weeks: { ...prior.weeks }, error: null };
+  // Kickoff times move around for TV, so refresh the fixtures on every check too.
+  try { await fetchFixtures(store, config, key, fetchImpl); } catch (err) { doc.error = err.message; }
   for (const week of weeks) {
+    if (doc.error) break;
     try {
       const matches = await fetchWeek(week, key, fetchImpl);
       doc.weeks[String(week)] = { ...weekFromMatches(matches, config.clubs), checkedAt: doc.checkedAt };

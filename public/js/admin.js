@@ -1,7 +1,7 @@
 // Football FWB commissioner page: results, weeks, anyone's picks, the change log and backups.
 (function () {
   const R = window.FFWBRules;
-  const { PicksEditor, resultCode } = window.FFWBPicks;
+  const { PicksEditor, resultCode, kickedOff, whenLong } = window.FFWBPicks;
   const el = (tag, cls, text) => {
     const node = document.createElement(tag);
     if (cls) node.className = cls;
@@ -47,6 +47,7 @@
       window.FFWB.reload();
       loadLog();
       loadSuggested();
+      loadBackups();
     } else {
       showGate(out.error || 'That passcode is not right.');
     }
@@ -65,17 +66,31 @@
     if (cw === null) cw = season.config.currentWeek;
     cwValue.textContent = 'Week ' + cw;
     const locked = new Set(season.config.lockedWeeks || []);
+    const reopened = new Set(season.config.reopenedWeeks || []);
+    const fx = (w) => (season.fixtures || {})[String(w)] || {};
+    const started = (w) => !!fx(w).kickoff && Date.now() >= Date.parse(fx(w).kickoff);
     closedBox.replaceChildren(...Array.from({ length: R.WEEKS }, (_, i) => i + 1).map((w) => {
       const hasResults = Object.keys(season.results[String(w)] || {}).length > 0;
-      const b = el('button', 'pk-weekdot' + (locked.has(w) ? ' pk-weekdot-locked' : hasResults ? ' pk-weekdot-done' : w < season.config.currentWeek ? ' pk-weekdot-past' : ''), String(w));
+      const kicked = kickedOff(season, w);
+      const cls = locked.has(w) ? ' pk-weekdot-locked' : hasResults ? ' pk-weekdot-done' : kicked ? ' pk-weekdot-kicked' : reopened.has(w) && started(w) ? ' pk-weekdot-reopened' : w < season.config.currentWeek ? ' pk-weekdot-past' : '';
+      const b = el('button', 'pk-weekdot' + cls, String(w));
       b.type = 'button';
       b.setAttribute('aria-pressed', String(locked.has(w)));
-      b.title = locked.has(w) ? 'Closed by you. Click to reopen.' : hasResults ? 'Results are in, so this week is closed.' : 'Click to close this week to picks.';
+      const ko = fx(w).kickoff ? ' First kickoff ' + whenLong(fx(w).kickoff) + '.' : '';
+      b.title = (locked.has(w) ? 'Closed by you. Click to reopen.' : hasResults ? 'Results are in, so this week is closed.'
+        : kicked ? 'Kicked off, so closed. Click to reopen it for late picks.' : reopened.has(w) && started(w) ? 'Reopened by you after kickoff. Click to close it again.'
+          : 'Click to close this week to picks.') + ko;
       b.addEventListener('click', async () => {
-        const next = new Set(locked);
-        if (next.has(w)) next.delete(w); else next.add(w);
-        const out = await adminPost('config', { lockedWeeks: [...next] });
-        if (out.ok) { say(cwMsg, 'ok', next.has(w) ? 'Week ' + w + ' is closed to picks.' : 'Week ' + w + ' is open again, unless its results are in or it is before the current week.'); window.FFWB.reload(); }
+        let change;
+        let text;
+        if (locked.has(w)) { const n = new Set(locked); n.delete(w); change = { lockedWeeks: [...n] }; text = 'Week ' + w + ' is no longer closed by you.'; }
+        else if (started(w) && !hasResults) {
+          const n = new Set(reopened);
+          if (n.has(w)) { n.delete(w); text = 'Week ' + w + ' is closed again.'; } else { n.add(w); text = 'Week ' + w + ' is open for late picks until you click it again or enter a result.'; }
+          change = { reopenedWeeks: [...n] };
+        } else { const n = new Set(locked); n.add(w); change = { lockedWeeks: [...n] }; text = 'Week ' + w + ' is closed to picks.'; }
+        const out = await adminPost('config', change);
+        if (out.ok) { say(cwMsg, 'ok', text); window.FFWB.reload(); }
         else say(cwMsg, 'bad', out.error);
       });
       return b;
@@ -285,6 +300,7 @@
     else if (resDirty) say(resMsg, 'warn', n + ' of ' + season.config.clubs.length + ' results set. Not saved yet.');
     else if (!resMsg.dataset.keep) say(resMsg, 'info', n ? n + ' of ' + season.config.clubs.length + ' results saved for week ' + resWeek + '.' : 'No results entered for week ' + resWeek + ' yet.');
     delete resMsg.dataset.keep;
+    renderChat();
   }
   document.getElementById('res-prev').addEventListener('click', () => { if (resWeek > 1) { resWeek -= 1; loadResults(); renderResults(); } });
   document.getElementById('res-next').addEventListener('click', () => { if (resWeek < R.WEEKS) { resWeek += 1; loadResults(); renderResults(); } });
@@ -358,19 +374,129 @@
   }
   document.getElementById('log-refresh').addEventListener('click', loadLog);
 
+  // ---------- For the group chat ----------
+  const siteUrl = location.origin + '/';
+  const listNames = (names) => (names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names.join(''));
+  const pts = (n) => String(Math.round(n * 10) / 10);
+  const ordinal = (n) => n + ([, 'st', 'nd', 'rd'][(n % 100 >> 3 ^ 1) && n % 10] || 'th');
+  // One player's points in a week: picks, the doubled lock and any EFL pick.
+  function weekScore(pid, w) {
+    const p = (season.picks[pid] || {})[String(w)];
+    if (!p) return { points: 0, wins: 0 };
+    const res = season.results[String(w)] || {};
+    const eres = (season.eflResults || {})[String(w)] || {};
+    const all = [...(p.standard || []), p.lock].filter(Boolean);
+    return {
+      points: (p.standard || []).reduce((a, c) => a + R.pickPoints(res[c], false), 0) + R.pickPoints(res[p.lock], true) + (p.efl ? R.pickPoints(eres[p.efl], false) : 0),
+      wins: all.filter((c) => res[c] === 1).length,
+    };
+  }
+  function tableThrough(w) {
+    const rows = season.config.players.map((p) => {
+      let points = 0;
+      let wins = 0;
+      for (let k = 1; k <= w; k += 1) { if (!Object.keys(season.results[String(k)] || {}).length) continue; const s = weekScore(p.id, k); points += s.points; wins += s.wins; }
+      return { id: p.id, name: p.name, points, wins };
+    }).sort((a, b) => b.points - a.points || b.wins - a.wins || a.name.localeCompare(b.name));
+    rows.forEach((r, i) => { r.pos = i && rows[i - 1].points === r.points && rows[i - 1].wins === r.wins ? rows[i - 1].pos : i + 1; });
+    return rows;
+  }
+  function nudgeText() {
+    const w = season.openWeeks.find((x) => x >= season.config.currentWeek && !kickedOff(season, x));
+    if (!w) return { title: 'Still to pick', text: 'No week is open for picks right now.' };
+    const missing = season.config.players.filter((p) => !(season.picks[p.id] || {})[String(w)]).map((p) => p.name);
+    const ko = ((season.fixtures || {})[String(w)] || {}).kickoff;
+    const lockLine = ko ? 'Week ' + w + ' picks lock ' + whenLong(ko) + '.' : 'Week ' + w + ' picks are open.';
+    const text = !missing.length ? "Everyone's in for week " + w + '. ' + siteUrl
+      : lockLine + ' Still waiting on ' + listNames(missing) + '. Make yours at ' + siteUrl;
+    return { title: 'Still to pick for week ' + w + ' (' + missing.length + ')', text };
+  }
+  function recapText() {
+    const done = Object.keys(season.results).map(Number).filter((w) => Object.keys(season.results[String(w)]).length);
+    if (!done.length) return { title: 'Weekly recap', text: 'No results yet.' };
+    const w = done.includes(resWeek) ? resWeek : Math.max(...done);
+    const res = season.results[String(w)];
+    const played = season.config.players.filter((p) => (season.picks[p.id] || {})[String(w)]);
+    const scores = played.map((p) => ({ name: p.name, ...weekScore(p.id, w) }));
+    const top = Math.max(...scores.map((s) => s.points));
+    const best = scores.filter((s) => s.points === top).map((s) => s.name);
+    const zero = scores.filter((s) => s.points === 0).map((s) => s.name);
+    const perfect = played.filter((p) => R.isPerfect(season.picks[p.id][String(w)], res)).map((p) => p.name);
+    const now = tableThrough(w);
+    const before = tableThrough(w - 1);
+    const was = Object.fromEntries(before.map((r) => [r.id, r.pos]));
+    const moves = w > 1 ? now.map((r) => ({ name: r.name, up: was[r.id] - r.pos, pos: r.pos })).sort((a, b) => b.up - a.up) : [];
+    const lines = ['FWB week ' + w + ' recap'];
+    lines.push(best.length > 3 ? 'Top score: ' + pts(top) + ', hit by ' + best.length + ' players.' : 'Top score: ' + listNames(best) + ' with ' + pts(top) + '.');
+    lines.push(perfect.length ? 'Perfect week' + (perfect.length > 1 ? 's' : '') + ': ' + listNames(perfect) + '. Bonus pick' + (perfect.length > 1 ? 's' : '') + ' in week ' + (w + 1) + '.' : 'No perfect weeks.');
+    if (zero.length) lines.push('Zero points: ' + listNames(zero) + '.');
+    if (moves.length && moves[0].up > 0) {
+      const climbers = moves.filter((m) => m.up === moves[0].up);
+      lines.push('Biggest climb: ' + listNames(climbers.map((m) => m.name)) + ', up ' + moves[0].up + (climbers.length === 1 ? ' to ' + ordinal(climbers[0].pos) : '') + '.');
+    }
+    lines.push('Top 3: ' + now.slice(0, 3).map((r) => r.pos + '. ' + r.name + ' ' + pts(r.points)).join(', '));
+    if (Object.values(res).includes('P')) lines.push('A postponed game still to come, so scores can change.');
+    lines.push(siteUrl);
+    return { title: 'Week ' + w + ' recap', text: lines.join('\n') };
+  }
+  const chatMsg = document.getElementById('chat-message');
+  function renderChat() {
+    if (!season) return;
+    const n = nudgeText();
+    const r = recapText();
+    document.getElementById('nudge-title').textContent = n.title;
+    document.getElementById('recap-title').textContent = r.title;
+    const nt = document.getElementById('nudge-text');
+    const rt = document.getElementById('recap-text');
+    if (document.activeElement !== nt) nt.value = n.text;
+    if (document.activeElement !== rt) rt.value = r.text;
+  }
+  async function copy(id, what) {
+    const box = document.getElementById(id);
+    try { await navigator.clipboard.writeText(box.value); }
+    catch (err) { box.select(); document.execCommand('copy'); }
+    say(chatMsg, 'ok', what + ' copied. Paste it in the group chat.');
+  }
+  document.getElementById('nudge-copy').addEventListener('click', () => copy('nudge-text', 'Reminder'));
+  document.getElementById('recap-copy').addEventListener('click', () => copy('recap-text', 'Recap'));
+
   // ---------- Backup ----------
+  const download = (data, name) => {
+    const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+  };
+  async function loadBackups() {
+    const box = document.getElementById('backup-list');
+    const out = await adminPost('backups', {});
+    if (!out.ok) return;
+    if (!out.backups.length) { box.replaceChildren(el('p', 'ffwb-note', 'No weekly backups yet. The first one is saved next Tuesday morning.')); return; }
+    const list = el('div', 'adm-backup-list');
+    for (const key of out.backups) {
+      const b = el('button', 'pk-clear adm-backup', new Date(key.slice(8)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }));
+      b.type = 'button';
+      b.title = 'Download this backup';
+      b.addEventListener('click', async () => {
+        const msg = document.getElementById('backup-message');
+        const got = await adminPost('backup', { key });
+        if (!got.ok) { say(msg, 'bad', got.error); return; }
+        download(got, 'ffwb-backup-' + key.slice(8, 18) + '.json');
+        say(msg, 'ok', 'Backup downloaded.');
+      });
+      list.append(b);
+    }
+    box.replaceChildren(el('h3', 'ffwb-h', 'Weekly backups'), list);
+  }
   document.getElementById('backup').addEventListener('click', async () => {
     const msg = document.getElementById('backup-message');
     say(msg, 'info', 'Preparing...');
     const out = await adminPost('backup', {});
     if (!out.ok) { say(msg, 'bad', out.error); return; }
-    const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'ffwb-backup-' + out.exportedAt.slice(0, 10) + '.json';
-    document.body.append(a);
-    a.click();
-    a.remove();
+    download(out, 'ffwb-backup-' + out.exportedAt.slice(0, 10) + '.json');
     say(msg, 'ok', 'Backup downloaded.');
   });
 
