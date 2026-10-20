@@ -128,7 +128,7 @@
     }
     const feed = feedFor(resWeek);
     if (!feed) {
-      feedBox.append(el('p', 'ffwb-note', 'Results for week ' + resWeek + ' have not been fetched yet. The site checks every two hours, or click Check for results now.'));
+      feedBox.append(el('p', 'ffwb-note', 'Results for week ' + resWeek + ' have not been fetched yet. The site checks every Tuesday at 9 AM Central, or click Check for results now.'));
     } else {
       const left = feed.games - feed.finished - feed.postponed;
       let text = 'From football-data.org, checked ' + ago(feed.checkedAt) + ': ' + feed.finished + ' of ' + feed.games + ' games finished';

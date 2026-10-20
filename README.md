@@ -10,6 +10,6 @@ The Football FWB pick'em league site, live at https://timmytyrantfootball.netlif
 
 The commissioner page needs an `ADMIN_PASSCODE` environment variable set on Netlify.
 
-Results: `netlify/functions/fetch-results.mjs` runs every two hours and fetches Premier League results from football-data.org (`netlify/lib/autoresults.mjs`). They are saved as suggestions that pre-fill the commissioner page. It needs a `FOOTBALL_DATA_KEY` environment variable on Netlify. Never commit the key: this repository is public.
+Results: `netlify/functions/fetch-results.mjs` runs every Tuesday at 9 AM Central and fetches Premier League results from football-data.org (`netlify/lib/autoresults.mjs`). They are saved as suggestions that pre-fill the commissioner page. It needs a `FOOTBALL_DATA_KEY` environment variable on Netlify. Never commit the key: this repository is public.
 
 Tests: `npm install`, then `node test/api.test.mjs` and `node test/autoresults.test.mjs`. To run the site locally with in-memory storage: `node test/dev-server.mjs` (passcode `test`).
