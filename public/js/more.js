@@ -291,6 +291,16 @@ const picked = { player: null, season: null };
 
 // A row of pill buttons, one per choice, that keeps the page's pick in view.
 function pills(box, choices, current, onPick) {
+  if (box.tagName === 'SELECT') {
+    // A dropdown takes one line where a row of buttons can take several.
+    if (box.dataset.choices !== choices.join('|')) {
+      box.replaceChildren(...choices.map((c) => new Option(c, c)));
+      box.dataset.choices = choices.join('|');
+      box.onchange = () => onPick(box.value);
+    }
+    box.value = current;
+    return;
+  }
   box.replaceChildren(...choices.map((c) => {
     const b = el('button', 'ffwb-pill', c);
     b.type = 'button';

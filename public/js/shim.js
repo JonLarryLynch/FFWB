@@ -129,6 +129,8 @@
       loading = false;
       const t = new Date(season.serverTime);
       stamp('Live scores, updated ' + t.toLocaleString('en-US', { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '.');
+      const banner = document.getElementById('offline');
+      if (banner) banner.hidden = true;
       seasonListeners.forEach((fn) => run(() => fn(season)));
       redraw();
     },
@@ -147,7 +149,10 @@
         raw.results_2026 = saved.results_2026;
         loading = false;
         const d = saved.as_of ? new Date(saved.as_of + 'T12:00:00') : null;
-        stamp('The live scores could not be loaded, so this is the saved copy' + (d ? ' from ' + d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) : '') + '. Picks cannot be made until the live scores load.');
+        const text = 'The live scores could not be loaded, so this is the saved copy' + (d ? ' from ' + d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) : '') + '. Picks cannot be made until the live scores load.';
+        stamp(text);
+        const banner = document.getElementById('offline');
+        if (banner) { banner.textContent = text; banner.hidden = false; }
         seasonListeners.forEach((fn) => run(() => fn(null)));
         redraw();
       }

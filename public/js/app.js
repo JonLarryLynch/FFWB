@@ -380,7 +380,7 @@ function drawSeason() {
 
   block('standings-box', ['standings'], (plot, standings) => {
     if (!standings.length) return plot.replaceChildren(el('div', 'ffwb-note', 'No weeks have been scored yet.'));
-    const weeks = [...new Set(standings.flatMap((r) => Object.keys(r).filter((k) => /^w\d+$/.test(k))))].sort((a, b) => a.slice(1) - b.slice(1));
+    const weeks = [...new Set(standings.flatMap((r) => Object.keys(r).filter((k) => /^w\d+$/.test(k))))].sort((a, b) => a.slice(1) - b.slice(1)).slice(-5);
     const cols = [
       { field: 'rank', label: '#', num: true },
       { field: 'player', label: 'Player', cls: 'ffwb-strong' },
@@ -552,7 +552,7 @@ function show(name, link) {
 }
 for (const t of tabs) t.addEventListener('click', () => show(t.dataset.tab, true));
 const asked = location.hash.slice(1);
-if (tabs.some((t) => t.dataset.tab === asked) && asked !== 'season') show(asked, false);
+if (tabs.some((t) => t.dataset.tab === asked) && asked !== 'picks') show(asked, false);
 
 dash.onData(() => {
   drawSeason();

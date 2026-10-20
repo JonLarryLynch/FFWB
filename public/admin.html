@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap">
 <link rel="stylesheet" href="css/site.css">
 </head>
-<body>
+<body class="ffwb-admin">
 <div class="ffwb-shell">
 <div class="ffwb">
   <header>
@@ -75,18 +75,24 @@
       </div>
     </div>
 
-    <h2 class="ffwb-h" style="margin-top: 1.5rem">Anyone's picks</h2>
-    <p class="ffwb-note">Fix or fill in picks for any player and any week, including closed weeks. If picks break a rule you will see why, and you can choose to save them anyway.</p>
-    <div id="admin-picks" data-admin="1"></div>
-
-    <section class="ffwb-card" id="log-card" style="margin-top: 1rem">
-      <div class="adm-row" style="justify-content: space-between">
-        <h2 class="ffwb-h">Change log</h2>
-        <button class="pk-clear" type="button" id="log-refresh">Refresh</button>
+    <details class="ffwb-more adm-fold" style="margin-top: 1rem">
+      <summary>Fix anyone's picks</summary>
+      <div class="ffwb-more-body">
+        <p class="ffwb-note">Any player, any week, including closed weeks. If picks break a rule you will see why, and can save them anyway.</p>
+        <div id="admin-picks" data-admin="1"></div>
       </div>
-      <p class="ffwb-note">Every saved change to picks or results, newest first. Players do not sign in, so if someone changes another player's picks, it shows here.</p>
-      <div class="ffwb-plot ffwb-tall" id="log"></div>
-    </section>
+    </details>
+
+    <details class="ffwb-more adm-fold" id="log-card" style="margin-top: 1rem">
+      <summary>Change log</summary>
+      <div class="ffwb-more-body">
+        <div class="adm-row" style="justify-content: space-between">
+          <p class="ffwb-note">Every saved change to picks or results, newest first. If someone changes another player's picks, it shows here.</p>
+          <button class="pk-clear" type="button" id="log-refresh">Refresh</button>
+        </div>
+        <div class="ffwb-plot ffwb-tall" id="log"></div>
+      </div>
+    </details>
   </div>
 </div>
 </div>

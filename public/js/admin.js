@@ -166,7 +166,7 @@
     resGrid.replaceChildren(...season.config.clubs.map((club) => {
       const row = el('div', 'res-row');
       const name = el('div', 'res-club');
-      name.append(el('span', 'ffwb-strong', club), el('span', 'ffwb-muted res-picked', picked[club] ? ' · picked by ' + picked[club] : ''));
+      name.append(el('span', 'ffwb-strong', club), el('span', 'ffwb-muted res-picked', picked[club] ? 'picked by ' + picked[club] : ''));
       const feed = feedFor(resWeek);
       const fv = feed && feed.results ? feed.results[club] : undefined;
       const saved = (season.results[String(resWeek)] || {})[club];

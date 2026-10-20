@@ -30,13 +30,16 @@
     const state = { season: null, player: null, week: null, std: [], lock: null, dirty: false, saving: false, message: null, errors: [], canOverride: false };
 
     const who = el('div', 'pk-who');
-    const whoLabel = el('div', 'pk-label', admin ? 'Player' : "Who's picking?");
-    const whoPills = el('div', 'ffwb-pills');
-    whoPills.setAttribute('role', 'group');
-    whoPills.setAttribute('aria-label', 'Player');
-    who.append(whoLabel, whoPills);
+    const whoSelect = el('select', 'ffwb-select pk-name');
+    whoSelect.id = (admin ? 'admin' : 'player') + '-name';
+    whoSelect.setAttribute('aria-label', admin ? 'Player' : 'Your name');
+    whoSelect.addEventListener('change', () => {
+      state.player = whoSelect.value || null;
+      if (!admin && state.player) remember.set('ffwb-player', state.player);
+      loadWeek();
+      render();
+    });
 
-    const weekBar = el('div', 'pk-weekbar');
     const prev = el('button', 'pk-step', '‹');
     prev.type = 'button';
     prev.setAttribute('aria-label', 'Previous week');
@@ -47,35 +50,47 @@
     const weekName = el('span', 'pk-weekname');
     const weekChip = el('span', 'pk-chip');
     weekTitle.append(weekName, weekChip);
+    const weekBar = el('div', 'pk-weekbar');
     weekBar.append(prev, weekTitle, next);
+    who.append(whoSelect, weekBar);
 
-    const help = el('p', 'ffwb-note pk-help');
-    const status = el('div', 'pk-status');
-    status.setAttribute('aria-live', 'polite');
+    const helpRow = el('div', 'pk-helprow');
+    const help = el('span', 'pk-help');
+    const how = el('details', 'pk-how');
+    how.append(el('summary', null, 'How it works'), el('p', 'ffwb-note', 'Pick 4 clubs plus a lock each week. A win is 1 point, a draw a half, and your lock counts double. Every club needs 3 picks a half, and no club can be your lock more than 4 times a half; the numbers on each club show your picks so far this half. Win every pick in a week and you get a bonus pick the next week. You can change your picks until the week closes.'));
+    helpRow.append(help, how);
+
+    const bonus = el('div', 'pk-bonus');
     const grid = el('div', 'pk-grid');
-    const actions = el('div', 'pk-actions');
-    const save = el('button', 'pk-save', 'Save picks');
-    save.type = 'button';
-    const clear = el('button', 'pk-clear', 'Clear this week');
-    clear.type = 'button';
+    const errorsBox = el('ul', 'pk-errors');
+    errorsBox.setAttribute('aria-live', 'polite');
     const overrideWrap = el('label', 'pk-override');
     const override = el('input');
     override.type = 'checkbox';
     override.id = (admin ? 'admin' : 'player') + '-override';
     overrideWrap.append(override, el('span', null, 'Save anyway, overriding the rules'));
     overrideWrap.hidden = true;
-    actions.append(save, clear, overrideWrap);
-    const message = el('p', 'pk-message');
-    message.setAttribute('aria-live', 'polite');
 
-    const everyone = el('div', 'ffwb-card pk-everyone');
-    const everyoneTitle = el('h3', 'ffwb-h');
-    const everyoneNote = el('p', 'ffwb-note', 'Picks are visible to everyone as soon as they are saved. Each player\'s lock is last, in bold.');
+    // The save bar stays at the bottom of the screen while the picks are in view.
+    const bar = el('div', 'pk-bar');
+    const barText = el('div', 'pk-bartext');
+    const count = el('div', 'pk-count');
+    const message = el('div', 'pk-message');
+    message.setAttribute('aria-live', 'polite');
+    barText.append(count, message);
+    const clear = el('button', 'pk-clear', 'Clear');
+    clear.type = 'button';
+    const save = el('button', 'pk-save', 'Save picks');
+    save.type = 'button';
+    bar.append(barText, clear, save);
+
+    const everyone = el('details', 'ffwb-more pk-everyone');
+    const everyoneTitle = el('summary');
     const everyoneTable = el('div', 'ffwb-plot ffwb-plain');
-    everyone.append(everyoneTitle, everyoneNote, everyoneTable);
+    everyone.append(everyoneTitle, everyoneTable);
 
     const editor = el('div', 'ffwb-card pk-editor');
-    editor.append(who, weekBar, help, grid, status, actions, message);
+    editor.append(who, helpRow, bonus, grid, errorsBox, overrideWrap, bar);
     root.replaceChildren(editor, everyone);
 
     const weekPicks = () => (state.season && state.player ? state.season.picks[state.player] || {} : {});
@@ -164,7 +179,8 @@
     function renderEveryone() {
       const s = state.season;
       const res = s.results[String(state.week)] || {};
-      everyoneTitle.textContent = "Everyone's picks for week " + state.week;
+      const made = s.config.players.filter((p) => (s.picks[p.id] || {})[String(state.week)]).length;
+      everyoneTitle.textContent = "See everyone's picks for week " + state.week + ' (' + made + ' of ' + s.config.players.length + ' in)';
       const t = el('table', 'ffwb-table pk-table');
       const hr = el('tr');
       for (const h of ['Player', 'Picks, lock last', 'Pts']) hr.append(el('th', h === 'Pts' ? 'ffwb-num' : null, h));
@@ -200,42 +216,40 @@
         everyone.hidden = true;
         return;
       }
-      // Player pills.
-      whoPills.replaceChildren(...s.config.players.map((p) => {
-        const b = el('button', 'ffwb-pill', p.name);
-        b.type = 'button';
-        b.setAttribute('aria-pressed', String(p.id === state.player));
-        b.addEventListener('click', () => {
-          state.player = p.id;
-          if (!admin) remember.set('ffwb-player', p.id);
-          loadWeek();
-          render();
-        });
-        return b;
-      }));
+      everyone.hidden = false;
+      // Name dropdown.
+      if (whoSelect.dataset.players !== s.config.players.map((p) => p.id).join('|')) {
+        whoSelect.replaceChildren(new Option(admin ? 'Choose a player' : 'Choose your name', ''), ...s.config.players.map((p) => new Option(p.name, p.id)));
+        whoSelect.dataset.players = s.config.players.map((p) => p.id).join('|');
+      }
+      whoSelect.value = state.player || '';
 
       const st = statusNow();
       weekName.textContent = 'Week ' + state.week;
-      weekChip.textContent = st.label + (R.halfOf(state.week) === 1 ? ' · first half' : ' · second half');
+      weekChip.textContent = st.label;
       weekChip.className = 'pk-chip ' + (st.open ? 'pk-chip-open' : 'pk-chip-closed');
       prev.disabled = state.week <= 1;
       next.disabled = state.week >= R.WEEKS;
 
       const showEditor = !!state.player;
-      for (const node of [help, grid, status, actions]) node.hidden = !showEditor;
-      if (!showEditor) {
-        message.textContent = admin ? 'Choose a player to edit their picks.' : 'Tap your name to start.';
-        message.className = 'pk-message';
-        renderEveryone();
-        everyone.hidden = false;
-        return;
-      }
+      for (const node of [grid, bar]) node.hidden = !showEditor;
+      const canEdit = showEditor && editable();
+      help.textContent = !showEditor ? (admin ? 'Choose a player to edit their picks.' : 'Choose your name to make your picks.')
+        : canEdit ? 'Tap once to pick, twice for your lock, three times to remove.'
+          : 'This week is closed.' + (admin ? '' : ' Ask the commissioner if something needs fixing.');
+      bonus.hidden = true;
+      errorsBox.replaceChildren();
+      errorsBox.hidden = true;
+      overrideWrap.hidden = true;
+      if (!showEditor) { renderEveryone(); return; }
 
-      const canEdit = editable();
       const max = allowed();
-      help.textContent = canEdit
-        ? 'Tap a club once to pick it, tap it again to make it your lock, and a third time to take it off. Numbers show how often you have picked each club this half; every club needs 3 picks a half and no club can be your lock more than 4 times.'
-        : 'This week is closed, so its picks are shown as they stand.' + (admin ? '' : ' Ask the commissioner if something needs fixing.');
+      if (max > R.STANDARD_PICKS) {
+        const prevPicks = weekPicks()[String(state.week - 1)];
+        const extra = max - R.STANDARD_PICKS;
+        bonus.textContent = 'Perfect week ' + (state.week - 1) + '! You get ' + (extra === 1 ? 'a bonus pick' : extra + ' bonus picks') + ': up to ' + max + ' clubs plus your lock.' + (prevPicks && prevPicks.standard.length > R.STANDARD_PICKS ? ' It stacked from last week.' : '');
+        bonus.hidden = false;
+      }
 
       // Club tiles.
       const res = s.results[String(state.week)] || {};
@@ -251,13 +265,12 @@
         tile.disabled = !canEdit;
         tile.setAttribute('aria-pressed', String(isLock || isPick));
         tile.append(el('span', 'pk-tile-name', club));
-        const meta = el('span', 'pk-tile-meta', 'Picked ' + used + ' · locked ' + locks);
-        tile.append(meta);
+        const short = used < R.MIN_PER_HALF;
+        tile.append(el('span', 'pk-tile-meta' + (short ? ' pk-tile-short' : ''), (short ? used + ' of 3' : used + ' picked') + (locks ? ' · ' + locks + ' lock' + (locks === 1 ? '' : 's') : '')));
         const r = res[club];
         if (r !== undefined) tile.append(el('span', 'pk-tile-badge pk-' + resultCode(r), resultWord(r)));
         else if (isLock) tile.append(el('span', 'pk-tile-badge pk-badge-lock', 'Lock'));
-        else if (isPick) tile.append(el('span', 'pk-tile-badge pk-badge-pick', 'Picked'));
-        else if (used < R.MIN_PER_HALF) tile.append(el('span', 'pk-tile-badge pk-badge-need', 'Needs ' + (R.MIN_PER_HALF - used)));
+        else if (isPick) tile.append(el('span', 'pk-tile-badge pk-badge-pick', 'Pick'));
         tile.setAttribute('aria-label', club + (isLock ? ', your lock' : isPick ? ', picked' : '') + '. Picked ' + used + ' times and locked ' + locks + ' times this half.');
         tile.addEventListener('click', () => tap(club));
         return tile;
@@ -266,46 +279,35 @@
       // Rule check as they go.
       const chosen = state.std.length + (state.lock ? 1 : 0);
       const verdict = chosen ? R.check({ clubs: s.config.clubs, weekPicks: weekPicks(), week: state.week, standard: state.std, lock: state.lock, openWeeks: s.openWeeks, results: s.results }) : null;
-      status.replaceChildren();
-      const count = el('div', 'pk-count');
-      if (max > R.STANDARD_PICKS) {
-        const prevPicks = weekPicks()[String(state.week - 1)];
-        status.append(el('div', 'pk-bonus', 'Perfect week ' + (state.week - 1) + '! You get ' + (max - R.STANDARD_PICKS === 1 ? 'a bonus pick' : (max - R.STANDARD_PICKS) + ' bonus picks') + ' this week: up to ' + max + ' clubs plus your lock. Using ' + (max - R.STANDARD_PICKS === 1 ? 'it' : 'them') + ' is optional.' + (prevPicks && prevPicks.standard.length > R.STANDARD_PICKS ? ' Your bonus stacked, because last week was a perfect bonus week too.' : '')));
-      }
-      count.append(el('span', 'ffwb-strong', state.std.length + ' of ' + max + ' picks'), el('span', null, ' · '), el('span', 'ffwb-strong', state.lock ? 'Lock: ' + state.lock : 'No lock yet'));
-      status.append(count);
       const complete = state.std.length >= R.STANDARD_PICKS && !!state.lock;
+      count.textContent = state.std.length + ' of ' + max + ' picks' + (state.lock ? ' + lock' : ', no lock yet');
+      count.className = 'pk-count' + (complete && verdict && verdict.ok ? ' pk-count-ok' : '');
       const problems = state.errors.length ? state.errors : verdict && !verdict.ok && complete ? verdict.errors : [];
-      if (problems.length) {
-        const ul = el('ul', 'pk-errors');
-        for (const e of problems) ul.append(el('li', null, e));
-        status.append(ul);
-      } else if (verdict && verdict.ok) {
-        status.append(el('div', 'pk-good', 'These picks follow the rules. After this week you would still owe ' + verdict.owed + ' required picks this half.'));
-      }
+      for (const e of problems) errorsBox.append(el('li', null, e));
+      errorsBox.hidden = !problems.length;
 
       const saved = weekPicks()[String(state.week)];
       save.disabled = !canEdit || state.saving || !complete || (!state.dirty && !!saved) || (!!verdict && !verdict.ok && !(admin && override.checked));
-      save.textContent = saved ? 'Save changes' : 'Save picks';
+      save.textContent = saved && state.dirty ? 'Save changes' : saved ? 'Saved' : 'Save picks';
       clear.hidden = !canEdit || !saved;
       clear.disabled = state.saving;
       overrideWrap.hidden = !(admin && ((verdict && !verdict.ok) || state.canOverride));
+      bar.hidden = !canEdit && !saved;
 
       if (state.message) {
         message.textContent = state.message.text;
         message.className = 'pk-message pk-message-' + state.message.kind;
       } else if (state.dirty) {
-        message.textContent = 'Not saved yet.';
+        message.textContent = complete && verdict && verdict.ok ? 'Ready to save.' : 'Not saved yet.';
         message.className = 'pk-message pk-message-warn';
       } else if (saved) {
         message.textContent = 'Saved ' + new Date(saved.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + (saved.by ? ' by ' + saved.by : '') + '.';
         message.className = 'pk-message';
       } else {
-        message.textContent = canEdit ? 'No picks saved for this week yet.' : 'No picks were made this week.';
+        message.textContent = canEdit ? 'Nothing saved for this week yet.' : 'No picks were made this week.';
         message.className = 'pk-message';
       }
       renderEveryone();
-      everyone.hidden = false;
     }
 
     override.addEventListener('change', render);
