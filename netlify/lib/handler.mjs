@@ -1,4 +1,4 @@
-// The Football FWB league API. Storage is passed in, so the same code runs on Netlify and in tests.
+// The FFWB league API. Storage is passed in, so the same code runs on Netlify and in tests.
 //
 // Store layout:
 //   config          { season, players: [{ id, name }], clubs: [...], currentWeek, lockedWeeks: [...],
@@ -203,7 +203,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           return json(200, { ok: true, count: Object.keys(subs).length, who });
         }
         const msg = String(body.body).slice(0, 240);
-        const r = await push.send(store, { title: body.title ? String(body.title).slice(0, 60) : 'Football FWB', body: msg }, { sender: extras.pushSender });
+        const r = await push.send(store, { title: body.title ? String(body.title).slice(0, 60) : 'FFWB', body: msg }, { sender: extras.pushSender });
         return json(200, { ok: true, ...r });
       }
 

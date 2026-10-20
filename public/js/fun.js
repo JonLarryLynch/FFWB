@@ -1,5 +1,5 @@
 (function () {
-// Football FWB: the race chart, the awards and the record book.
+// FFWB: the race chart, the awards and the record book.
 
 // ---------- Calculations: this season ----------
 dash.calc('race', {

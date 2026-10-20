@@ -1,6 +1,6 @@
-# Football FWB
+# FFWB
 
-The Football FWB pick'em league site, live at https://timmytyrantfootball.netlify.app.
+The FFWB pick'em league site, live at https://timmytyrantfootball.netlify.app.
 
 - `public/` is the website: make picks, this season's table and race, awards, player cards, all-time records and past seasons. `admin.html` is the commissioner page.
 - `netlify/functions/api.mjs` is the league API at `/api/*`. It keeps picks and results in Netlify Blobs (the `ffwb-league` store). The code lives in `netlify/lib/handler.mjs`.

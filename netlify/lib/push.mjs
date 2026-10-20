@@ -51,7 +51,7 @@ export async function send(store, message, { players = null, sender = webpush } 
   const keys = await vapidKeys(store);
   const all = await subscriptions(store);
   const targets = Object.entries(all).filter(([, s]) => !players || players.includes(s.player));
-  const payload = JSON.stringify({ title: message.title || 'Football FWB', body: message.body, url: message.url || '/', tag: message.tag });
+  const payload = JSON.stringify({ title: message.title || 'FFWB', body: message.body, url: message.url || '/', tag: message.tag });
   const dead = [];
   let sent = 0;
   await Promise.all(targets.map(async ([id, s]) => {

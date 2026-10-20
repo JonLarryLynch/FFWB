@@ -1,4 +1,4 @@
-// Football FWB page layout: the History switch, foldable sections, info buttons and old links.
+// FFWB page layout: the History switch, foldable sections, info buttons and old links.
 (function () {
   const redraw = () => window.dispatchEvent(new Event('resize'));
 
@@ -50,8 +50,8 @@
     tip.className = 'ffwb-hometip';
     const text = document.createElement('span');
     text.textContent = ios
-      ? 'Add FWB to your home screen: tap Share, then Add to Home Screen.'
-      : 'Add FWB to your home screen: open the browser menu, then Add to Home screen.';
+      ? 'Add FFWB to your home screen: tap Share, then Add to Home Screen.'
+      : 'Add FFWB to your home screen: open the browser menu, then Add to Home screen.';
     const close = document.createElement('button');
     close.type = 'button';
     close.textContent = 'Got it';

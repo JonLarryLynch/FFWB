@@ -1,4 +1,4 @@
-// Football FWB commissioner page: results, weeks, anyone's picks, the change log and backups.
+// FFWB commissioner page: results, weeks, anyone's picks, the change log and backups.
 (function () {
   const R = window.FFWBRules;
   const { PicksEditor, resultCode, kickedOff, whenLong } = window.FFWBPicks;
@@ -438,7 +438,7 @@
     const before = tableThrough(w - 1);
     const was = Object.fromEntries(before.map((r) => [r.id, r.pos]));
     const moves = w > 1 ? now.map((r) => ({ name: r.name, up: was[r.id] - r.pos, pos: r.pos })).sort((a, b) => b.up - a.up) : [];
-    const lines = ['FWB week ' + w + ' recap'];
+    const lines = ['FFWB week ' + w + ' recap'];
     lines.push(best.length > 3 ? 'Top score: ' + pts(top) + ', hit by ' + best.length + ' players.' : 'Top score: ' + listNames(best) + ' with ' + pts(top) + '.');
     lines.push(perfect.length ? 'Perfect week' + (perfect.length > 1 ? 's' : '') + ': ' + listNames(perfect) + '. Bonus pick' + (perfect.length > 1 ? 's' : '') + ' in week ' + (w + 1) + '.' : 'No perfect weeks.');
     if (zero.length) lines.push('Zero points: ' + listNames(zero) + '.');

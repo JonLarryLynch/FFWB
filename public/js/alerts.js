@@ -27,7 +27,7 @@
     const text = el('p', 'ffwb-note al-text');
     const parts = [title, text];
     if (!supported) {
-      if (ios && !standalone) text.textContent = 'On iPhone, add FWB to your home screen first (Share, then Add to Home Screen), then open it from there to turn on alerts.';
+      if (ios && !standalone) text.textContent = 'On iPhone, add FFWB to your home screen first (Share, then Add to Home Screen), then open it from there to turn on alerts.';
       else { box.hidden = true; return; }
     } else if (Notification.permission === 'denied') {
       text.textContent = 'Alerts are blocked for this site. Turn them back on in your phone or browser settings.';

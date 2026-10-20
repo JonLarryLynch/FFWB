@@ -1,5 +1,5 @@
 (function () {
-// Football FWB: the Herd, title odds, the weekly report, player cards, black weekends and the archive.
+// FFWB: the Herd, title odds, the weekly report, player cards, black weekends and the archive.
 
 // ---------- Calculations: this season ----------
 dash.calc('herd_bot', {

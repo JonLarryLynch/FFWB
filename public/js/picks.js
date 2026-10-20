@@ -1,4 +1,4 @@
-// Football FWB picks editor: choose a player and a week, then 4 clubs and a lock.
+// FFWB picks editor: choose a player and a week, then 4 clubs and a lock.
 // Used on the main page for players, and on the commissioner page with overrides allowed.
 (function () {
   const R = window.FFWBRules;

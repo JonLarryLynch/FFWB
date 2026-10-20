@@ -1,5 +1,5 @@
 (function () {
-// Football FWB dashboard. Data first (loaders, calculations), then drawing.
+// FFWB dashboard. Data first (loaders, calculations), then drawing.
 
 // ---------- Loaders: the sheet's grids as rows ----------
 dash.loader('picks_2026', {

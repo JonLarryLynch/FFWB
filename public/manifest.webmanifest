@@ -1,7 +1,7 @@
 {
-  "name": "Football FWB League",
-  "short_name": "FWB",
-  "description": "Make your picks and follow the Football FWB table.",
+  "name": "FFWB",
+  "short_name": "FFWB",
+  "description": "Make your picks and follow the FFWB table.",
   "start_url": "/?source=home",
   "scope": "/",
   "display": "standalone",

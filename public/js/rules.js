@@ -1,4 +1,4 @@
-// Football FWB league rules, shared by the website and the server so both check picks the same way.
+// FFWB league rules, shared by the website and the server so both check picks the same way.
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;

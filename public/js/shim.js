@@ -1,4 +1,4 @@
-// Football FWB data layer. The page's charts read data through a small "dash" interface.
+// FFWB data layer. The page's charts read data through a small "dash" interface.
 // This season comes live from the league API (/api/season); history is the saved files in data/.
 // If the API cannot be reached, the page falls back to the saved copy in data/season.js.
 (function () {
@@ -209,7 +209,7 @@
       }
       return { status: loading ? 'loading' : 'missing', data: [] };
     } catch (err) {
-      console.error('Football FWB: could not work out "' + id + '"', err);
+      console.error('FFWB: could not work out "' + id + '"', err);
       return { status: 'error', data: [], message: String(err) };
     }
   }
@@ -262,7 +262,7 @@
         const known = (csv.honours || '').split('\n').some((l) => l.startsWith(season.config.season + ','));
         extra = w.history && !known ? w.history : {};
         drawCrowns(w.crowns);
-      } catch (err) { console.error('Football FWB: could not work out the season winners', err); extra = {}; }
+      } catch (err) { console.error('FFWB: could not work out the season winners', err); extra = {}; }
       loading = false;
       const t = new Date(season.serverTime);
       stamp('Live scores, updated ' + t.toLocaleString('en-US', { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '.');
