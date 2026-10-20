@@ -486,3 +486,9 @@
 .ffwb-shelf-more { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-left: 0.3rem; }
 .ffwb { --ffwb-heat: var(--brand-gold); }
 .pk-bonus { background: color-mix(in srgb, var(--brand-gold) 22%, var(--color-panel)); border-color: var(--brand-gold); }
+
+/* Phone alerts card. */
+.al-card { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.9rem; padding: 0.8rem 1rem; }
+.al-title { font-family: var(--font-anthropic-serif); font-weight: 500; letter-spacing: 0.03em; }
+.al-text { flex: 1 1 16rem; margin: 0; }
+.al-card .pk-message { flex-basis: 100%; margin: 0; }

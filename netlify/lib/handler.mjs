@@ -8,11 +8,13 @@
 //   auto/results    results fetched from football-data.org, as suggestions for the commissioner
 //   fixtures        { checkedAt, weeks: { "8": { kickoff, games: { club: { vs, home, at, off } } } } }
 //   backups/<date>  a full copy of the league, saved by the Tuesday job
+//   push/*          phone notification keys, subscriptions and which reminders have gone out
 import crypto from 'node:crypto';
 import rules from '../../public/js/rules.js';
 import seed from './seed.mjs';
 import { runFetch, fetchTeams, fetchFixtures } from './autoresults.mjs';
 import { saveBackup, listBackups } from './backup.mjs';
+import * as push from './push.mjs';
 
 const HISTORY_KEEP = 150;
 const RESULT_VALUES = new Set([1, 0.5, 0, 'P']);
@@ -173,6 +175,38 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         return json(200, { ok: true, weeks: doc.weeks });
       }
 
+      if (route === 'push/key' && req.method === 'GET') {
+        return json(200, { ok: true, publicKey: (await push.vapidKeys(store)).publicKey });
+      }
+
+      if (route === 'push/subscribe' && req.method === 'POST') {
+        if (!push.validSubscription(body.subscription)) return fail(400, 'That phone did not send a usable subscription.');
+        const { config } = await loadAll(store);
+        const player = config.players.some((p) => p.id === body.player) ? body.player : null;
+        await push.subscribe(store, body.subscription, player);
+        return json(200, { ok: true });
+      }
+
+      if (route === 'push/unsubscribe' && req.method === 'POST') {
+        if (body.endpoint) await push.unsubscribe(store, String(body.endpoint));
+        return json(200, { ok: true });
+      }
+
+      if (route === 'admin/push' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        const subs = await push.subscriptions(store);
+        if (!body.body) {
+          const { config } = await loadAll(store);
+          const names = Object.fromEntries(config.players.map((p) => [p.id, p.name]));
+          const who = [...new Set(Object.values(subs).map((s) => names[s.player] || 'someone who has not chosen a name'))];
+          return json(200, { ok: true, count: Object.keys(subs).length, who });
+        }
+        const msg = String(body.body).slice(0, 240);
+        const r = await push.send(store, { title: body.title ? String(body.title).slice(0, 60) : 'Football FWB', body: msg }, { sender: extras.pushSender });
+        return json(200, { ok: true, ...r });
+      }
+
       if (route === 'admin/check' && req.method === 'POST') {
         const denied = needAdmin();
         return denied || json(200, { ok: true });
@@ -208,10 +242,13 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           d.history = [{ at: new Date().toISOString(), week, by: 'Commissioner', from: before, to: Object.keys(clean).length ? clean : null }, ...(d.history || [])].slice(0, HISTORY_KEEP);
           return d;
         }, () => ({ weeks: {}, history: [] }));
-        // Once every club has a result for the current week, open the next one.
+        // Once every club has a result for the current week, open the next one and tell everyone.
         let cfg = config;
         if (week === config.currentWeek && Object.keys(clean).length === config.clubs.length && week < rules.WEEKS) {
           cfg = await update(store, 'config', (c) => { if (c.currentWeek === week) c.currentWeek = week + 1; return c; }, () => config);
+          try {
+            await push.once(store, 'open-' + config.season + '-' + (week + 1), () => push.send(store, { title: 'Week ' + (week + 1) + ' is open', body: 'Week ' + week + ' results are in. Make your week ' + (week + 1) + ' picks.', tag: 'open' }, { sender: extras.pushSender }));
+          } catch (err) { console.error('Could not send the week open notice: ' + err.message); }
         }
         return json(200, { ok: true, results: doc.weeks, eflResults: doc.efl || {}, config: cfg });
       }

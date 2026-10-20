@@ -48,6 +48,7 @@
       loadLog();
       loadSuggested();
       loadBackups();
+      loadPush();
     } else {
       showGate(out.error || 'That passcode is not right.');
     }
@@ -468,6 +469,22 @@
     catch (err) { box.select(); document.execCommand('copy'); }
     say(chatMsg, 'ok', what + ' copied. Paste it in the group chat.');
   }
+  async function loadPush() {
+    const out = await adminPost('push', {});
+    if (!out.ok) return;
+    const who = document.getElementById('push-who');
+    who.textContent = (out.count ? out.count + ' phone' + (out.count === 1 ? ' has' : 's have') + ' alerts on (' + listNames(out.who) + '). ' : 'Nobody has turned alerts on yet. ')
+      + 'Players turn them on from the Picks tab. The site sends one when a week opens, and reminds anyone who has not picked about a day and three hours before kickoff.';
+  }
+  document.getElementById('push-send').addEventListener('click', async () => {
+    const box = document.getElementById('push-text');
+    const text = box.value.trim();
+    if (!text) { say(chatMsg, 'warn', 'Type a message first.'); return; }
+    say(chatMsg, 'info', 'Sending...');
+    const out = await adminPost('push', { body: text });
+    if (out.ok) { say(chatMsg, 'ok', 'Sent to ' + out.sent + ' phone' + (out.sent === 1 ? '' : 's') + '.'); box.value = ''; loadPush(); }
+    else say(chatMsg, 'bad', out.error);
+  });
   document.getElementById('nudge-copy').addEventListener('click', () => copy('nudge-text', 'Reminder'));
   document.getElementById('recap-copy').addEventListener('click', () => copy('recap-text', 'Recap'));
 
