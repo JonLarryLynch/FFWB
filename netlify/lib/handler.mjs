@@ -52,6 +52,9 @@ const openWeeks = (config, results, fixtures) => {
   return out;
 };
 const FIXTURES_STALE_MS = 12 * 60 * 60 * 1000;
+// The Shame Club as it stood in the group chat (Dec 2025). New members are also found automatically
+// from picks and fixtures; this list is for the ones before that, and the commissioner can edit it.
+const SHAME_CLUB = [{ name: 'Paul' }, { name: 'Greg', note: 'Platinum Member' }, { name: 'Ben' }, { name: 'Alex' }, { name: 'Shep' }, { name: 'Diddler' }];
 
 export function createHandler(getStore, getPasscode, extras = {}) {
   // Fill an empty store from the sheet snapshot. onlyIfNew means a second, overlapping run changes nothing.
@@ -111,7 +114,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
 
   const publicView = ({ config, results, picks, fixtures }) => ({
     ok: true,
-    config: { eflWeeks: [], eflClubs: [], reopenedWeeks: [], autoClose: false, ...config },
+    config: { eflWeeks: [], eflClubs: [], reopenedWeeks: [], autoClose: false, shameClub: SHAME_CLUB, ...config },
     openWeeks: openWeeks(config, results, fixtures),
     fixtures: fixtures ? fixtures.weeks : {},
     fixturesCheckedAt: fixtures ? fixtures.checkedAt : null,
@@ -264,6 +267,10 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           }
           if (Array.isArray(body.lockedWeeks)) c.lockedWeeks = [...new Set(body.lockedWeeks.map(Number).filter((w) => w >= 1 && w <= rules.WEEKS))].sort((a, b) => a - b);
           if (typeof body.autoClose === 'boolean') c.autoClose = body.autoClose;
+          if (Array.isArray(body.shameClub)) {
+            c.shameClub = body.shameClub.slice(0, 60).map((m) => ({ name: String((m && m.name) || '').trim().slice(0, 40), note: m && m.note ? String(m.note).trim().slice(0, 60) : undefined }))
+              .filter((m) => m.name).map((m) => (m.note ? m : { name: m.name }));
+          }
           if (Array.isArray(body.reopenedWeeks)) c.reopenedWeeks = [...new Set(body.reopenedWeeks.map(Number).filter((w) => w >= 1 && w <= rules.WEEKS))].sort((a, b) => a - b);
           if (Array.isArray(body.eflWeeks)) c.eflWeeks = [...new Set(body.eflWeeks.map(Number).filter((w) => w >= 1 && w <= rules.WEEKS))].sort((a, b) => a - b);
           if (Array.isArray(body.eflClubs)) c.eflClubs = [...new Set(body.eflClubs.map((x) => String(x).trim().slice(0, 60)).filter(Boolean))].sort((a, b) => a.localeCompare(b));

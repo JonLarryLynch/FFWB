@@ -87,6 +87,9 @@
       state.message = null;
       render();
     });
+    const shameNote = el('div', 'pk-shame');
+    shameNote.setAttribute('aria-live', 'polite');
+    shameNote.hidden = true;
     const errorsBox = el('ul', 'pk-errors');
     errorsBox.setAttribute('aria-live', 'polite');
     const overrideWrap = el('label', 'pk-override');
@@ -115,7 +118,7 @@
     everyone.append(everyoneTitle, everyoneTable);
 
     const editor = el('div', 'ffwb-card pk-editor');
-    editor.append(who, helpRow, bonus, grid, eflRow, errorsBox, overrideWrap, bar);
+    editor.append(who, helpRow, bonus, grid, eflRow, shameNote, errorsBox, overrideWrap, bar);
     root.replaceChildren(editor, everyone);
 
     const weekPicks = () => (state.season && state.player ? state.season.picks[state.player] || {} : {});
@@ -328,6 +331,14 @@
         const er = state.efl ? ((s.eflResults || {})[String(state.week)] || {})[state.efl] : undefined;
         eflResult.textContent = er !== undefined ? resultWord(er) : list.length ? 'Optional. A Championship club, worth 1 for a win and a half for a draw, never doubled.' : 'The commissioner has not loaded the Championship clubs yet.';
         eflResult.className = 'pk-efl-result' + (er !== undefined ? ' pk-efl-done pk-' + resultCode(er) : ' ffwb-note');
+      }
+
+      // Both teams from the same match: legal, but it earns Shame Club membership.
+      const clash = window.FFWBShame ? window.FFWBShame.pairsIn(s, state.week, [...state.std, ...(state.lock ? [state.lock] : [])]) : [];
+      shameNote.hidden = !clash.length || !canEdit;
+      if (clash.length) {
+        const games = clash.map(([h, a]) => h + ' and ' + a).join(', and ');
+        shameNote.textContent = games + ' play each other this week. Save this and you are joining the Shame Club.';
       }
 
       // Rule check as they go.

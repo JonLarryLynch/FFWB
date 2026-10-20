@@ -492,3 +492,16 @@
 .al-title { font-family: var(--font-anthropic-serif); font-weight: 500; letter-spacing: 0.03em; }
 .al-text { flex: 1 1 16rem; margin: 0; }
 .al-card .pk-message { flex-basis: 100%; margin: 0; }
+
+/* The Shame Club. */
+.sh-card { border-color: color-mix(in srgb, var(--brand-claret) 60%, var(--color-border-line)); }
+.sh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); gap: 0.6rem; }
+.sh-member { padding: 0.6rem 0.8rem; border-radius: var(--cds-radius); background: color-mix(in srgb, var(--brand-claret) 9%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--brand-claret) 30%, transparent); }
+.sh-platinum { background: linear-gradient(135deg, color-mix(in srgb, #c9ccd6 45%, var(--color-panel)), color-mix(in srgb, #eef0f5 30%, var(--color-panel))); border-color: #9aa0b0; }
+.sh-name { font-family: var(--font-anthropic-serif); font-weight: 600; font-size: 1.25rem; letter-spacing: 0.02em; }
+.sh-note { font-family: var(--font-anthropic-serif); font-size: 0.75rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brand-claret); }
+.sh-platinum .sh-note { color: #4d5466; }
+.sh-what { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-top: 0.2rem; }
+.sh-badge { display: inline-block; margin-left: 0.5rem; padding: 0.05rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: var(--brand-claret); color: var(--brand-cream); vertical-align: middle; }
+.pk-shame { margin-top: 0.7rem; padding: 0.55rem 0.75rem; border-radius: var(--cds-radius); border: 1px solid var(--brand-claret); background: color-mix(in srgb, var(--brand-claret) 10%, var(--color-panel)); font-weight: 600; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sh-platinum { background: color-mix(in srgb, #c9ccd6 18%, var(--color-panel)); } :root:not([data-theme="light"]) .sh-platinum .sh-note, :root:not([data-theme="light"]) .sh-note { color: #e8808c; } :root:not([data-theme="light"]) .sh-platinum .sh-note { color: #d4d7e0; } }

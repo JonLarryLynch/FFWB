@@ -208,4 +208,15 @@ await t('EFL picks only count on weeks the commissioner switches on', async () =
   assert.equal(season.picks.jon['8'].efl, 'Leicester');
 });
 
+await t('the Shame Club starts with the founders and the commissioner can edit it', async () => {
+  const fresh = memoryStore();
+  const h = createHandler(() => fresh, 'p');
+  const s = await (await h(new Request('https://x.test/api/season'))).json();
+  assert.equal(s.config.shameClub.length, 6);
+  assert.deepEqual(s.config.shameClub[1], { name: 'Greg', note: 'Platinum Member' });
+  const r = await h(new Request('https://x.test/api/admin/config', { method: 'POST', body: JSON.stringify({ passcode: 'p', shameClub: [{ name: 'Paul' }, { name: ' ' }, { name: 'Greg', note: 'Platinum Member' }] }) }));
+  const out = await r.json();
+  assert.deepEqual(out.config.shameClub, [{ name: 'Paul' }, { name: 'Greg', note: 'Platinum Member' }]);
+});
+
 console.log(passed + ' tests passed');

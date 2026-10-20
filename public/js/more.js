@@ -392,6 +392,8 @@ function drawPlayers() {
     const sub = el('div', 'ffwb-pc-sub');
     if (c.club) sub.append(el('span', null, 'Flies the flag for '), cite(el('span', 'ffwb-strong', c.club), 'club'));
     else sub.append(el('span', null, 'No club beside the name'));
+    const shame = window.FFWBShame && window.FFWBShame.of(c.player);
+    if (shame) sub.append(el('span', 'sh-badge', 'Shame Club' + (shame.note ? ': ' + shame.note : '')));
     head.append(sub);
     const grid = el('div', 'ffwb-pc-grid');
     for (const [field, label] of cardStats) {

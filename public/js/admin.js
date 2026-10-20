@@ -447,6 +447,8 @@
       lines.push('Biggest climb: ' + listNames(climbers.map((m) => m.name)) + ', up ' + moves[0].up + (climbers.length === 1 ? ' to ' + ordinal(climbers[0].pos) : '') + '.');
     }
     lines.push('Top 3: ' + now.slice(0, 3).map((r) => r.pos + '. ' + r.name + ' ' + pts(r.points)).join(', '));
+    const shamed = window.FFWBShame ? window.FFWBShame.offences(season).filter((o) => o.week === w) : [];
+    for (const o of shamed) lines.push('Welcome to the Shame Club: ' + o.player + ' (' + o.home + ' v ' + o.away + ').');
     if (Object.values(res).includes('P')) lines.push('A postponed game still to come, so scores can change.');
     lines.push(siteUrl);
     return { title: 'Week ' + w + ' recap', text: lines.join('\n') };
@@ -487,6 +489,23 @@
   });
   document.getElementById('nudge-copy').addEventListener('click', () => copy('nudge-text', 'Reminder'));
   document.getElementById('recap-copy').addEventListener('click', () => copy('recap-text', 'Recap'));
+
+  // ---------- Shame Club ----------
+  const shameList = document.getElementById('shame-list');
+  function renderShame() {
+    if (!season || document.activeElement === shameList) return;
+    shameList.value = (season.config.shameClub || []).map((m) => m.name + (m.note ? ' (' + m.note + ')' : '')).join('\n');
+  }
+  document.getElementById('shame-save').addEventListener('click', async () => {
+    const list = shameList.value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+      const m = l.match(/^(.*?)\s*\((.*)\)\s*$/);
+      return m ? { name: m[1].trim(), note: m[2].trim() } : { name: l };
+    });
+    const out = await adminPost('config', { shameClub: list });
+    const msg = document.getElementById('shame-message');
+    if (out.ok) { say(msg, 'ok', 'Saved ' + out.config.shameClub.length + ' members.'); window.FFWB.reload(); }
+    else say(msg, 'bad', out.error);
+  });
 
   // ---------- Backup ----------
   const download = (data, name) => {
@@ -535,6 +554,7 @@
     if (!resDirty) { if (resWeek !== null) loadResults(); }
     renderWeeks();
     renderEfl();
+    renderShame();
     renderResults();
     picksEditor.setSeason(s);
   });
