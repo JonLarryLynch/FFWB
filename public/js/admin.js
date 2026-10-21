@@ -337,6 +337,38 @@
     } else say(resMsg, 'bad', out.error);
     renderResults();
   });
+  // Accept the feed: save every feed result for clubs without one, and say what still needs a look.
+  document.getElementById('res-accept').addEventListener('click', async () => {
+    const feed = feedFor(resWeek);
+    if (!feed || !feed.results || !Object.keys(feed.results).length) { resMsg.dataset.keep = '1'; say(resMsg, 'warn', 'Nothing from the feed for week ' + resWeek + ' yet. Try Check for results now.'); return; }
+    const saved = season.results[String(resWeek)] || {};
+    const codes = { 1: 'W', 0.5: 'D', 0: 'L', P: 'P' };
+    let added = 0;
+    for (const [club, v] of Object.entries(feed.results)) {
+      if (!season.config.clubs.includes(club)) continue;
+      if (saved[club] === undefined && draft[club] !== v) { draft[club] = v; added += 1; }
+      else if (saved[club] === undefined) added += 1;
+    }
+    const efl = feed.efl && feed.efl.results ? feed.efl.results : {};
+    for (const club of Object.keys(eflPicked())) if (eflDraft[club] === undefined && efl[club] !== undefined) eflDraft[club] = efl[club];
+    const differ = season.config.clubs.filter((c) => saved[c] !== undefined && feed.results[c] !== undefined && saved[c] !== feed.results[c]);
+    const missing = season.config.clubs.filter((c) => draft[c] === undefined);
+    const body = { week: resWeek, results: draft };
+    if (isEflWeek() || Object.keys(eflDraft).length) body.efl = eflDraft;
+    const out = await adminPost('results', body);
+    resMsg.dataset.keep = '1';
+    if (!out.ok) { say(resMsg, 'bad', out.error); return; }
+    resDirty = false;
+    const parts = ['Saved ' + added + ' result' + (added === 1 ? '' : 's') + ' from the feed.'];
+    if (differ.length) parts.push('Check: ' + differ.map((c) => c + ' (you have ' + codes[saved[c]] + ', feed says ' + codes[feed.results[c]] + ')').join(', ') + '.');
+    if (missing.length) parts.push('Still to come: ' + listNames(missing) + '.');
+    if (out.config && out.config.currentWeek !== season.config.currentWeek) parts.push('Week ' + out.config.currentWeek + ' is now open for picks.');
+    say(resMsg, differ.length || missing.length ? 'warn' : 'ok', parts.join(' '));
+    cw = null;
+    window.FFWB.reload();
+    loadLog();
+  });
+
   document.getElementById('res-save').addEventListener('click', async () => {
     say(resMsg, 'info', 'Saving...');
     const body = { week: resWeek, results: draft };
@@ -365,7 +397,7 @@
     if (!out.entries.length) { logBox.replaceChildren(el('p', 'ffwb-note', 'No changes yet.')); return; }
     const t = el('table', 'ffwb-table');
     const hr = el('tr');
-    for (const h of ['When', 'What', 'Week', 'By', 'Changed to']) hr.append(el('th', null, h));
+    for (const h of ['When', 'What', 'Week', 'By', 'Changed to', '']) hr.append(el('th', null, h));
     const thead = el('thead');
     thead.append(hr);
     const tbody = el('tbody');
@@ -378,6 +410,25 @@
         el('td', null, e.by),
         el('td', 'ffwb-wrap', describe(e.to) + (e.from ? ' (was ' + describe(e.from) + ')' : '')),
       );
+      // Undo: put back what it was before this change.
+      const undoTd = el('td');
+      const undo = el('button', 'pk-clear adm-small', 'Undo');
+      undo.type = 'button';
+      undo.title = 'Put back ' + describe(e.from);
+      undo.addEventListener('click', async () => {
+        const what = e.kind === 'results' ? 'week ' + e.week + ' results' : e.player + "'s week " + e.week + ' picks';
+        if (!confirm('Put ' + what + ' back to ' + describe(e.from) + '?')) return;
+        let out;
+        if (e.kind === 'results') out = await adminPost('results', { week: e.week, results: e.from || {} });
+        else {
+          const f = e.from || {};
+          const res = await fetch('/api/picks', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ passcode, override: true, player: e.pid, week: e.week, standard: f.standard || [], lock: f.lock || null, efl: f.efl || undefined }) });
+          out = await res.json();
+        }
+        if (out.ok) { window.FFWB.reload(); loadLog(); } else alert(out.error || 'That could not be undone.');
+      });
+      undoTd.append(undo);
+      tr.append(undoTd);
       tbody.append(tr);
     }
     t.append(thead, tbody);
@@ -481,20 +532,143 @@
     if (document.activeElement !== nt) nt.value = n.text;
     if (document.activeElement !== rt) rt.value = r.text;
   }
+  // ---------- The weekly programme image ----------
+  function recapData() {
+    const done = Object.keys(season.results).map(Number).filter((w) => Object.keys(season.results[String(w)]).length);
+    if (!done.length) return null;
+    const w = done.includes(resWeek) ? resWeek : Math.max(...done);
+    const res = season.results[String(w)];
+    const played = season.config.players.filter((p) => (season.picks[p.id] || {})[String(w)]);
+    const scores = played.map((p) => ({ name: p.name, ...weekScore(p.id, w) }));
+    const topPts = Math.max(...scores.map((x) => x.points));
+    const best = scores.filter((x) => x.points === topPts).map((x) => x.name);
+    const perfect = played.filter((p) => R.isPerfect(season.picks[p.id][String(w)], res)).map((p) => p.name);
+    const now = tableThrough(w);
+    const was = Object.fromEntries(tableThrough(w - 1).map((r) => [r.id, r.pos]));
+    const moves = w > 1 ? now.map((r) => ({ name: r.name, up: was[r.id] - r.pos })).sort((a, b) => b.up - a.up) : [];
+    const climb = moves.length && moves[0].up > 0 ? moves.filter((m) => m.up === moves[0].up) : [];
+    const cupLines = [];
+    for (const cup of season.cups || []) {
+      const st = window.FFWBCups && window.FFWBCups.state(season, cup);
+      if (!st) continue;
+      if (st.format === 'knockout') {
+        const r = st.bracket.rounds.find((x) => x.week === w);
+        if (r) cupLines.push(st.name + ', ' + r.name.toLowerCase() + ': ' + r.matches.filter((m) => m.a && m.b).map((m) => m.status === 'final' ? (m.winner === m.a.id ? m.a.name : m.b.name) + ' through' : m.a.name + ' v ' + m.b.name).slice(0, 4).join(', '));
+      } else if (cup.weeks.includes(w) && st.mini.rows[0]) cupLines.push(st.name + ': ' + st.mini.rows[0].name + ' leads on ' + pts(st.mini.rows[0].points));
+    }
+    return { w, topPts, best, perfect, climb, upBy: climb.length ? moves[0].up : 0, top: now.slice(0, 5), was, cupLines };
+  }
+  async function programmeImage() {
+    const d = recapData();
+    if (!d) { say(chatMsg, 'warn', 'No results yet to make an image from.'); return; }
+    try { await Promise.all(['700 64px "Playfair Display"', '600 40px Oswald', '500 30px Oswald', '500 30px Barlow', '600 30px Barlow'].map((f) => document.fonts.load(f))); } catch (err) { /* fall back to system fonts */ }
+    const W = 1080, H = 1350;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    const NAVY = '#1c2945', CLARET = '#7b1f2c', CREAM = '#f1e8d4', GOLD = '#c8a04a';
+    g.fillStyle = NAVY; g.fillRect(0, 0, W, H);
+    for (let x = 0; x < W; x += 120) { g.fillStyle = 'rgba(255,255,255,0.025)'; g.fillRect(x, 0, 60, H); }
+    g.strokeStyle = GOLD; g.lineWidth = 4; g.strokeRect(34, 34, W - 68, H - 68);
+    g.strokeStyle = 'rgba(200,160,74,0.45)'; g.lineWidth = 1.5; g.strokeRect(48, 48, W - 96, H - 96);
+    const crest = await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = '/brand/crest.svg'; });
+    if (crest) g.drawImage(crest, W / 2 - 95, 80, 190, 190);
+    const text = (t, x, y, font, color, align = 'center') => { g.font = font; g.fillStyle = color; g.textAlign = align; g.fillText(t, x, y); };
+    const fit = (t, max, size, family) => { let s = size; g.font = family.replace('SIZE', s); while (g.measureText(t).width > max && s > 20) { s -= 2; g.font = family.replace('SIZE', s); } return family.replace('SIZE', s); };
+    g.letterSpacing = '8px'; text('WEEK ' + d.w + ' IN REVIEW', W / 2, 330, '500 30px Oswald', GOLD); g.letterSpacing = '0px';
+    const headline = d.best.length > 3 ? d.best.length + ' players top the week' : d.best.join(' and ') + ' top' + (d.best.length > 1 ? '' : 's') + ' the week';
+    text(headline, W / 2, 410, fit(headline, W - 160, 64, '700 SIZEpx "Playfair Display"'), CREAM);
+    text(pts(d.topPts) + ' points' + (d.perfect.length ? ' · ' + d.perfect.length + ' perfect week' + (d.perfect.length > 1 ? 's' : '') : ''), W / 2, 462, '500 32px Barlow', 'rgba(241,232,212,0.85)');
+    // The table.
+    let y = 540;
+    g.letterSpacing = '6px'; text('THE TABLE', 110, y, '500 26px Oswald', GOLD, 'left'); g.letterSpacing = '0px';
+    y += 24;
+    const maxPts = d.top.length ? d.top[0].points : 1;
+    d.top.forEach((r, i) => {
+      y += 70;
+      g.fillStyle = i === 0 ? 'rgba(200,160,74,0.18)' : 'rgba(255,255,255,0.05)';
+      g.fillRect(100, y - 48, W - 200, 60);
+      g.fillStyle = GOLD; g.fillRect(100, y - 48, Math.max(6, (W - 200) * 0.28 * (r.points / maxPts)), 4);
+      text(String(r.pos), 140, y, '600 34px Oswald', i === 0 ? GOLD : CREAM, 'center');
+      text(r.name, 190, y, '600 34px Barlow', CREAM, 'left');
+      const mv = d.was[r.id] ? d.was[r.id] - r.pos : 0;
+      if (mv) text((mv > 0 ? '\u25B2' : '\u25BC') + Math.abs(mv), W - 260, y, '600 28px Barlow', mv > 0 ? '#7ed69a' : '#e8808c', 'right');
+      text(pts(r.points), W - 130, y, '700 36px "Playfair Display"', CREAM, 'right');
+    });
+    y += 70;
+    const notes = [];
+    if (d.climb.length) notes.push('Biggest climb: ' + listNames(d.climb.map((m) => m.name)) + ', up ' + d.upBy);
+    if (d.perfect.length) notes.push('Perfect: ' + (d.perfect.length > 4 ? d.perfect.length + ' players' : listNames(d.perfect)) + '. Bonus pick next week');
+    notes.push(...d.cupLines);
+    for (const n of notes.slice(0, 3)) { text(n, W / 2, y, fit(n, W - 180, 30, '500 SIZEpx Barlow'), 'rgba(241,232,212,0.9)'); y += 48; }
+    // Footer band.
+    g.fillStyle = CLARET; g.fillRect(0, H - 210, W, 110);
+    g.fillStyle = GOLD; g.fillRect(0, H - 210, W, 4); g.fillRect(0, H - 104, W, 4);
+    g.letterSpacing = '6px'; text('WEEK ' + (d.w + 1) + ' PICKS ARE OPEN', W / 2, H - 140, '600 44px Oswald', CREAM); g.letterSpacing = '0px';
+    g.letterSpacing = '4px'; text(location.host.toUpperCase(), W / 2, H - 58, '500 28px Oswald', GOLD); g.letterSpacing = '0px';
+    const blob = await new Promise((ok) => cv.toBlob(ok, 'image/png'));
+    const file = new File([blob], 'ffwb-week-' + d.w + '.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'FFWB week ' + d.w }); say(chatMsg, 'ok', 'Shared.'); return; } catch (err) { if (err && err.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = file.name;
+    document.body.append(a); a.click(); a.remove();
+    say(chatMsg, 'ok', 'Image downloaded. Drop it in the group chat.');
+  }
+  document.getElementById('recap-image').addEventListener('click', programmeImage);
+
   async function copy(id, what) {
     const box = document.getElementById(id);
     try { await navigator.clipboard.writeText(box.value); }
     catch (err) { box.select(); document.execCommand('copy'); }
     say(chatMsg, 'ok', what + ' copied. Paste it in the group chat.');
   }
+  // Alerts for the commissioner on this phone.
+  const commishBtn = document.getElementById('commish-toggle');
+  const pushOk = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  let commishReg = null;
+  let commishOn = false;
+  const b64 = (s) => { const pad = '='.repeat((4 - (s.length % 4)) % 4); const raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); };
+  async function mySub() {
+    if (!pushOk) return null;
+    if (!commishReg) { try { commishReg = await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready; } catch (err) { return null; } }
+    return commishReg.pushManager.getSubscription();
+  }
+  function drawCommish() {
+    if (!pushOk) { commishBtn.hidden = true; document.getElementById('commish-note').textContent = 'This browser cannot get alerts. On iPhone, add the site to your home screen and open the commissioner page from there.'; return; }
+    commishBtn.textContent = commishOn ? 'Turn off alerts for me' : 'Turn on alerts for me';
+    commishBtn.className = commishOn ? 'pk-clear' : 'pk-save';
+  }
+  commishBtn.addEventListener('click', async () => {
+    commishBtn.disabled = true;
+    try {
+      let sub = await mySub();
+      if (!commishOn && !sub) {
+        if ((await Notification.requestPermission()) !== 'granted') throw new Error('Alerts were not allowed.');
+        const { publicKey } = await (await fetch('/api/push/key')).json();
+        sub = await commishReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(publicKey) });
+      }
+      const res = await fetch('/api/push/subscribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON(), commissioner: !commishOn, passcode }) });
+      const done = await res.json();
+      if (!done.ok) throw new Error(done.error);
+      commishOn = !commishOn;
+      say(chatMsg, 'ok', commishOn ? 'Commissioner alerts are on for this phone.' : 'Commissioner alerts are off for this phone.');
+    } catch (err) { say(chatMsg, 'bad', err.message || 'That did not work.'); }
+    commishBtn.disabled = false;
+    drawCommish();
+  });
+
   async function loadPush() {
-    const out = await adminPost('push', {});
+    const s = await mySub();
+    const out = await adminPost('push', s ? { endpoint: s.endpoint } : {});
+    if (out.ok) { commishOn = !!out.thisPhone; drawCommish(); }
     if (!out.ok) return;
     alertCount = out.count;
     renderStatus();
     const who = document.getElementById('push-who');
     who.textContent = (out.count ? out.count + ' phone' + (out.count === 1 ? ' has' : 's have') + ' alerts on (' + listNames(out.who) + '). ' : 'Nobody has turned alerts on yet. ')
-      + 'Players turn them on from the Picks tab. The site sends one when a week opens, and reminds anyone who has not picked about a day and three hours before kickoff.';
+      + 'Players turn them on with the bell at the top of the site. The site sends one when a week opens, and reminds anyone who has not picked about a day and three hours before kickoff.';
   }
   document.getElementById('push-send').addEventListener('click', async () => {
     const box = document.getElementById('push-text');
@@ -613,6 +787,53 @@
       return card;
     }));
   }
+
+  // ---------- Players ----------
+  const playersMsg = document.getElementById('players-message');
+  async function playerAction(body, done) {
+    const out = await adminPost('players', body);
+    if (out.ok) { say(playersMsg, 'ok', done); window.FFWB.reload(); } else say(playersMsg, 'bad', out.error);
+    return out.ok;
+  }
+  function renderPlayers() {
+    if (!season) return;
+    const box = document.getElementById('players-list');
+    if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+    const rows = season.config.players.map((p) => {
+      const row = el('div', 'adm-player');
+      const input = el('input', 'adm-input adm-player-name');
+      input.value = p.name; input.maxLength = 30; input.setAttribute('aria-label', 'Name for ' + p.name);
+      const save = el('button', 'pk-clear adm-small', 'Rename');
+      save.type = 'button';
+      save.addEventListener('click', () => { if (input.value.trim() && input.value.trim() !== p.name) playerAction({ action: 'rename', id: p.id, name: input.value }, p.name + ' is now ' + input.value.trim() + '.'); });
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') save.click(); });
+      const retire = el('button', 'pk-clear adm-small adm-danger', 'Retire');
+      retire.type = 'button';
+      retire.addEventListener('click', () => { if (confirm('Retire ' + p.name + '? They come off this season\'s table, and you can bring them back later.')) playerAction({ action: 'retire', id: p.id }, p.name + ' is retired.'); });
+      row.append(input, save, retire);
+      return row;
+    });
+    const retired = (season.config.retired || []);
+    if (retired.length) {
+      rows.push(el('h3', 'ffwb-h', 'Retired'));
+      for (const p of retired) {
+        const row = el('div', 'adm-player');
+        row.append(el('span', 'adm-player-gone', p.name));
+        const back = el('button', 'pk-clear adm-small', 'Bring back');
+        back.type = 'button';
+        back.addEventListener('click', () => playerAction({ action: 'restore', id: p.id }, p.name + ' is back.'));
+        row.append(back);
+        rows.push(row);
+      }
+    }
+    box.replaceChildren(...rows);
+  }
+  document.getElementById('player-add').addEventListener('click', async () => {
+    const input = document.getElementById('player-new');
+    const name = input.value.trim();
+    if (!name) { say(playersMsg, 'warn', 'Type a name first.'); return; }
+    if (await playerAction({ action: 'add', name }, name + ' is in. They can pick from this week.')) input.value = '';
+  });
 
   // ---------- Shame Club ----------
   const shameList = document.getElementById('shame-list');
@@ -759,6 +980,7 @@
     renderWeeks();
     renderEfl();
     renderShame();
+    renderPlayers();
     renderCups();
     renderStatus();
     renderResults();

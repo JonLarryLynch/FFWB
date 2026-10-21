@@ -75,4 +75,20 @@ await t('reminders go only to players who have not picked, a day and three hours
   assert.match(sent[1].msg.body, /Last call/);
 });
 
+await t('the commissioner can get their own alerts on a phone that is also a player', async () => {
+  const { store, post, get, sent, sender } = setup();
+  await get('season');
+  await post('push/subscribe', { subscription: sub('jon'), player: 'jon' });
+  assert.equal((await post('push/subscribe', { subscription: sub('jon'), commissioner: true, passcode: 'nope' })).status, 401);
+  assert.equal((await post('push/subscribe', { subscription: sub('jon'), commissioner: true, passcode: 'p' })).status, 200);
+  const st = await post('admin/push', { passcode: 'p', endpoint: sub('jon').endpoint });
+  assert.equal(st.body.thisPhone, true);
+  assert.deepEqual(st.body.who, ['Jon'], 'still Jon the player');
+  const ko = Date.parse('2026-10-24T11:30:00Z');
+  await store.setJSON('fixtures', { checkedAt: new Date().toISOString(), weeks: { 8: { kickoff: new Date(ko).toISOString(), games: {} } } });
+  await remind(store, ko - 2 * 3600e3, sender);
+  assert.ok(sent.some((x) => /still to pick for week 8/.test(x.msg.title)), 'commissioner told who is missing');
+  assert.ok(sent.some((x) => /Last call/.test(x.msg.body)), 'and the player reminder still goes');
+});
+
 console.log(passed + ' tests passed');

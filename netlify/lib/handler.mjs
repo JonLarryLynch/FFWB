@@ -180,6 +180,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
       if (r < 0) continue;
       // Dead level: the two players settle it with a penalty shootout in FIFA.
       for (const m of st.bracket.rounds[r].matches.filter((x) => x.status === 'shootout')) {
+        await push.once(store, 'commish-pk-' + cup.id + '-' + m.key, () => push.toCommissioner(store, { title: st.name + ': shootout to enter', body: m.a.name + ' v ' + m.b.name + ' is dead level. Enter the penalty shootout winner on the Cups tab.', tag: 'commish' }, { sender: extras.pushSender }));
         for (const [me, them] of [[m.a, m.b], [m.b, m.a]]) {
           await push.once(store, 'cup-' + cup.id + '-pk-' + m.key + '-' + me.id, () => push.send(store, {
             title: st.name + ': penalties!', body: 'Dead level with ' + them.name + ' on points, lock and wins. Settle it with a penalty shootout in FIFA and tell the commissioner who won.', tag: 'cup',
@@ -294,6 +295,12 @@ export function createHandler(getStore, getPasscode, extras = {}) {
       if (route === 'push/subscribe' && req.method === 'POST') {
         if (!push.validSubscription(body.subscription)) return fail(400, 'That phone did not send a usable subscription.');
         const { config } = await loadAll(store);
+        if (body.commissioner !== undefined) {
+          const denied = needAdmin();
+          if (denied) return denied;
+          await push.subscribe(store, body.subscription, undefined, { commissioner: !!body.commissioner });
+          return json(200, { ok: true });
+        }
         const player = config.players.some((p) => p.id === body.player) ? body.player : null;
         await push.subscribe(store, body.subscription, player);
         return json(200, { ok: true });
@@ -311,8 +318,10 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         if (!body.body) {
           const { config } = await loadAll(store);
           const names = Object.fromEntries(config.players.map((p) => [p.id, p.name]));
-          const who = [...new Set(Object.values(subs).map((s) => names[s.player] || 'someone who has not chosen a name'))];
-          return json(200, { ok: true, count: Object.keys(subs).length, who });
+          const players = Object.values(subs).filter((s) => s.player);
+          const who = [...new Set(players.map((s) => names[s.player] || s.player))];
+          const mine = body.endpoint ? subs[Object.keys(subs).find((k) => subs[k].sub.endpoint === body.endpoint)] : null;
+          return json(200, { ok: true, count: players.length, who, commissionerPhones: Object.values(subs).filter((s) => s.commish).length, thisPhone: mine ? !!mine.commish : false });
         }
         const msg = String(body.body).slice(0, 240);
         const r = await push.send(store, { title: body.title ? String(body.title).slice(0, 60) : 'FFWB', body: msg }, { sender: extras.pushSender });
@@ -512,6 +521,46 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         return json(200, { ok: true, cups: doc.cups.filter((c) => c.season === config.season) });
       }
 
+      if (route === 'admin/players' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        await ensureSeeded(store);
+        const clean = (n) => String(n || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+        const slug = (n) => clean(n).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'player';
+        let added = null;
+        const cfg = await update(store, 'config', (c) => {
+          c.retired = c.retired || [];
+          const taken = (name, except) => [...c.players, ...c.retired].some((p) => p.id !== except && p.name.toLowerCase() === name.toLowerCase());
+          if (body.action === 'add') {
+            const name = clean(body.name);
+            if (!name) throw Object.assign(new Error('Type a name.'), { status: 400 });
+            if (taken(name)) throw Object.assign(new Error('There is already a ' + name + '.'), { status: 400 });
+            let id = slug(name);
+            for (let i = 2; [...c.players, ...c.retired].some((p) => p.id === id); i += 1) id = slug(name) + '-' + i;
+            c.players.push({ id, name });
+            added = id;
+          } else if (body.action === 'rename') {
+            const p = c.players.find((x) => x.id === body.id) || c.retired.find((x) => x.id === body.id);
+            const name = clean(body.name);
+            if (!p) throw Object.assign(new Error('That player is gone.'), { status: 404 });
+            if (!name) throw Object.assign(new Error('Type a name.'), { status: 400 });
+            if (taken(name, p.id)) throw Object.assign(new Error('There is already a ' + name + '.'), { status: 400 });
+            p.name = name;
+          } else if (body.action === 'retire') {
+            const i = c.players.findIndex((x) => x.id === body.id);
+            if (i < 0) throw Object.assign(new Error('That player is gone.'), { status: 404 });
+            c.retired.push(c.players.splice(i, 1)[0]);
+          } else if (body.action === 'restore') {
+            const i = c.retired.findIndex((x) => x.id === body.id);
+            if (i < 0) throw Object.assign(new Error('That player is gone.'), { status: 404 });
+            c.players.push(c.retired.splice(i, 1)[0]);
+          }
+          return c;
+        }, () => seed.config);
+        if (added) await store.setJSON('picks/' + added, { player: added, weeks: {}, history: [] }, { onlyIfNew: true });
+        return json(200, { ok: true, config: cfg });
+      }
+
       if (route === 'admin/log' && req.method === 'POST') {
         const denied = needAdmin();
         if (denied) return denied;
@@ -519,7 +568,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         const names = Object.fromEntries(config.players.map((p) => [p.id, p.name]));
         const entries = [
           ...(results.history || []).map((h) => ({ ...h, kind: 'results', player: null })),
-          ...Object.entries(picks).flatMap(([id, d]) => (d.history || []).map((h) => ({ ...h, kind: 'picks', player: names[id] || id }))),
+          ...Object.entries(picks).flatMap(([id, d]) => (d.history || []).map((h) => ({ ...h, kind: 'picks', player: names[id] || id, pid: id }))),
         ].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 300);
         return json(200, { ok: true, entries });
       }

@@ -33,9 +33,15 @@ export function validSubscription(sub) {
     && sub.keys && typeof sub.keys.p256dh === 'string' && typeof sub.keys.auth === 'string';
 }
 
-export async function subscribe(store, sub, player) {
+// A phone's subscription. The commissioner flag rides along with whoever's name the phone is under.
+export async function subscribe(store, sub, player, { commissioner } = {}) {
   const clean = { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } };
-  return change(store, SUBS, (d) => { d[idOf(sub.endpoint)] = { sub: clean, player: player || null, at: new Date().toISOString() }; return d; });
+  return change(store, SUBS, (d) => {
+    const id = idOf(sub.endpoint);
+    const was = d[id] || {};
+    d[id] = { sub: clean, player: player === undefined ? (was.player || null) : player || null, commish: commissioner === undefined ? !!was.commish : !!commissioner, at: new Date().toISOString() };
+    return d;
+  });
 }
 
 export async function unsubscribe(store, endpoint) {
@@ -47,10 +53,10 @@ export async function subscriptions(store) {
 }
 
 // Send one message to every subscription, or only those for the given players. Dead subscriptions are removed.
-export async function send(store, message, { players = null, sender = webpush } = {}) {
+export async function send(store, message, { players = null, commissioner = false, sender = webpush } = {}) {
   const keys = await vapidKeys(store);
   const all = await subscriptions(store);
-  const targets = Object.entries(all).filter(([, s]) => !players || players.includes(s.player));
+  const targets = Object.entries(all).filter(([, s]) => (commissioner ? s.commish : !players || players.includes(s.player)));
   const payload = JSON.stringify({ title: message.title || 'FFWB', body: message.body, url: message.url || '/', tag: message.tag });
   const dead = [];
   let sent = 0;
@@ -65,6 +71,11 @@ export async function send(store, message, { players = null, sender = webpush } 
   }));
   if (dead.length) await change(store, SUBS, (d) => { for (const id of dead) delete d[id]; return d; });
   return { sent, removed: dead.length, targeted: targets.length };
+}
+
+// The commissioner's own phones, subscribed from the commissioner page.
+export function toCommissioner(store, message, opts = {}) {
+  return send(store, { url: '/admin.html', ...message }, { ...opts, commissioner: true });
 }
 
 // Only send a given reminder once.
@@ -99,6 +110,11 @@ export async function remind(store, now = Date.now(), sender) {
       tag: 'remind-' + week,
     }, { players: missing, sender }));
     if (r) done.push({ tag, ...r });
+    // Three hours out, tell the commissioner who is still missing if it is more than a couple.
+    if (tag === 'soon' && missing.length >= 3) {
+      const names = config.players.filter((p) => missing.includes(p.id)).map((p) => p.name);
+      await once(store, 'commish-missing-' + config.season + '-' + week, () => toCommissioner(store, { title: names.length + ' still to pick for week ' + week, body: names.join(', ') + '. Kickoff ' + chicago(ko) + '.', tag: 'commish' }, { sender }));
+    }
   }
   return done;
 }

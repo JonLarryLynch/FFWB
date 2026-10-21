@@ -224,4 +224,26 @@ await t('the Shame Club starts with the founders and the commissioner can edit i
   assert.deepEqual(out.config.shameClub, [{ name: 'Paul' }, { name: 'Greg', note: 'Platinum Member' }]);
 });
 
+await t('the commissioner can add, rename, retire and bring back players', async () => {
+  const fresh = memoryStore();
+  const h = createHandler(() => fresh, 'p');
+  const post = async (path, body) => { const r = await h(new Request('https://x.test/api/' + path, { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, body: await r.json() }; };
+  let r = await post('admin/players', { passcode: 'p', action: 'add', name: '  Big  Dave ' });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.ok(r.body.config.players.some((x) => x.id === 'big-dave' && x.name === 'Big Dave'));
+  assert.equal((await post('admin/players', { passcode: 'p', action: 'add', name: 'big dave' })).status, 400, 'no duplicates');
+  assert.equal((await post('picks', { player: 'big-dave', week: 8, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton'], lock: 'Man City' })).status, 200, 'a new player can pick');
+  r = await post('admin/players', { passcode: 'p', action: 'rename', id: 'big-dave', name: 'Dave Two' });
+  assert.ok(r.body.config.players.some((x) => x.id === 'big-dave' && x.name === 'Dave Two'));
+  r = await post('admin/players', { passcode: 'p', action: 'retire', id: 'big-dave' });
+  assert.ok(!r.body.config.players.some((x) => x.id === 'big-dave'));
+  assert.ok(r.body.config.retired.some((x) => x.id === 'big-dave'));
+  let s = await (await h(new Request('https://x.test/api/season'))).json();
+  assert.equal(s.picks['big-dave'], undefined, 'a retired player is off the table');
+  r = await post('admin/players', { passcode: 'p', action: 'restore', id: 'big-dave' });
+  s = await (await h(new Request('https://x.test/api/season'))).json();
+  assert.equal(s.picks['big-dave']['8'].lock, 'Man City', 'and comes back with their picks');
+  assert.equal((await post('admin/players', { passcode: 'wrong', action: 'add', name: 'X' })).status, 401);
+});
+
 console.log(passed + ' tests passed');

@@ -7,6 +7,7 @@
 import { getStore } from '@netlify/blobs';
 import { runFetch } from '../lib/autoresults.mjs';
 import { saveBackup } from '../lib/backup.mjs';
+import { once, toCommissioner } from '../lib/push.mjs';
 
 const chicagoHour = (date) => Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', hour: 'numeric', hourCycle: 'h23' }).format(date));
 
@@ -20,6 +21,20 @@ export default async () => {
   const key = (globalThis.Netlify && globalThis.Netlify.env ? globalThis.Netlify.env.get('FOOTBALL_DATA_KEY') : undefined) || process.env.FOOTBALL_DATA_KEY;
   if (!key) { console.log('FOOTBALL_DATA_KEY is not set, so no results were fetched.'); return; }
   const doc = await runFetch(store, key, fetch);
+  // Tell the commissioner the feed's results are ready to confirm.
+  try {
+    if (doc && !doc.error) {
+      const config = await store.get('config', { type: 'json' });
+      const saved = (await store.get('results', { type: 'json' })) || { weeks: {} };
+      for (const [w, wk] of Object.entries(doc.weeks)) {
+        const have = Object.keys(saved.weeks[w] || {}).length;
+        if (!wk.finished || have >= config.clubs.length || wk.checkedAt !== doc.checkedAt) continue;
+        await once(store, 'commish-feed-' + config.season + '-' + w + '-' + wk.finished, () => toCommissioner(store, {
+          title: 'Week ' + w + ' results are in', body: wk.finished + ' of ' + wk.games + ' games finished. Open the Results tab and tap Accept the feed.', tag: 'commish',
+        }));
+      }
+    }
+  } catch (err) { console.error('Could not tell the commissioner: ' + err.message); }
   console.log(doc ? 'Checked weeks ' + Object.keys(doc.weeks).join(', ') + (doc.error ? '. Problem: ' + doc.error : '') : 'The league has no data yet.');
 };
 

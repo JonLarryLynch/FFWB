@@ -63,6 +63,7 @@
     <div class="res-list" id="res-efl-grid"></div>
   </div>
   <div class="pk-actions">
+    <button class="pk-save" type="button" id="res-accept" title="Save every result from the feed for clubs you have not set, and list anything to check">Accept the feed</button>
     <button class="pk-save" type="button" id="res-save" disabled>Save results</button>
     <button class="pk-clear" type="button" id="res-all-l">Mark the rest as losses</button>
     <button class="pk-clear" type="button" id="res-fetch">Check for results now</button>
@@ -81,13 +82,18 @@
         <section class="ffwb-card">
           <h2 class="ffwb-h" id="recap-title">Weekly recap</h2>
           <textarea class="adm-input adm-textarea" id="recap-text" rows="9" aria-label="Weekly recap"></textarea>
-          <div class="adm-row"><button class="pk-save" type="button" id="recap-copy">Copy recap</button></div>
+          <div class="adm-row"><button class="pk-save" type="button" id="recap-copy">Copy recap</button><button class="pk-clear" type="button" id="recap-image">Share as image</button></div>
         </section>
         <section class="ffwb-card">
           <h2 class="ffwb-h">Phone alert</h2>
           <p class="ffwb-note" id="push-who">Players turn alerts on with the bell. The site sends them automatically when a week opens, and reminds anyone who has not picked about a day and three hours before kickoff.</p>
           <textarea class="adm-input adm-textarea" id="push-text" rows="3" maxlength="240" aria-label="Alert message" placeholder="Type a message to send to everyone with alerts on"></textarea>
           <div class="adm-row"><button class="pk-save" type="button" id="push-send">Send to everyone</button></div>
+          <div class="adm-commish">
+            <h3 class="ffwb-h">Alerts for you</h3>
+            <p class="ffwb-note" id="commish-note">A ping on this phone when the Tuesday results land, when a cup shootout needs entering, and when three or more people still have not picked three hours before kickoff.</p>
+            <button class="pk-clear" type="button" id="commish-toggle">Turn on alerts for me</button>
+          </div>
         </section>
       </div>
       <p class="pk-message" id="chat-message" aria-live="polite"></p>
@@ -160,6 +166,16 @@
 
     <div class="adm-panel" id="p-house" role="tabpanel" hidden>
       <div class="adm-cols">
+        <section class="ffwb-card" id="players-card">
+          <h2 class="ffwb-h">Players</h2>
+          <p class="ffwb-note">Rename someone, add a new player, or retire someone who has left. A retired player drops off this season's table and can be brought back any time. Past seasons keep the names they were played under.</p>
+          <div id="players-list" class="adm-players"></div>
+          <div class="adm-row">
+            <input class="adm-input" id="player-new" placeholder="New player's name" aria-label="New player's name" maxlength="30">
+            <button class="pk-save" type="button" id="player-add">Add player</button>
+          </div>
+          <p class="pk-message" id="players-message" aria-live="polite"></p>
+        </section>
   <section class="ffwb-card" id="shame-card">
     <h2 class="ffwb-h">The Shame Club</h2>
     <p class="ffwb-note">Anyone whose picks include both teams from the same match joins automatically. This list is for members from before the site, one per line. Put a title in brackets and a nickname after aka, like Greg (Platinum Member) or Michael aka Diddler.</p>

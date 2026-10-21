@@ -947,3 +947,8 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .pp-link:hover { color: var(--brand-claret); text-decoration-color: var(--brand-claret); }
 .pp-link:focus-visible { outline: 2px solid var(--brand-gold); outline-offset: 2px; border-radius: 3px; }
 .xp-navy .pp-link:hover, .cup-banner .pp-link:hover { color: inherit; }
+.adm-players { display: flex; flex-direction: column; gap: 0.35rem; }
+.adm-player { display: flex; align-items: center; gap: 0.4rem; }
+.adm-player-name { flex: 1; width: auto; padding: 0.35rem 0.6rem; }
+.adm-player-gone { flex: 1; color: var(--color-fg-muted); }
+.adm-players h3 { margin: 0.6rem 0 0.1rem; }
