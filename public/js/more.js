@@ -133,8 +133,14 @@ dash.calc('recap', {
     const hi = Math.max(...now.map((r) => r.week_points));
     const lo = Math.min(...now.map((r) => r.week_points));
     const out = [];
+    const items = [];
+    const add = (icon, label, text) => items.push({ icon, label, text });
     out.push('Week ' + week + ' report.');
-    out.push(names(now.filter((r) => r.week_points === hi).map((r) => r.player)) + ' took the week with ' + num(hi) + ' points, while ' + names(now.filter((r) => r.week_points === lo).map((r) => r.player)) + ' propped it up on ' + num(lo) + '.');
+    const topN = names(now.filter((r) => r.week_points === hi).map((r) => r.player));
+    const lowN = names(now.filter((r) => r.week_points === lo).map((r) => r.player));
+    out.push(topN + ' took the week with ' + num(hi) + ' points, while ' + lowN + ' propped it up on ' + num(lo) + '.');
+    add('\u{1F3C6}', 'Top of the week', topN + ', ' + num(hi) + ' pts');
+    if (hi !== lo) add('\u{1F944}', 'Bottom of the week', lowN + ', ' + num(lo) + ' pts');
 
     if (weeks.length > 1) {
       const prev = weeks[weeks.length - 2];
@@ -145,11 +151,18 @@ dash.calc('recap', {
       const up = Math.max(...moves.map((m) => m.move));
       const down = Math.min(...moves.map((m) => m.move));
       const places = (n) => n + (n === 1 ? ' place' : ' places');
-      if (up > 0 && down < 0) out.push(names(moves.filter((m) => m.move === up).map((m) => m.player)) + ' climbed ' + places(up) + ' and ' + names(moves.filter((m) => m.move === down).map((m) => m.player)) + ' dropped ' + places(-down) + '.');
+      if (up > 0 && down < 0) {
+        const upN = names(moves.filter((m) => m.move === up).map((m) => m.player));
+        const downN = names(moves.filter((m) => m.move === down).map((m) => m.player));
+        out.push(upN + ' climbed ' + places(up) + ' and ' + downN + ' dropped ' + places(-down) + '.');
+        add('\u{1F4C8}', 'Biggest climb', upN + ', up ' + places(up));
+        add('\u{1F4C9}', 'Biggest drop', downN + ', down ' + places(-down));
+      }
     }
 
     const s = season_summary[0];
     out.push('At the top, ' + s.leaders + (s.leader_count === 1 ? ' leads on ' : ' are level on ') + num(s.top_points) + ' points, with ' + num(s.spread) + ' covering all ' + s.players + '.');
+    add('\u{1F451}', 'Top of the table', s.leaders + (s.leader_count === 1 ? ' leads on ' : ' level on ') + num(s.top_points) + ' pts, ' + num(s.spread) + ' ahead of last place');
 
     const picks = season_picks.filter((p) => p.week === week);
     const locks = picks.filter((p) => p.pick_type === 'Lock');
@@ -158,7 +171,9 @@ dash.calc('recap', {
       for (const p of locks) count.set(p.club, (count.get(p.club) || 0) + 1);
       const [club, backers] = [...count].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
       const result = locks.find((p) => p.club === club).result;
-      out.push('Locks: ' + locks.filter((p) => p.result === 'W').length + ' of ' + locks.length + ' came in. ' + club + ' was the popular one, backed by ' + backers + ', and it ' + (result === 'W' ? 'won' : result === 'D' ? 'only drew' : 'lost') + '.');
+      const how = result === 'W' ? 'won' : result === 'D' ? 'only drew' : 'lost';
+      out.push('Locks: ' + locks.filter((p) => p.result === 'W').length + ' of ' + locks.length + ' came in. ' + club + ' was the popular one, backed by ' + backers + ', and it ' + how + '.');
+      add('\u{1F512}', 'Locks', locks.filter((p) => p.result === 'W').length + ' of ' + locks.length + ' won. Most popular: ' + club + ' (' + backers + '), which ' + how);
     }
 
     const burned = new Map();
@@ -169,11 +184,11 @@ dash.calc('recap', {
       burned.set(p.club, c);
     }
     const skin = [...burned.values()].filter((c) => c.got === 0 && c.n >= 3).sort((a, b) => b.n - a.n || a.club.localeCompare(b.club))[0];
-    if (skin) out.push('Banana skin of the week: ' + skin.club + ', picked ' + skin.n + ' times for nothing.');
+    if (skin) { out.push('Banana skin of the week: ' + skin.club + ', picked ' + skin.n + ' times for nothing.'); add('\u{1F34C}', 'Banana skin', skin.club + ', picked ' + skin.n + ' times for nothing'); }
 
     const solo = picks.filter((p) => p.result === 'W' && picks.filter((x) => x.club === p.club).length === 1);
-    if (solo.length) out.push('Nobody else fancied ' + solo[0].club + ', but ' + solo[0].player + ' did, and it won.');
-    return [{ week, text: out.join(' ') }];
+    if (solo.length) { out.push('Nobody else fancied ' + solo[0].club + ', but ' + solo[0].player + ' did, and it won.'); add('\u{1F43A}', 'Lone wolf', solo.map((p) => p.player + ' on ' + p.club).slice(0, 3).join(', ') + '. Nobody else had it, and it won'); }
+    return [{ week, text: out.join(' '), items: JSON.stringify(items) }];
   },
 });
 
@@ -328,7 +343,19 @@ function drawAwardsExtras() {
   const text = document.getElementById('recap-text');
   const row = recap.status === 'ok' && recap.data && recap.data[0];
   text.classList.toggle('dash-skeleton', recap.status === 'loading');
-  text.textContent = row ? row.text : recap.status === 'ok' ? 'The report appears once a week is scored.' : '-';
+  const items = row && row.items ? JSON.parse(row.items) : [];
+  if (items.length) {
+    const head = el('div', 'ffwb-recap-week', 'Week ' + row.week);
+    const list = el('ul', 'ffwb-recap-list');
+    for (const it of items) {
+      const li = el('li', 'ffwb-recap-item');
+      li.append(el('span', 'ffwb-recap-icon', it.icon), el('span', 'ffwb-recap-label', it.label), el('span', 'ffwb-recap-text', it.text));
+      list.append(li);
+    }
+    text.replaceChildren(head, list);
+  } else {
+    text.textContent = row ? row.text : recap.status === 'ok' ? 'The report appears once a week is scored.' : '-';
+  }
 
   block('herd-table-box', ['vs_herd'], (plot, rows) => {
     if (rows.length < 2) return plot.replaceChildren(el('div', 'ffwb-note', 'No weeks have been scored yet.'));
