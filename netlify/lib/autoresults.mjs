@@ -7,7 +7,7 @@ const BASE = 'https://api.football-data.org/v4/competitions/';
 const API = BASE + 'PL/matches?matchday=';
 
 // Other names the feed may use for each club, written as normalize() returns them.
-const ALIASES = {
+export const ALIASES = {
   'Bournemouth': ['afc bournemouth'],
   'Brighton': ['brighton hove', 'brighton hove albion'],
   'Coventry City': ['coventry'],

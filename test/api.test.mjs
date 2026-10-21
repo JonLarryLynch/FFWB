@@ -246,4 +246,36 @@ await t('the commissioner can add, rename, retire and bring back players', async
   assert.equal((await post('admin/players', { passcode: 'wrong', action: 'add', name: 'X' })).status, 401);
 });
 
+await t('the commissioner can start a new season, and the old one is kept for History', async () => {
+  const fresh = memoryStore();
+  const h = createHandler(() => fresh, 'p');
+  const post = async (path, body) => { const r = await h(new Request('https://x.test/api/' + path, { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, body: await r.json() }; };
+  const get = async () => (await h(new Request('https://x.test/api/season'))).json();
+  // Michael picks both sides of a match in week 8, so he should join the Shame Club for good.
+  await fresh.setJSON('fixtures', { checkedAt: new Date().toISOString(), weeks: { 8: { kickoff: null, games: { Arsenal: { vs: 'Chelsea', home: true }, Chelsea: { vs: 'Arsenal', home: false } } } } });
+  await post('picks', { player: 'michael', week: 8, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton'], lock: 'Man City' });
+  const pre = await post('admin/new-season', { passcode: 'p', action: 'preview' });
+  assert.equal(pre.body.next, '2027-28');
+  const s0 = await get();
+  const clubs = [...s0.config.clubs.slice(0, 17), 'Leicester', 'Southampton', 'Norwich City'];
+  assert.equal((await post('admin/new-season', { passcode: 'p', action: 'start', season: '2027-28', clubs, confirm: 'nope' })).status, 400, 'must type the name');
+  assert.equal((await post('admin/new-season', { passcode: 'p', action: 'start', season: '2027-28', clubs: clubs.slice(0, 19), confirm: '2027-28' })).status, 400, 'needs 20 clubs');
+  const keep = s0.config.players.filter((p) => p.id !== 'dave').map((p) => p.id);
+  const r = await post('admin/new-season', { passcode: 'p', action: 'start', season: '2027-28', clubs, keep, confirm: '2027-28' });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const s = await get();
+  assert.equal(s.config.season, '2027-28');
+  assert.equal(s.config.currentWeek, 1);
+  assert.ok(s.config.clubs.includes('Southampton'));
+  assert.ok(!s.config.players.some((p) => p.id === 'dave') && s.config.retired.some((p) => p.id === 'dave'));
+  assert.deepEqual(s.picks.jon, {}, 'picks start again');
+  assert.deepEqual(s.results, {});
+  assert.equal(s.archives.length, 1);
+  assert.equal(s.archives[0].season, '2026-27');
+  assert.equal(Object.keys(s.archives[0].picks.jon).length, 7, 'the old picks are kept');
+  assert.ok(s.config.shameClub.some((m) => m.name === 'Michael'), 'Michael already a founder (aka Diddler)');
+  const backups = await post('admin/backups', { passcode: 'p' });
+  assert.ok(backups.body.backups.length >= 1, 'a backup was saved first');
+});
+
 console.log(passed + ' tests passed');

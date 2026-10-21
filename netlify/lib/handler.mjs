@@ -9,13 +9,14 @@
 //   fixtures        { checkedAt, weeks: { "8": { kickoff, games: { club: { vs, home, at, off } } } } }
 //   backups/<date>  a full copy of the league, saved by the Tuesday job
 //   reactions/<season> { "8": { target player: { "🔥": [player ids] } } }
+//   archive/<season> a finished season, kept whole when a new one starts (shown in History)
 //   cups            { cups: [{ id, type, season, weeks: [...], seeds: [player ids], overrides, drawnAt }] }
 //   push/*          phone notification keys, subscriptions and which reminders have gone out
 import crypto from 'node:crypto';
 import rules from '../../public/js/rules.js';
 import cupsLib from '../../public/js/cups.js';
 import seed from './seed.mjs';
-import { runFetch, fetchTeams, fetchFixtures } from './autoresults.mjs';
+import { runFetch, fetchTeams, fetchFixtures, matchClub, ALIASES } from './autoresults.mjs';
 import { saveBackup, listBackups } from './backup.mjs';
 import * as push from './push.mjs';
 
@@ -88,16 +89,23 @@ export function createHandler(getStore, getPasscode, extras = {}) {
 
   async function loadAll(store) {
     const config = await ensureSeeded(store);
-    const [results, docs, fixtures, cups, reactions] = await Promise.all([
+    const [results, docs, fixtures, cups, reactions, archives] = await Promise.all([
       store.get('results', { type: 'json' }),
       Promise.all(config.players.map((p) => store.get('picks/' + p.id, { type: 'json' }))),
       store.get('fixtures', { type: 'json' }),
       store.get('cups', { type: 'json' }),
       store.get('reactions/' + config.season, { type: 'json' }),
+      loadArchives(store),
     ]);
     const picks = {};
     config.players.forEach((p, i) => { picks[p.id] = docs[i] || { player: p.id, weeks: {}, history: [] }; });
-    return { config, results: results || { weeks: {}, history: [] }, picks, fixtures: fixtures || null, cups: (cups && cups.cups) || [], reactions: reactions || {} };
+    return { config, results: results || { weeks: {}, history: [] }, picks, fixtures: fixtures || null, cups: (cups && cups.cups) || [], reactions: reactions || {}, archives };
+  }
+
+  async function loadArchives(store) {
+    const { blobs } = await store.list({ prefix: 'archive/' });
+    const docs = await Promise.all(blobs.map((b) => store.get(b.key, { type: 'json' })));
+    return docs.filter(Boolean).sort((a, b) => a.season.localeCompare(b.season));
   }
 
   // Keep kickoff times fresh: if they are more than 12 hours old, fetch them again (one call to the feed).
@@ -130,7 +138,8 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     throw new Error('Someone else was saving at the same moment. Please try again.');
   }
 
-  const publicView = ({ config, results, picks, fixtures, cups, reactions }) => ({
+  const publicView = ({ config, results, picks, fixtures, cups, reactions, archives }) => ({
+    archives: archives || [],
     reactions: reactions || {},
     cups: (cups || []).filter((c) => c.season === config.season),
     ok: true,
@@ -170,6 +179,13 @@ export function createHandler(getStore, getPasscode, extras = {}) {
   }
 
   // After a cup week is final, tell everyone still in a knockout who they play next, once.
+  // A competition's teams with both their names, for matching to the league's own club names.
+  async function fetchTeamsRaw(code, key) {
+    const res = await (extras.fetch || fetch)('https://api.football-data.org/v4/competitions/' + code + '/teams', { headers: { 'X-Auth-Token': key } });
+    if (!res.ok) throw new Error('football-data.org answered ' + res.status + '.');
+    return ((await res.json()).teams || []).map((t) => ({ name: t.name, shortName: t.shortName }));
+  }
+
   async function cupAlerts(store, week) {
     const all = await loadAll(store);
     const season = seasonOf(all);
@@ -559,6 +575,66 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         }, () => seed.config);
         if (added) await store.setJSON('picks/' + added, { player: added, weeks: {}, history: [] }, { onlyIfNew: true });
         return json(200, { ok: true, config: cfg });
+      }
+
+      if (route === 'admin/new-season' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        const all = await loadAll(store);
+        const { config } = all;
+        const [a, b] = String(config.season).split('-').map(Number);
+        const next = a ? (a + 1) + '-' + String((b || a + 1) + 1).slice(-2).padStart(2, '0') : '';
+        if (body.action === 'preview') return json(200, { ok: true, current: config.season, next, clubs: config.clubs, players: config.players });
+        if (body.action === 'feed-clubs') {
+          const key = typeof extras.footballKey === 'function' ? extras.footballKey() : extras.footballKey;
+          if (!key) return fail(503, 'Add your football-data.org key on Netlify as FOOTBALL_DATA_KEY to load the clubs.');
+          let teams;
+          try { teams = await fetchTeamsRaw('PL', key); } catch (err) { return fail(502, err.message); }
+          // Use the league's own names for clubs it has had before, like Man U and Wolves.
+          const known = [...new Set([...config.clubs, ...Object.keys(ALIASES)])];
+          const names = [...new Set(teams.map((t) => matchClub(t, known) || t.shortName || t.name))].sort((x, y) => x.localeCompare(y));
+          return json(200, { ok: true, clubs: names });
+        }
+        if (body.action !== 'start') return fail(400, 'Unknown action.');
+        const label = String(body.season || '').trim();
+        if (!/^\d{4}-\d{2}$/.test(label) || label === config.season) return fail(400, 'Give the new season a name like ' + next + '.');
+        if (String(body.confirm || '').trim() !== label) return fail(400, 'Type ' + label + ' to confirm.');
+        const clubs = [...new Set((body.clubs || []).map((c) => String(c).trim()).filter(Boolean))];
+        if (clubs.length !== 20) return fail(400, 'A season needs 20 clubs. You have ' + clubs.length + '.');
+        const keep = new Set(Array.isArray(body.keep) ? body.keep : config.players.map((p) => p.id));
+        if (!config.players.some((p) => keep.has(p.id))) return fail(400, 'Keep at least one player.');
+        // 1. A backup of everything as it stands.
+        await saveBackup(store);
+        // 2. This season, kept whole for History.
+        const season = seasonOf(all);
+        await store.setJSON('archive/' + config.season, {
+          season: config.season, archivedAt: new Date().toISOString(),
+          config: { season: config.season, players: config.players, clubs: config.clubs },
+          results: season.results, eflResults: season.eflResults, picks: season.picks,
+          cups: all.cups.filter((c) => c.season === config.season), fixtures: all.fixtures ? all.fixtures.weeks : {},
+        });
+        // 3. Anyone who picked both teams from one match this season joins the Shame Club for good.
+        const shame = [...(config.shameClub || SHAME_CLUB)];
+        const fx = (all.fixtures && all.fixtures.weeks) || {};
+        for (const p of config.players) {
+          for (const [w, pk] of Object.entries(season.picks[p.id] || {})) {
+            const games = (fx[w] && fx[w].games) || {};
+            const mine = [...(pk.standard || []), pk.lock].filter(Boolean);
+            if (mine.some((c) => games[c] && mine.includes(games[c].vs)) && !shame.some((m) => m.name.toLowerCase() === p.name.toLowerCase())) shame.push({ name: p.name, note: 'Joined ' + config.season });
+          }
+        }
+        // 4. A clean slate.
+        const players = config.players.filter((p) => keep.has(p.id));
+        const left = config.players.filter((p) => !keep.has(p.id));
+        const cfg = await update(store, 'config', (c) => ({
+          ...c, season: label, clubs, players, retired: [...(c.retired || []), ...left], currentWeek: 1,
+          lockedWeeks: [], reopenedWeeks: [], eflWeeks: [], eflClubs: [], shameClub: shame,
+        }), () => config);
+        await store.setJSON('results', { weeks: {}, efl: {}, history: [] });
+        for (const p of [...players, ...left]) await store.setJSON('picks/' + p.id, { player: p.id, weeks: {}, history: [] });
+        await store.setJSON('auto/results', { weeks: {}, checkedAt: null, error: null });
+        await store.delete('fixtures');
+        return json(200, { ok: true, config: cfg, archived: config.season });
       }
 
       if (route === 'admin/log' && req.method === 'POST') {

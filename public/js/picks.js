@@ -81,7 +81,7 @@
     const scroll = el('div', 'pl-scroll');
     scroll.append(t);
     wrap.append(scroll, el('p', 'ffwb-note', 'Each club needs 3 picks a half, and you can only take a club once a week. Have counts picks this half (L is locks). The weeks show each club\u2019s opponent; @ is away. Red cells are games where you still owe both clubs.'));
-    if (window.FFWBExplore && window.FFWBExplore.openCustom) window.FFWBExplore.openCustom('Half ' + pl.half + ' planner', 'Your picks', wrap);
+    if (window.FFWBExplore && window.FFWBExplore.openCustom) window.FFWBExplore.openCustom('The Map', (pl.half === 1 ? 'First' : 'Second') + ' half, your picks', wrap);
   }
 
   function PicksEditor(root, opts) {
@@ -422,7 +422,7 @@
         const draft = editable() && (state.std.length || state.lock) ? { standard: state.std, lock: state.lock } : null;
         const pl = P.plan(s, state.player, state.week, draft);
         planBar.className = 'pk-plan pk-plan-' + pl.level;
-        planBar.replaceChildren(el('span', 'pk-plan-dot'), el('span', 'pk-plan-text', pl.text), el('span', 'pk-plan-go', 'Planner \u203a'));
+        planBar.replaceChildren(el('span', 'pk-plan-dot'), el('span', 'pk-plan-text', pl.text), el('span', 'pk-plan-go', 'The Map \u203a'));
         planBar.onclick = () => openPlanner(pl);
         planBar.hidden = false;
       }

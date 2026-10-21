@@ -114,24 +114,28 @@
 
   const n1 = (x) => (Math.round(x * 10) / 10).toFixed(1);
   // The season's winners so far, and once it is over, the rows it adds to the history datasets.
-  function wrapUp(season) {
+  // force: an archived season, finished or not, goes into History as it stood.
+  function wrapUp(season, force) {
     const R = window.FFWBRules;
     const rows = weekly(season);
     const range = (half) => new Set(R.weeksInHalf(half));
-    const firstDone = halfDone(season, 1);
-    const allDone = firstDone && halfDone(season, 2);
+    const firstDone = force || halfDone(season, 1);
+    const allDone = force || (firstDone && halfDone(season, 2));
     const first = firstDone ? table(rows, range(1)) : null;
     const second = allDone ? table(rows, range(2)) : null;
     const full = allDone ? table(rows, new Set([...range(1), ...range(2)])) : null;
     const crowns = { season: season.config.season, first: first && first[0], second: second && second[0], champion: full && full[0], full };
-    if (!allDone) return { crowns, history: null };
+    if (!allDone || !full || !full.length) return { crowns, history: null };
     const label = season.config.season;
     const f1 = new Map(first.map((t) => [t.player, t.points]));
     const f2 = new Map(second.map((t) => [t.player, t.points]));
     const avg = full.reduce((a, t) => a + t.points, 0) / full.length;
+    // A season archived before it finished keeps its weeks, but has no champion, finishes or season totals.
+    const h1 = halfDone(season, 1);
+    const h2 = h1 && halfDone(season, 2);
     const history = {
-      history_seasons: full.map((t, i) => ({ season: label, player: t.player, first_half: n1(f1.get(t.player) || 0), second_half: n1(f2.get(t.player) || 0), full_season: n1(t.points), finish: String(i + 1), players: String(full.length), league_avg: n1(avg), source_tab: 'League site' })),
-      honours: [{ season: label, first_half: first[0].player, second_half: second[0].player, champion: full[0].player, fa_cup: '', league_cup: '', festive: '', community_shield: '' }],
+      history_seasons: full.map((t, i) => ({ season: label, player: t.player, first_half: h1 ? n1(f1.get(t.player) || 0) : '', second_half: h2 ? n1(f2.get(t.player) || 0) : '', full_season: h2 ? n1(t.points) : '', finish: h2 ? String(i + 1) : '', players: String(full.length), league_avg: h2 ? n1(avg) : '', source_tab: 'League site' })),
+      honours: [{ season: label, first_half: h1 && first[0] ? first[0].player : '', second_half: h2 && second[0] ? second[0].player : '', champion: h2 ? full[0].player : '', fa_cup: '', league_cup: '', festive: '', community_shield: '' }],
       history_weeks: rows.map((r) => ({ season: label, week: String(r.week), player: r.player, points: n1(r.points), picks: String(r.all.length), wins: String(r.all.filter((x) => x.v === 1).length), lock_club: r.lock ? r.lock.club : '', lock_result: r.lock ? (r.lock.v === 1 ? 'W' : r.lock.v === 0.5 ? 'D' : 'L') : '', bonus: r.efl ? n1(r.efl) : '' })),
       history_picks: [],
     };
@@ -258,9 +262,21 @@
       raw.efl_2026 = rows.efl;
       try {
         const w = wrapUp(season);
-        // Only add the season to History if it is not already there from the saved files.
-        const known = (csv.honours || '').split('\n').some((l) => l.startsWith(season.config.season + ','));
+        // Only add a season to History if it is not already there from the saved files.
+        const inFiles = (label) => (csv.honours || '').split('\n').some((l) => l.startsWith(label + ','));
+        const known = inFiles(season.config.season);
         extra = w.history && !known ? { ...w.history } : {};
+        // Seasons archived by the commissioner's new-season setup.
+        const merge = (more) => { for (const [k, v] of Object.entries(more)) extra[k] = [...(extra[k] || []), ...v]; };
+        for (const a of season.archives || []) {
+          if (inFiles(a.season) || a.season === season.config.season) continue;
+          const old = { config: { ...a.config, season: a.season }, results: a.results || {}, eflResults: a.eflResults || {}, picks: a.picks || {}, cups: a.cups || [] };
+          const ow = wrapUp(old, true);
+          if (!ow.history) continue;
+          if (window.FFWBCups) for (const cup of old.cups) { const st = window.FFWBCups.state(old, cup); if (st.champion) ow.history.honours[0][st.honour] = st.champion.name; }
+          ow.history.honours = ow.history.honours.filter((r) => Object.entries(r).some(([k, v]) => k !== 'season' && v));
+          merge(ow.history);
+        }
         // This season's honours so far, cups included, go into the honours table and trophy cabinet as they are won.
         if (!known) {
           const row = { season: season.config.season, first_half: w.crowns.first ? w.crowns.first.player : '', second_half: w.crowns.second ? w.crowns.second.player : '', champion: w.crowns.champion ? w.crowns.champion.player : '', fa_cup: '', league_cup: '', festive: '', community_shield: '' };
@@ -270,7 +286,7 @@
               if (st.champion) row[st.honour] = st.champion.name;
             }
           }
-          if (Object.entries(row).some(([k, v]) => k !== 'season' && v)) extra.honours = [row];
+          if (Object.entries(row).some(([k, v]) => k !== 'season' && v)) extra.honours = [...(extra.honours || []).filter((r) => r.season !== row.season), row];
         }
         drawCrowns(w.crowns);
       } catch (err) { console.error('FFWB: could not work out the season winners', err); extra = {}; }

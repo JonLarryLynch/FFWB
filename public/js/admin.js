@@ -788,6 +788,64 @@
     }));
   }
 
+  // ---------- New season ----------
+  const nsSeason = document.getElementById('ns-season');
+  const nsClubs = document.getElementById('ns-clubs');
+  const nsConfirm = document.getElementById('ns-confirm');
+  const nsStart = document.getElementById('ns-start');
+  const nsMsg = document.getElementById('ns-message');
+  let nsReady = false;
+  const nsList = () => [...new Set(nsClubs.value.split('\n').map((x) => x.trim()).filter(Boolean))];
+  function nsCheck() {
+    if (!season) return;
+    const list = nsList();
+    const out = season.config.clubs.filter((c) => !list.includes(c));
+    const inn = list.filter((c) => !season.config.clubs.includes(c));
+    document.getElementById('ns-clubs-note').textContent = list.length + ' clubs' + (list.length !== 20 ? ' (a season needs 20)' : '') + (out.length ? '. Out: ' + listNames(out) : '') + (inn.length ? '. In: ' + listNames(inn) : '') + '.';
+    document.getElementById('ns-type').textContent = nsSeason.value.trim() || 'the season';
+    nsStart.textContent = 'Start ' + (nsSeason.value.trim() || 'the new season');
+    nsStart.disabled = list.length !== 20 || !nsSeason.value.trim() || nsConfirm.value.trim() !== nsSeason.value.trim();
+  }
+  async function renderNewSeason() {
+    if (!season || nsReady) return;
+    nsReady = true;
+    const out = await adminPost('new-season', { action: 'preview' });
+    if (!out.ok) return;
+    nsSeason.value = out.next;
+    nsClubs.value = out.clubs.join('\n');
+    document.getElementById('ns-players').replaceChildren(...out.players.map((p) => {
+      const l = el('label', 'adm-ns-player');
+      const c = el('input'); c.type = 'checkbox'; c.checked = true; c.value = p.id;
+      l.append(c, el('span', null, p.name));
+      return l;
+    }));
+    nsCheck();
+  }
+  for (const n of [nsSeason, nsClubs, nsConfirm]) n.addEventListener('input', nsCheck);
+  document.getElementById('ns-feed').addEventListener('click', async () => {
+    say(nsMsg, 'info', 'Loading the Premier League clubs...');
+    const out = await adminPost('new-season', { action: 'feed-clubs' });
+    if (!out.ok) { say(nsMsg, 'bad', out.error); return; }
+    nsClubs.value = out.clubs.join('\n');
+    say(nsMsg, 'ok', 'Loaded ' + out.clubs.length + ' clubs. Check the names, then carry on.');
+    nsCheck();
+  });
+  nsStart.addEventListener('click', async () => {
+    const label = nsSeason.value.trim();
+    const keep = [...document.querySelectorAll('#ns-players input:checked')].map((c) => c.value);
+    if (!confirm('Start ' + label + '? This season moves into History and everyone starts again at week 1.')) return;
+    nsStart.disabled = true;
+    say(nsMsg, 'info', 'Saving a backup and starting ' + label + '...');
+    const out = await adminPost('new-season', { action: 'start', season: label, clubs: nsList(), keep, confirm: nsConfirm.value.trim() });
+    if (!out.ok) { say(nsMsg, 'bad', out.error); nsCheck(); return; }
+    say(nsMsg, 'ok', label + ' is under way. ' + out.archived + ' is in History. Load the fixtures with Check for results now on the Results tab.');
+    nsReady = false;
+    nsConfirm.value = '';
+    cw = null; resWeek = null;
+    window.FFWB.reload();
+    loadLog();
+  });
+
   // ---------- Players ----------
   const playersMsg = document.getElementById('players-message');
   async function playerAction(body, done) {
@@ -981,6 +1039,7 @@
     renderEfl();
     renderShame();
     renderPlayers();
+    renderNewSeason();
     renderCups();
     renderStatus();
     renderResults();

@@ -166,6 +166,25 @@
 
     <div class="adm-panel" id="p-house" role="tabpanel" hidden>
       <div class="adm-cols">
+        <section class="ffwb-card adm-newseason" id="newseason-card">
+          <h2 class="ffwb-h">Start a new season</h2>
+          <p class="ffwb-note">Saves a backup, moves this season into History (records, honours and cups included), makes this season's Shame Club inductees permanent, and starts the new season at week 1 with the clubs and players you choose.</p>
+          <div class="adm-ns-step"><span class="adm-ns-n">1</span><label>New season <input class="adm-input adm-num" id="ns-season" maxlength="7"></label></div>
+          <div class="adm-ns-step adm-ns-col"><span class="adm-ns-n">2</span>
+            <div class="adm-ns-body">
+              <div class="adm-row" style="justify-content: space-between"><b>Clubs</b><button class="pk-clear adm-small" type="button" id="ns-feed">Load next season's clubs from the feed</button></div>
+              <textarea class="adm-input adm-textarea" id="ns-clubs" rows="7" aria-label="Clubs for the new season, one per line"></textarea>
+              <p class="ffwb-note" id="ns-clubs-note"></p>
+            </div>
+          </div>
+          <div class="adm-ns-step adm-ns-col"><span class="adm-ns-n">3</span>
+            <div class="adm-ns-body"><b>Players carrying on</b><div class="adm-ns-players" id="ns-players"></div></div>
+          </div>
+          <div class="adm-ns-step"><span class="adm-ns-n">4</span><label>Type <b id="ns-type">the season</b> to confirm <input class="adm-input adm-num" id="ns-confirm" maxlength="7"></label></div>
+          <button class="pk-save adm-danger-fill" type="button" id="ns-start" disabled>Start the new season</button>
+          <p class="pk-message" id="ns-message" aria-live="polite"></p>
+        </section>
+
         <section class="ffwb-card" id="players-card">
           <h2 class="ffwb-h">Players</h2>
           <p class="ffwb-note">Rename someone, add a new player, or retire someone who has left. A retired player drops off this season's table and can be brought back any time. Past seasons keep the names they were played under.</p>
