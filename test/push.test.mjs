@@ -60,7 +60,7 @@ await t('reminders go only to players who have not picked, a day and three hours
   await get('season');
   await post('push/subscribe', { subscription: sub(1), player: 'jon' });
   await post('push/subscribe', { subscription: sub(2), player: 'ben' });
-  await post('picks', { player: 'jon', week: 8, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton'], lock: 'Man City' });
+  await post('picks', { player: 'jon', week: 8, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton'], lock: 'Man City', endpoint: sub(1).endpoint });
   const ko = Date.parse('2026-10-24T11:30:00Z');
   await store.setJSON('fixtures', { checkedAt: new Date().toISOString(), weeks: { 8: { kickoff: new Date(ko).toISOString(), games: {} } } });
   assert.deepEqual(await remind(store, ko - 40 * 3600e3, sender), [], 'too early');

@@ -1023,3 +1023,16 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 :root[data-theme="dark"] .wn-sec { color: var(--brand-gold); }
 
 .pk-secret { border-style: dashed; color: var(--color-fg-muted); }
+
+/* Personal links. */
+.lk-toast { position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%); z-index: 50; max-width: calc(100vw - 2rem); padding: 0.75rem 1rem; border-radius: 12px; background: var(--brand-navy); color: var(--brand-cream); border: 1px solid var(--brand-gold); box-shadow: 0 10px 30px rgba(0,0,0,0.3); font-size: 0.9rem; transition: opacity 0.6s; }
+.lk-toast.lk-bad { border-color: var(--color-bad); }
+.lk-toast.lk-go { opacity: 0; }
+.adm-links { display: grid; gap: 0.45rem; margin: 0.6rem 0; }
+.adm-links-sum { margin: 0; }
+.adm-link { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.5rem 0.65rem; border: 1px solid var(--color-border-line); border-radius: 10px; }
+.adm-link-on { border-color: color-mix(in srgb, #2f9e5b 55%, var(--color-border-line)); }
+.adm-link-who { display: grid; gap: 0.05rem; }
+.adm-link-who .ffwb-note { margin: 0; font-size: 0.78rem; }
+.adm-link-acts { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.adm-link-acts a { text-decoration: none; display: inline-flex; align-items: center; }

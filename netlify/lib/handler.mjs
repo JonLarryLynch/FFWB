@@ -11,6 +11,8 @@
 //   reactions/<season> { "8": { target player: { "🔥": [player ids] } } }
 //   archive/<season> a finished season, kept whole when a new one starts (shown in History)
 //   cups            { cups: [{ id, type, season, weeks: [...], seeds: [player ids], overrides, drawnAt }] }
+//   keys            { players: { id: { key, locked, linkedAt, lastSeen } } } personal links. Once a player opens
+//                   theirs, only a phone holding that key can save their picks or see them before kickoff.
 //   push/*          phone notification keys, subscriptions and which reminders have gone out
 import crypto from 'node:crypto';
 import rules from '../../public/js/rules.js';
@@ -37,6 +39,12 @@ function passcodeMatches(given, expected) {
 
 // When a week's first game kicks off, or null if the fixtures are not known.
 const kickoffOf = (fixtures, week) => (fixtures && fixtures.weeks && fixtures.weeks[String(week)] && fixtures.weeks[String(week)].kickoff) || null;
+// Personal links: a key per player, never shown publicly. keyOk compares without leaking timing.
+const newKey = () => crypto.randomBytes(9).toString('base64url');
+const keyOk = (given, k) => !!k && passcodeMatches(typeof given === 'string' ? given : '', k.key);
+// A player whose link has been opened needs the key; until then the site takes the name on trust.
+const keyNeeded = (keys, id) => !!(keys.players[id] && keys.players[id].locked);
+
 // Everyone's picks for a week stay secret until its first game kicks off (or any result is in, or the week is
 // in the past). Before then the site only says who has picked, not what.
 export function picksRevealed(config, results, fixtures, week, now = Date.now()) {
@@ -161,7 +169,23 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     return { shown, pickedIn };
   }
 
-  const publicView = ({ config, results, picks, fixtures, cups, reactions, archives }, me = null, full = false) => ({
+  async function loadKeys(store) {
+    return (await store.get('keys', { type: 'json' })) || { players: {} };
+  }
+  // Make sure every current player has a key. Returns the (maybe updated) keys document.
+  async function ensureKeys(store, config) {
+    const keys = await loadKeys(store);
+    if (config.players.every((p) => keys.players[p.id])) return keys;
+    return update(store, 'keys', (d) => {
+      for (const p of config.players) if (!d.players[p.id]) d.players[p.id] = { key: newKey(), locked: false, linkedAt: null, lastSeen: null };
+      return d;
+    }, () => ({ players: {} }));
+  }
+  // Is this phone allowed to act as this player?
+  const actsAs = (keys, id, given) => !keyNeeded(keys, id) || keyOk(given, keys.players[id]);
+
+  const publicView = ({ config, results, picks, fixtures, cups, reactions, archives }, me = null, full = false, linked = []) => ({
+    linked,
     archives: archives || [],
     reactions: reactions || {},
     cups: (cups || []).filter((c) => c.season === config.season),
@@ -177,6 +201,23 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     hiddenPicked: hidePicks({ config, results, picks, fixtures }, me, full).pickedIn,
     serverTime: new Date().toISOString(),
   });
+
+  // A save that did not come from the player's own linked phone gets a heads-up on their phone, so anything
+  // sneaky is spotted (and undone from the change log) before kickoff. Saves from a phone the player has alerts
+  // on are theirs, so no alert for those either.
+  async function changeAlert(store, player, week, { isAdmin, withKey, endpoint, clearing }) {
+    try {
+      if (withKey && !isAdmin) return;
+      if (!isAdmin && endpoint) {
+        const subs = await push.subscriptions(store);
+        if (Object.values(subs).some((s) => s.player === player.id && s.sub && s.sub.endpoint === endpoint)) return;
+      }
+      const what = clearing ? 'cleared' : 'changed';
+      const body = isAdmin ? 'The commissioner ' + what + ' your week ' + week + ' picks.'
+        : 'Your week ' + week + ' picks were just ' + what + '. If that was not you, tell the commissioner and it can be undone.';
+      await push.send(store, { title: 'Your picks were ' + what, body, tag: 'picks-' + week }, { players: [player.id], sender: extras.pushSender });
+    } catch (err) { console.error('Change alert failed: ' + err.message); }
+  }
 
   // Badges earned this week, once each: a perfect week, and a lock streak reaching 10 (then every 5 after).
   async function badgeAlerts(store, week) {
@@ -273,7 +314,45 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     try {
       if (route === 'season' && req.method === 'GET') {
         const full = passcodeMatches(req.headers.get('x-ffwb-pass') || '', passcode);
-        return json(200, publicView(await freshFixtures(store, await loadAll(store)), url.searchParams.get('me'), full));
+        const keys = await loadKeys(store);
+        const asked = url.searchParams.get('me');
+        // Your own picks before kickoff need your key once your link has been opened.
+        const me = asked && actsAs(keys, asked, req.headers.get('x-ffwb-key')) ? asked : null;
+        const linked = Object.entries(keys.players).filter(([, k]) => k.locked).map(([id]) => id);
+        return json(200, publicView(await freshFixtures(store, await loadAll(store)), me, full, linked));
+      }
+
+      // A phone opening a personal link: tie it to that player from now on.
+      if (route === 'link' && req.method === 'POST') {
+        const keys = await loadKeys(store);
+        const id = Object.keys(keys.players).find((p) => keyOk(body.key, keys.players[p]));
+        const { config } = await loadAll(store);
+        const player = config.players.find((p) => p.id === id);
+        if (!player) return fail(404, 'That link is not right, or it has been replaced. Ask the commissioner for a new one.');
+        const now = new Date().toISOString();
+        await update(store, 'keys', (d) => {
+          const k = d.players[id];
+          if (k) { k.locked = true; k.linkedAt = k.linkedAt || now; k.lastSeen = now; }
+          return d;
+        }, () => ({ players: {} }));
+        return json(200, { ok: true, player: id, name: player.name });
+      }
+
+      if (route === 'admin/keys' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        const { config } = await loadAll(store);
+        let keys = await ensureKeys(store, config);
+        if (body.action === 'reset' || body.action === 'unlock') {
+          if (!keys.players[body.id]) return fail(404, 'That player is gone.');
+          keys = await update(store, 'keys', (d) => {
+            const k = d.players[body.id];
+            if (body.action === 'reset') { k.key = newKey(); k.lastSeen = null; } else { k.locked = false; k.linkedAt = null; }
+            return d;
+          }, () => ({ players: {} }));
+        }
+        const list = config.players.map((p) => ({ id: p.id, name: p.name, ...keys.players[p.id] }));
+        return json(200, { ok: true, players: list });
       }
 
       if (route === 'picks' && req.method === 'POST') {
@@ -281,6 +360,11 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         const { config, results, fixtures } = all;
         const player = config.players.find((p) => p.id === body.player);
         if (!player) return fail(400, 'Choose a player.');
+        const keys = await loadKeys(store);
+        const withKey = keyOk(body.key, keys.players[player.id]);
+        if (!isAdmin && keyNeeded(keys, player.id) && !withKey) {
+          return fail(403, player.name + "'s picks can only be made from " + player.name + "'s own phone or laptop. If this is you, open your personal link on this device (the commissioner can send it again).", { needsLink: true });
+        }
         const week = Number(body.week);
         if (!Number.isInteger(week) || week < 1 || week > rules.WEEKS) return fail(400, 'Choose a week from 1 to 38.');
         if (!isAdmin && isClosed(config, results, week, fixtures)) {
@@ -309,6 +393,8 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           d.history = [{ at: new Date().toISOString(), week, by: isAdmin ? 'Commissioner' : player.name, from: before, to: next }, ...(d.history || [])].slice(0, HISTORY_KEEP);
           return d;
         }, () => ({ player: player.id, weeks: {}, history: [] }));
+        // Tell the player when their picks change from somewhere other than their own linked phone.
+        await changeAlert(store, player, week, { isAdmin, withKey, endpoint: body.endpoint, clearing });
         return json(200, { ok: true, weeks: doc.weeks });
       }
 
@@ -318,6 +404,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         const week = Number(body.week);
         const emoji = String(body.emoji || '');
         if (!ids.has(body.by) || !ids.has(body.target)) return fail(400, 'Choose your name first.');
+        if (!actsAs(await loadKeys(store), body.by, body.key)) return fail(403, 'Open your personal link on this device to react as yourself.');
         if (!REACTIONS.has(emoji)) return fail(400, 'That reaction is not one of ours.');
         if (!Number.isInteger(week) || week < 1 || week > rules.WEEKS) return fail(400, 'Choose a week from 1 to 38.');
         const doc = await update(store, 'reactions/' + config.season, (d) => {
@@ -344,7 +431,9 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           await push.subscribe(store, body.subscription, undefined, { commissioner: !!body.commissioner });
           return json(200, { ok: true });
         }
-        const player = config.players.some((p) => p.id === body.player) ? body.player : null;
+        // A linked player's own alerts (pick reminders, change alerts) only go to a phone holding their key.
+        const named = config.players.some((p) => p.id === body.player) ? body.player : null;
+        const player = named && actsAs(await loadKeys(store), named, body.key) ? named : null;
         await push.subscribe(store, body.subscription, player);
         return json(200, { ok: true });
       }

@@ -291,4 +291,46 @@ await t('the commissioner can start a new season, and the old one is kept for Hi
   assert.ok(backups.body.backups.length >= 1, 'a backup was saved first');
 });
 
+await t('personal links lock a name to its own phone, and changes alert the player', async () => {
+  const fresh = memoryStore();
+  const sent = [];
+  const h = createHandler(() => fresh, 'p', { pushSender: { sendNotification: async (sub, payload) => { sent.push(JSON.parse(payload)); } } });
+  const req = (path, body, headers = {}) => h(new Request('https://x.test/api/' + path, { method: body ? 'POST' : 'GET', headers, body: body ? JSON.stringify(body) : undefined })).then(async (r) => ({ status: r.status, body: await r.json() }));
+  const pick = { player: 'greg', week: 8, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton'], lock: 'Man City' };
+  // Before the link is opened, the name works on trust.
+  assert.equal((await req('picks', pick)).status, 200);
+  const list = (await req('admin/keys', { passcode: 'p' })).body.players;
+  const greg = list.find((x) => x.id === 'greg');
+  assert.ok(greg.key && !greg.locked);
+  assert.equal((await req('link', { key: 'wrong' })).status, 404);
+  const linked = await req('link', { key: greg.key });
+  assert.equal(linked.body.player, 'greg');
+  // Now only Greg's key can save or see Greg's picks before kickoff.
+  const other = await req('picks', { ...pick, lock: 'Arsenal', standard: ['Everton', 'Chelsea', 'Liverpool', 'Brighton'] });
+  assert.equal(other.status, 403);
+  assert.ok(other.body.needsLink);
+  assert.equal((await req('picks', { ...pick, key: greg.key })).status, 200);
+  assert.equal((await req('season?me=greg')).body.picks.greg['8'], undefined, 'no key, no peeking');
+  assert.equal((await req('season?me=greg', null, { 'x-ffwb-key': greg.key })).body.picks.greg['8'].lock, 'Man City');
+  assert.deepEqual((await req('season')).body.linked, ['greg']);
+  assert.equal((await req('react', { week: 7, target: 'tim', emoji: '\u{1F525}', by: 'greg' })).status, 403);
+  // The commissioner can still change it, and Greg hears about it.
+  await req('push/subscribe', { subscription: { endpoint: 'https://push.test/g', keys: { p256dh: 'x', auth: 'y' } }, player: 'greg', key: greg.key });
+  sent.length = 0;
+  assert.equal((await req('picks', { ...pick, passcode: 'p' })).status, 200);
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].body, /commissioner changed your week 8/);
+  sent.length = 0;
+  assert.equal((await req('picks', { ...pick, key: greg.key })).status, 200);
+  assert.equal(sent.length, 0, 'no alert when Greg saves from his own phone');
+  // A reset kills the old link.
+  const reset = (await req('admin/keys', { passcode: 'p', action: 'reset', id: 'greg' })).body.players.find((x) => x.id === 'greg');
+  assert.notEqual(reset.key, greg.key);
+  assert.equal((await req('picks', { ...pick, key: greg.key })).status, 403);
+  assert.equal((await req('picks', { ...pick, key: reset.key })).status, 200);
+  // Unlock lets the name work on trust again.
+  await req('admin/keys', { passcode: 'p', action: 'unlock', id: 'greg' });
+  assert.equal((await req('picks', pick)).status, 200);
+});
+
 console.log(passed + ' tests passed');

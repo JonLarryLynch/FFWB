@@ -305,7 +305,11 @@
         const ls = (k, st) => { try { return st.getItem(k) || ''; } catch (err) { return ''; } };
         const me = ls('ffwb-player', localStorage);
         const pass = ls('ffwb-pass', sessionStorage);
-        const res = await fetch('/api/season' + (me ? '?me=' + encodeURIComponent(me) : ''), { cache: 'no-store', headers: pass ? { 'x-ffwb-pass': pass } : {} });
+        const key = me ? ls('ffwb-key-' + me, localStorage) : '';
+        const headers = {};
+        if (pass) headers['x-ffwb-pass'] = pass;
+        if (key) headers['x-ffwb-key'] = key;
+        const res = await fetch('/api/season' + (me ? '?me=' + encodeURIComponent(me) : ''), { cache: 'no-store', headers });
         if (!res.ok) throw new Error('The league server answered ' + res.status);
         const season = await res.json();
         if (!season.ok) throw new Error(season.error || 'The league server could not load the season.');

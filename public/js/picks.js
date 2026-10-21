@@ -241,7 +241,9 @@
 
     const weekPicks = () => (state.season && state.player ? state.season.picks[state.player] || {} : {});
     const statusNow = () => weekStatus(state.season, state.week);
-    const editable = () => admin || statusNow().open;
+    // A name linked to someone's own phone can only be picked from a phone holding its key.
+    const lockedOut = () => !admin && !!state.player && !!state.season && (state.season.linked || []).includes(state.player) && !remember.get('ffwb-key-' + state.player);
+    const editable = () => admin || (statusNow().open && !lockedOut());
     const allowed = () => R.allowedStandard(weekPicks(), state.season.results, state.week);
     const eflWeek = (week) => !!state.season && (state.season.config.eflWeeks || []).includes(week);
 
@@ -292,6 +294,15 @@
       render();
       const body = { player: state.player, week: state.week, standard: clearing ? [] : state.std, lock: clearing ? null : state.lock };
       if (!clearing && state.efl && eflWeek(state.week)) body.efl = state.efl;
+      if (!admin) {
+        body.key = remember.get('ffwb-key-' + state.player) || undefined;
+        // This phone's alert subscription, so a save from the player's own phone does not alert them.
+        try {
+          const reg = navigator.serviceWorker && await Promise.race([navigator.serviceWorker.ready, new Promise((r) => setTimeout(r, 800))]);
+          const sub = reg && reg.pushManager ? await reg.pushManager.getSubscription() : null;
+          if (sub) body.endpoint = sub.endpoint;
+        } catch (err) { /* no alerts on this phone */ }
+      }
       if (admin) {
         body.passcode = opts.passcode();
         if (override.checked) body.override = true;
@@ -374,7 +385,7 @@
             b.addEventListener('click', async () => {
               if (!mine) { state.message = { kind: 'warn', text: 'Choose your name first to react.' }; render(); return; }
               try {
-                const res = await fetch('/api/react', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ week: state.week, target: p.id, emoji: emo, by: mine }) });
+                const res = await fetch('/api/react', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ week: state.week, target: p.id, emoji: emo, by: mine, key: remember.get('ffwb-key-' + mine) || undefined }) });
                 const out = await res.json();
                 if (out.ok) { s.reactions = out.reactions; renderEveryone(); }
               } catch (err) { /* try again later */ }
@@ -435,7 +446,9 @@
       const closesAt = !(st.open && fx && fx.kickoff) ? ''
         : s.config.autoClose && !(s.config.reopenedWeeks || []).includes(state.week) ? ' Picks lock at the first kickoff, ' + whenLong(fx.kickoff) + '.'
           : Date.now() < Date.parse(fx.kickoff) ? ' First kickoff ' + whenLong(fx.kickoff) + '.' : '';
+      const lockedName = lockedOut() ? (s.config.players.find((p) => p.id === state.player) || { name: '' }).name : '';
       help.textContent = (!showEditor ? (admin ? 'Choose a player to edit their picks.' : 'Choose your name to make your picks.')
+        : lockedName ? '\u{1F512} ' + lockedName + "'s picks can only be made from " + lockedName + "'s own phone or laptop. If you are " + lockedName + ', open your personal link on this device. The commissioner can send it again.'
         : canEdit ? 'Tap once to pick, twice for your lock, three times to remove.'
           : state.week > s.config.currentWeek && !admin ? 'Week ' + state.week + " isn't open yet. You can pick it once week " + s.config.currentWeek + ' is done.'
             : 'This week is closed.' + (admin ? '' : ' Ask the commissioner if something needs fixing.')) + closesAt;
@@ -599,7 +612,7 @@
       save.disabled = !canEdit || state.saving || !complete || (!state.dirty && !!saved) || (!!verdict && !verdict.ok && !(admin && override.checked));
       save.textContent = saved && state.dirty ? 'Save changes' : saved ? 'Saved' : 'Save picks';
       clear.hidden = !canEdit || !saved;
-      clear.disabled = state.saving;
+      clear.disabled = state.saving || lockedOut();
       overrideWrap.hidden = !(admin && ((verdict && !verdict.ok) || state.canOverride));
       bar.hidden = !canEdit && !saved;
 

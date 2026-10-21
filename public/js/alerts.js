@@ -15,6 +15,7 @@
     set(k, v) { try { localStorage.setItem(k, v); } catch (err) { /* only a convenience */ } },
   };
   const me = () => store.get('ffwb-player');
+  const myKey = () => (me() ? store.get('ffwb-key-' + me()) : null);
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   let reg = null;
   let busy = false;
@@ -82,7 +83,7 @@
       if (perm !== 'granted') throw new Error('Alerts were not allowed.');
       const { publicKey } = await api('push/key');
       const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(publicKey) });
-      const out = await api('push/subscribe', { subscription: sub.toJSON(), player: me() });
+      const out = await api('push/subscribe', { subscription: sub.toJSON(), player: me(), key: myKey() });
       if (!out.ok) throw new Error(out.error);
       busy = false; await draw({ kind: 'ok', text: "You're set." });
       return true;
@@ -124,7 +125,7 @@
   document.addEventListener('change', async (e) => {
     if (!e.target || e.target.id !== 'player-name' || !reg) return;
     const sub = await reg.pushManager.getSubscription();
-    if (sub && me()) api('push/subscribe', { subscription: sub.toJSON(), player: me() });
+    if (sub && me()) api('push/subscribe', { subscription: sub.toJSON(), player: me(), key: myKey() });
   });
 
   (async () => {

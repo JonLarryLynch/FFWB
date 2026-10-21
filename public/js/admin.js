@@ -914,6 +914,54 @@
     if (await playerAction({ action: 'add', name }, name + ' is in. They can pick from this week.')) input.value = '';
   });
 
+  // ---------- Personal links ----------
+  const linksMsg = document.getElementById('links-message');
+  let links = [];
+  const linkUrl = (p) => location.origin + '/?key=' + p.key;
+  const shortDay = (iso) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  async function loadLinks(body = {}, done) {
+    const out = await adminPost('keys', body);
+    if (!out.ok) { say(linksMsg, 'bad', out.error); return; }
+    links = out.players;
+    if (done) say(linksMsg, 'ok', done);
+    drawLinks();
+  }
+  async function copyText(text, done) {
+    try { await navigator.clipboard.writeText(text); say(linksMsg, 'ok', done); } catch (err) { say(linksMsg, 'bad', 'Could not copy on this browser.'); }
+  }
+  function drawLinks() {
+    const box = document.getElementById('links-list');
+    const n = links.filter((p) => p.locked).length;
+    const head = el('p', 'ffwb-note adm-links-sum', n + ' of ' + links.length + ' players linked.');
+    const rows = links.map((p) => {
+      const row = el('div', 'adm-link' + (p.locked ? ' adm-link-on' : ''));
+      const who = el('div', 'adm-link-who');
+      who.append(el('span', 'ffwb-strong', p.name), el('span', 'ffwb-note', p.locked ? '\u{1F512} Linked ' + shortDay(p.linkedAt) + (p.lastSeen && p.lastSeen !== p.linkedAt ? ', last opened ' + shortDay(p.lastSeen) : '') : 'Not linked yet'));
+      const acts = el('div', 'adm-link-acts');
+      const copy = el('button', 'pk-save adm-small', 'Copy link');
+      copy.type = 'button';
+      copy.addEventListener('click', () => copyText('Your FFWB link. Open it on your phone (and your laptop if you pick from there) and keep it to yourself: ' + linkUrl(p), p.name + "'s link copied. Text it to them."));
+      const text = el('a', 'pk-clear adm-small', 'Text');
+      text.href = 'sms:?&body=' + encodeURIComponent('Your FFWB link. Open it on your phone (and your laptop if you pick from there) and keep it to yourself: ' + linkUrl(p));
+      const reset = el('button', 'pk-clear adm-small adm-danger', 'Reset');
+      reset.type = 'button';
+      reset.title = 'Make a new link. The old one stops working, and so does every device that opened it.';
+      reset.addEventListener('click', () => { if (confirm('Make a new link for ' + p.name + '? The old link stops working, and each of their devices needs the new one.')) loadLinks({ action: 'reset', id: p.id }, p.name + ' has a new link. Send it to them.'); });
+      acts.append(copy, text, reset);
+      if (p.locked) {
+        const unlock = el('button', 'pk-clear adm-small', 'Unlock');
+        unlock.type = 'button';
+        unlock.title = 'Let them pick from any device again until they open their link.';
+        unlock.addEventListener('click', () => { if (confirm('Unlock ' + p.name + '? Anyone could pick as them until they open their link again.')) loadLinks({ action: 'unlock', id: p.id }, p.name + ' is unlocked until they open their link again.'); });
+        acts.append(unlock);
+      }
+      row.append(who, acts);
+      return row;
+    });
+    box.replaceChildren(head, ...rows);
+  }
+  document.getElementById('links-copy-all').addEventListener('click', () => copyText(links.map((p) => p.name + ': ' + linkUrl(p)).join('\n'), 'All ' + links.length + ' links copied. Send each person only their own.'));
+
   // ---------- Shame Club ----------
   const shameList = document.getElementById('shame-list');
   function renderShame() {
@@ -1060,6 +1108,7 @@
     renderEfl();
     renderShame();
     renderPlayers();
+    if (!app.hidden && passcode) loadLinks();
     renderNewSeason();
     renderCups();
     renderStatus();
