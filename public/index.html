@@ -27,6 +27,7 @@
       <span id="t-verb">lead</span> on
       <span class="ffwb-fig" id="t-top">-</span>
     </p>
+    <button class="al-bell" type="button" id="alerts-bell" aria-haspopup="dialog" aria-label="Phone alerts" title="Phone alerts" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path class="al-bell-body" d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path class="al-bell-clap" d="M10 20.5a2 2 0 0 0 4 0"/></svg><span class="al-dot" aria-hidden="true"></span></button>
   </header>
   <p class="ffwb-offline" id="offline" hidden></p>
 
@@ -40,7 +41,6 @@
   <!-- Picks -->
   <section class="ffwb-page" id="picks" role="tabpanel" aria-labelledby="tab-picks">
     <div id="picks-app"><div class="ffwb-card"><p class="ffwb-note">Loading the league...</p></div></div>
-    <div class="ffwb-card al-card" id="alerts" hidden></div>
   </section>
 
   <!-- Table -->
@@ -229,6 +229,12 @@
       </div>
     </div>
   </section>
+
+  <dialog class="al-pop" id="alerts-pop" aria-labelledby="alerts-pop-title">
+    <header class="al-pop-head"><h2 id="alerts-pop-title">Phone alerts</h2><button class="xp-close" type="button" id="alerts-close" aria-label="Close">&times;</button></header>
+    <div class="al-pop-body" id="alerts"></div>
+  </dialog>
+  <div class="al-toast" id="alerts-toast" role="status" hidden></div>
 
   <dialog class="xp-sheet" id="xp-sheet" aria-labelledby="xp-title">
     <div class="xp-sheet-inner">

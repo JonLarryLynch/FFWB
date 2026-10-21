@@ -487,11 +487,7 @@
 .ffwb { --ffwb-heat: var(--brand-gold); }
 .pk-bonus { background: color-mix(in srgb, var(--brand-gold) 22%, var(--color-panel)); border-color: var(--brand-gold); }
 
-/* Phone alerts card. */
-.al-card { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.9rem; padding: 0.8rem 1rem; }
-.al-title { font-family: var(--font-anthropic-serif); font-weight: 500; letter-spacing: 0.03em; }
-.al-text { flex: 1 1 16rem; margin: 0; }
-.al-card .pk-message { flex-basis: 100%; margin: 0; }
+
 
 /* The Shame Club. */
 .sh-card { border-color: color-mix(in srgb, var(--brand-claret) 60%, var(--color-border-line)); }
@@ -600,3 +596,56 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
   .xp-sheet-body { padding: 0.8rem 0.9rem; }
 }
 @keyframes xp-up { from { transform: translateY(100%); } to { transform: none; } }
+
+/* Phone alerts: the bell in the header, its panel and the one-time toast. */
+.ffwb-topbar { position: relative; }
+.al-bell { appearance: none; position: relative; width: 2.6rem; height: 2.6rem; flex: none; border-radius: 999px; cursor: pointer; display: grid; place-items: center;
+  border: 1px solid color-mix(in srgb, var(--brand-cream) 35%, transparent); background: transparent; color: var(--brand-cream); transition: background 0.15s ease, border-color 0.15s ease; }
+.al-bell:hover { background: color-mix(in srgb, var(--brand-cream) 12%, transparent); border-color: var(--brand-gold); }
+.al-bell:focus-visible { outline: 3px solid var(--brand-gold); outline-offset: 2px; }
+.al-bell svg { width: 1.35rem; height: 1.35rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.al-bell.al-on { color: var(--brand-gold); border-color: var(--brand-gold); }
+.al-bell.al-on .al-bell-body { fill: var(--brand-gold); }
+.al-dot { position: absolute; top: 0.42rem; right: 0.5rem; width: 0.55rem; height: 0.55rem; border-radius: 999px; background: #e2c77f; box-shadow: 0 0 0 2px var(--brand-navy); display: none; }
+.ffwb-topbar .ffwb-headline { margin-left: auto; }
+@media (max-width: 640px) {
+  .al-bell { position: absolute; top: 0.75rem; right: clamp(1rem, 3vw, 2rem); width: 2.4rem; height: 2.4rem; }
+  .ffwb-topbar .ffwb-headline { margin-left: 0; flex-basis: 100%; }
+  .ffwb-topbar .ffwb-brand { padding-right: 3rem; }
+}
+
+.al-pop { padding: 0; border: 0; max-width: none; width: min(24rem, 92vw); border-radius: 16px; overflow: hidden; background: var(--color-panel); color: var(--color-fg); box-shadow: 0 24px 60px -18px rgba(10, 15, 30, 0.55);
+  margin: 5.2rem max(1rem, calc((100vw - 76rem) / 2 + 1rem)) auto auto; }
+.al-pop[open] { animation: xp-in 0.18s ease-out; }
+.al-pop::backdrop { background: rgba(10, 15, 30, 0.35); }
+.al-pop-head { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: var(--brand-navy); color: var(--brand-cream); border-bottom: 3px solid var(--brand-claret); }
+.al-pop-head h2 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; }
+.al-pop-head .xp-close { width: 2.1rem; height: 2.1rem; font-size: 1.3rem; }
+.al-pop-body { padding: 1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+.al-pop-body p { margin: 0; }
+.al-lead { font-size: var(--cds-font-size-body); }
+.al-status { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; }
+.al-status-dot { width: 0.65rem; height: 0.65rem; border-radius: 999px; background: var(--cds-chart-muted); }
+.al-status-on .al-status-dot { background: #2f9e5b; }
+.al-when { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.al-when li { display: flex; flex-direction: column; padding: 0.45rem 0.7rem; border-left: 3px solid var(--brand-gold); background: color-mix(in srgb, var(--brand-gold) 9%, var(--color-panel)); border-radius: 0 8px 8px 0; }
+.al-when b { font-weight: 600; }
+.al-when span { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.al-steps { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.al-btn { align-self: flex-start; }
+@media (max-width: 640px) {
+  .al-pop { width: 100vw; margin: auto 0 0; border-radius: 18px 18px 0 0; }
+  .al-pop[open] { animation: xp-up 0.24s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .al-pop-body { padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
+  .al-btn { align-self: stretch; }
+}
+
+.al-toast { position: fixed; z-index: 60; left: 50%; transform: translateX(-50%); bottom: 1.2rem; width: min(30rem, calc(100vw - 2rem));
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.6rem; padding: 0.75rem 0.9rem; border-radius: 14px;
+  background: var(--brand-navy); color: var(--brand-cream); border: 1px solid var(--brand-gold); box-shadow: 0 16px 40px -14px rgba(10, 15, 30, 0.6); animation: xp-in 0.2s ease-out; }
+.al-toast[hidden] { display: none; }
+.al-toast span { flex: 1 1 14rem; font-weight: 500; }
+.al-toast button { appearance: none; font: inherit; font-weight: 600; font-size: var(--cds-font-size-caption); padding: 0.4rem 0.8rem; border-radius: 999px; cursor: pointer; }
+.al-toast-yes { border: 1px solid var(--brand-gold); background: var(--brand-gold); color: var(--brand-navy); }
+.al-toast-no { border: 1px solid color-mix(in srgb, var(--brand-cream) 40%, transparent); background: transparent; color: var(--brand-cream); }
+@media (max-width: 640px) { .al-toast { bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px)); } }

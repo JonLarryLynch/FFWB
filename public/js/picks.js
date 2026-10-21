@@ -195,6 +195,7 @@
           const name = state.season.config.players.find((p) => p.id === state.player).name;
           state.message = { kind: 'ok', text: clearing ? 'Week ' + state.week + ' cleared for ' + name + '.' : 'Saved ' + name + "'s picks for week " + state.week + '.' };
           if (opts && opts.onSaved) opts.onSaved();
+          if (!admin && !clearing) document.dispatchEvent(new CustomEvent('ffwb:picks-saved', { detail: { week: state.week } }));
         }
       } catch (err) {
         state.message = { kind: 'bad', text: 'Could not reach the league server. Check your connection and try again.' };
