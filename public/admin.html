@@ -218,6 +218,13 @@
     <div class="adm-row"><button class="pk-clear" type="button" id="shame-save">Save list</button></div>
     <p class="pk-message" id="shame-message" aria-live="polite"></p>
   </section>
+  <section class="ffwb-card" id="errors-card">
+    <h2 class="ffwb-h">Site errors</h2>
+    <p class="ffwb-note">If the site breaks on someone's phone, it sends a note here: what went wrong, where, who was using it and on what. The same problem is counted rather than listed twice.</p>
+    <div class="adm-errors" id="errors-list"></div>
+    <div class="adm-row"><button class="pk-clear" type="button" id="errors-refresh">Refresh</button><button class="pk-clear" type="button" id="errors-clear">Clear the list</button></div>
+    <p class="pk-message" id="errors-message" aria-live="polite"></p>
+  </section>
   <section class="ffwb-card" id="backup-card">
     <h2 class="ffwb-h">Backup</h2>
     <p class="ffwb-note">The site saves a backup every Tuesday morning and keeps the last 12. You can also download everything (picks, results and the change log) as one file right now.</p>
@@ -242,8 +249,10 @@
 </div>
 </div>
 
+<script src="js/errors.js"></script>
 <script src="js/rules.js"></script>
 <script src="js/cups.js"></script>
+<script src="js/awards.js"></script>
 <script src="js/shim.js"></script>
 <script src="js/shame.js"></script>
 <script src="js/planner.js"></script>

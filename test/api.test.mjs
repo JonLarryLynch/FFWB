@@ -338,4 +338,20 @@ await t('personal links lock a name to its own phone, and changes alert the play
   assert.equal((await req('picks', pick)).status, 200);
 });
 
+await t('error reports are counted, kept short, and only the commissioner can read them', async () => {
+  const fresh = memoryStore();
+  const h = createHandler(() => fresh, 'p');
+  const post = async (path, body) => { const r = await h(new Request('https://x.test/api/' + path, { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, body: await r.json() }; };
+  for (let i = 0; i < 3; i += 1) assert.equal((await post('report', { message: 'x is undefined', source: '/js/picks.js:10:' + i, player: 'jon' })).status, 200);
+  await post('report', { message: 'Something else', source: '/js/home.js:1:1' });
+  assert.equal((await post('report', {})).status, 400);
+  assert.equal((await post('admin/errors', {})).status, 401);
+  const list = (await post('admin/errors', { passcode: 'p' })).body.items;
+  assert.equal(list.length, 2);
+  assert.equal(list.find((x) => x.message === 'x is undefined').count, 3, 'same line, different column: one problem');
+  for (let i = 0; i < 70; i += 1) await post('report', { message: 'flood ' + i });
+  assert.equal((await post('admin/errors', { passcode: 'p' })).body.items.length, 60);
+  assert.equal((await post('admin/errors', { passcode: 'p', action: 'clear' })).body.items.length, 0);
+});
+
 console.log(passed + ' tests passed');

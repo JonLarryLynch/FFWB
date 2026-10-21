@@ -406,6 +406,25 @@ function drawPlayers() {
       }
       head.append(row);
     }
+    // This season's weekly awards.
+    const live = window.FFWB && window.FFWB.season;
+    const me = live && live.config.players.find((p) => p.name === c.player);
+    if (me && window.FFWBAwards) {
+      const t = window.FFWBAwards.season(live).tally[me.id];
+      const kinds = [['top', '\u{1F3C6}', 'Top scorer'], ['lone', '\u{1F43A}', 'Lone wolf'], ['bottled', '\u{1F37E}', 'Bottled it'], ['worst', '\u{1F944}', 'Worst week']];
+      if (t && kinds.some(([k]) => t[k])) {
+        const row = el('div', 'ffwb-badges ffwb-awards-row');
+        row.append(el('span', 'ffwb-awards-label', 'Weekly awards'));
+        for (const [k, icon, label] of kinds) {
+          if (!t[k]) continue;
+          const chip = el('span', 'ffwb-badge ffwb-award-' + k);
+          chip.title = label + ', ' + t[k] + ' time' + (t[k] === 1 ? '' : 's') + ' this season';
+          chip.append(el('span', 'ffwb-badge-icon', icon), el('span', null, label + (t[k] > 1 ? ' \u00d7' + t[k] : '')));
+          row.append(chip);
+        }
+        head.append(row);
+      }
+    }
     const grid = el('div', 'ffwb-pc-grid');
     for (const [field, label] of cardStats) {
       const v = c[field];

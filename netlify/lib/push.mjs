@@ -89,7 +89,8 @@ export async function once(store, tag, fn) {
 const chicago = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', hour: 'numeric', minute: '2-digit' }) + ' CT';
 
 // Reminders before a week's first kickoff, for players who have not picked: one about a day before and one
-// about three hours before. Runs from the hourly job.
+// about three hours before. Then, in the first hours after kickoff, the reveal: picks are no longer secret, so
+// everyone gets a "Picks are in" alert that opens the reveal screen. Runs from the hourly job.
 export async function remind(store, now = Date.now(), sender) {
   const config = await store.get('config', { type: 'json' });
   const fixtures = await store.get('fixtures', { type: 'json' });
@@ -99,6 +100,20 @@ export async function remind(store, now = Date.now(), sender) {
   if (!ko) return [];
   const left = Date.parse(ko) - now;
   const done = [];
+  if (left <= 0 && left > -6 * 3600e3) {
+    const docs = await Promise.all(config.players.map((p) => store.get('picks/' + p.id, { type: 'json' })));
+    const made = docs.filter((d) => d && d.weeks && d.weeks[String(week)]).length;
+    if (made >= 2) {
+      const r = await once(store, 'reveal-' + config.season + '-' + week, () => send(store, {
+        title: 'Picks are in for week ' + week,
+        body: made + ' of us have picked. See the most popular lock, who went against the crowd and any new Shame Club members.',
+        url: '/?reveal=' + week,
+        tag: 'reveal-' + week,
+      }, { sender }));
+      if (r) done.push({ tag: 'reveal', ...r });
+    }
+    return done;
+  }
   for (const [tag, from, to] of [['day', 3 * 3600e3, 26 * 3600e3], ['soon', 0, 3 * 3600e3]]) {
     if (left <= from || left > to) continue;
     const docs = await Promise.all(config.players.map((p) => store.get('picks/' + p.id, { type: 'json' })));

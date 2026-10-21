@@ -12,4 +12,4 @@ The commissioner page needs an `ADMIN_PASSCODE` environment variable set on Netl
 
 Results: `netlify/functions/fetch-results.mjs` runs every Tuesday at 9 AM Central and fetches Premier League results from football-data.org (`netlify/lib/autoresults.mjs`). They are saved as suggestions that pre-fill the commissioner page. It needs a `FOOTBALL_DATA_KEY` environment variable on Netlify. Never commit the key: this repository is public.
 
-Tests: `npm install`, then `node test/api.test.mjs` and `node test/autoresults.test.mjs`. To run the site locally with in-memory storage: `node test/dev-server.mjs` (passcode `test`).
+Tests: `npm install`, then `npm test`. That runs every test file and then a browser check (test/smoke.mjs) that opens the site as a player and as the commissioner. Netlify runs the same thing before every release, and a failure stops the release so the live site stays as it was. To run the site locally with in-memory storage: `node test/dev-server.mjs` (passcode `test`).

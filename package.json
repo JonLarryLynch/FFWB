@@ -5,5 +5,12 @@
   "dependencies": {
     "@netlify/blobs": "11.1.1",
     "web-push": "3.6.7"
+  },
+  "scripts": {
+    "test": "node test/check.mjs",
+    "check": "node test/check.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.56.0"
   }
 }

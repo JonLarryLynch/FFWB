@@ -14,6 +14,8 @@
 //   keys            { players: { id: { key, locked, linkedAt, lastSeen, phone, email } } } personal links (and
 //                   contact details for sending them, seen only by the commissioner). Once a player opens
 //                   theirs, only a phone holding that key can save their picks or see them before kickoff.
+//   errors          { items: [{ key, message, source, stack, page, player, ua, count, first, last }] } site errors
+//                   sent from phones, for the commissioner
 //   push/*          phone notification keys, subscriptions and which reminders have gone out
 import crypto from 'node:crypto';
 import rules from '../../public/js/rules.js';
@@ -321,6 +323,32 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         const me = asked && actsAs(keys, asked, req.headers.get('x-ffwb-key')) ? asked : null;
         const linked = Object.entries(keys.players).filter(([, k]) => k.locked).map(([id]) => id);
         return json(200, publicView(await freshFixtures(store, await loadAll(store)), me, full, linked));
+      }
+
+      // An error from someone's phone. The same problem is counted, not stored twice, and the list stays short.
+      if (route === 'report' && req.method === 'POST') {
+        const clip = (v, n) => String(v == null ? '' : v).slice(0, n);
+        const message = clip(body.message, 300);
+        if (!message) return fail(400, 'Nothing to report.');
+        const source = clip(body.source, 200);
+        const key = crypto.createHash('sha1').update(message + '|' + source.replace(/:\d+:\d+$/, '')).digest('hex').slice(0, 16);
+        const now = new Date().toISOString();
+        await update(store, 'errors', (d) => {
+          const hit = d.items.find((x) => x.key === key);
+          if (hit) { hit.count = Math.min(hit.count + 1, 99999); hit.last = now; hit.page = clip(body.page, 200); hit.player = clip(body.player, 40) || hit.player; hit.ua = clip(body.ua, 200); }
+          else d.items.unshift({ key, message, source, stack: clip(body.stack, 1500), page: clip(body.page, 200), player: clip(body.player, 40), ua: clip(body.ua, 200), count: 1, first: now, last: now });
+          d.items = d.items.slice(0, 60);
+          return d;
+        }, () => ({ items: [] }));
+        return json(200, { ok: true });
+      }
+
+      if (route === 'admin/errors' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        if (body.action === 'clear') await store.setJSON('errors', { items: [], clearedAt: new Date().toISOString() });
+        const doc = (await store.get('errors', { type: 'json' })) || { items: [] };
+        return json(200, { ok: true, items: doc.items, clearedAt: doc.clearedAt || null });
       }
 
       // A phone opening a personal link: tie it to that player from now on.

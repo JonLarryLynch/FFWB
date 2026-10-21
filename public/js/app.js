@@ -564,7 +564,7 @@ function show(name, link) {
 }
 for (const t of tabs) t.addEventListener('click', () => show(t.dataset.tab, true));
 const asked = location.hash.slice(1);
-if (tabs.some((t) => t.dataset.tab === asked) && asked !== 'picks') show(asked, false);
+if (tabs.some((t) => t.dataset.tab === asked) && asked !== 'home') show(asked, false);
 
 dash.onData(() => {
   drawSeason();

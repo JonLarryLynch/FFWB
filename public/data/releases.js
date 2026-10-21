@@ -2,17 +2,26 @@
 // can send it to everyone's phone from the Messages tab. Add a new entry at the top for each release.
 window.FFWB_RELEASES = [
   {
-    id: '2026-10-21',
+    id: '2026-10-21b',
     date: '21 October 2026',
     title: 'The big autumn update',
-    push: 'The Map, cups, secret picks, your own personal link, the Shame Club and more. Tap to see what is new.',
+    push: 'The reveal, weekly awards, a new way to pick, The Map, cups and more. Tap to see what is new.',
     sections: [
+      {
+        name: 'Every week',
+        items: [
+          ['This week', 'The site now opens on This week: whether you have picked, the countdown to kickoff, your cup game, what you still owe and how last week went.'],
+          ['The reveal', 'When the first game kicks off, everyone gets a Picks are in alert and the reveal: the most-picked clubs, the people\u2019s lock, who went against the crowd and any new Shame Club members.'],
+          ['Secret picks', 'Nobody can see your picks until the first game of the week kicks off. Before then everyone just sees a tick to show you have picked. You can always see your own.'],
+          ['Weekly awards', 'Top scorer, Bottled it (worst lock), Lone wolf (a winning pick nobody else made) and Worst week, every week on This week, the recap and your player card.'],
+        ],
+      },
       {
         name: 'Picks',
         items: [
+          ['The pick tray', 'Tap clubs to fill the tray at the bottom of the Picks tab. Tap a pick, or drag it onto the gold slot, to make it your lock. Save sits right there.'],
           ['The Map', 'Tap The Map on the Picks tab to see every club against the weeks left in the half, what you still owe, and the weeks where two clubs you owe play each other. Tap a square to plan a club for a week. Plans are just for you, stay on your phone and never make a pick.'],
           ['Planned tags', 'Clubs you planned for this week show a Planned tag on their tile.'],
-          ['Secret picks', 'Nobody can see your picks until the first game of the week kicks off. Before then everyone just sees a tick to show you have picked. You can always see your own.'],
           ['Your own link', 'The commissioner will text you a personal link. Open it on your phone, and on your laptop too if you pick from there. After that, only your own devices can change your picks. Keep it to yourself.'],
           ['Change alerts', 'If your picks are ever changed from anywhere but your own devices, you get a phone alert so it can be undone. Turn alerts on with the bell to get these.'],
           ['One week at a time', 'Only this week is open. Picks still stay open after kickoff for anyone running late.'],
@@ -38,6 +47,7 @@ window.FFWB_RELEASES = [
           ['New Table, Stats and History tabs', 'Tap a tile to dig into anything.'],
           ['2025-26 is complete', 'Every week was rescored from the real results. Paul is champion on 163.5, half a point clear of Tim, with Greg third. Tim won the first half and Greg the second.'],
           ['Phone alerts', 'Tap the bell at the top to get a ping when a week opens and a reminder if you have not picked. Add the site to your home screen and it works like an app.'],
+          ['How to play', 'New to FFWB? Three quick cards explain it all. Find them any time at the bottom of the page.'],
           ['Light and dark', 'Switch the theme at the bottom of the page. The site also opens on bad signal now.'],
         ],
       },

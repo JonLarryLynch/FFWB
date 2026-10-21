@@ -48,6 +48,7 @@
       loadLog();
       loadSuggested();
       loadBackups();
+      loadErrors();
       loadPush();
     } else {
       showGate(out.error || 'That passcode is not right.');
@@ -493,6 +494,9 @@
     lines.push(best.length > 3 ? 'Top score: ' + pts(top) + ', hit by ' + best.length + ' players.' : 'Top score: ' + listNames(best) + ' with ' + pts(top) + '.');
     lines.push(perfect.length ? 'Perfect week' + (perfect.length > 1 ? 's' : '') + ': ' + listNames(perfect) + '. Bonus pick' + (perfect.length > 1 ? 's' : '') + ' in week ' + (w + 1) + '.' : 'No perfect weeks.');
     if (zero.length) lines.push('Zero points: ' + listNames(zero) + '.');
+    // The weekly awards (the top scorer is already above).
+    const aw = window.FFWBAwards ? window.FFWBAwards.lines(window.FFWBAwards.week(season, w)) : [];
+    for (const a of aw) if (a.key !== 'top') lines.push(({ bottled: '\u{1F37E} ', lone: '\u{1F43A} ', worst: '\u{1F944} ' }[a.key] || '') + a.label + ': ' + a.text + '.');
     if (moves.length && moves[0].up > 0) {
       const climbers = moves.filter((m) => m.up === moves[0].up);
       lines.push('Biggest climb: ' + listNames(climbers.map((m) => m.name)) + ', up ' + moves[0].up + (climbers.length === 1 ? ' to ' + ordinal(climbers[0].pos) : '') + '.');
@@ -556,7 +560,8 @@
         if (r) cupLines.push(st.name + ', ' + r.name.toLowerCase() + ': ' + r.matches.filter((m) => m.a && m.b).map((m) => m.status === 'final' ? (m.winner === m.a.id ? m.a.name : m.b.name) + ' through' : m.a.name + ' v ' + m.b.name).slice(0, 4).join(', '));
       } else if (cup.weeks.includes(w) && st.mini.rows[0]) cupLines.push(st.name + ': ' + st.mini.rows[0].name + ' leads on ' + pts(st.mini.rows[0].points));
     }
-    return { w, topPts, best, perfect, climb, upBy: climb.length ? moves[0].up : 0, top: now.slice(0, 5), was, cupLines };
+    const awards = window.FFWBAwards ? window.FFWBAwards.lines(window.FFWBAwards.week(season, w)).filter((a) => a.key !== 'top') : [];
+    return { w, topPts, best, perfect, climb, upBy: climb.length ? moves[0].up : 0, top: now.slice(0, 5), was, cupLines, awards };
   }
   async function programmeImage() {
     const d = recapData();
@@ -596,7 +601,7 @@
       text(pts(r.points), W - 130, y, '700 36px "Playfair Display"', CREAM, 'right');
     });
     y += 70;
-    const notes = [];
+    const notes = d.awards.slice(0, 2).map((a) => a.label + ': ' + a.text);
     if (d.climb.length) notes.push('Biggest climb: ' + listNames(d.climb.map((m) => m.name)) + ', up ' + d.upBy);
     if (d.perfect.length) notes.push('Perfect: ' + (d.perfect.length > 4 ? d.perfect.length + ' players' : listNames(d.perfect)) + '. Bonus pick next week');
     notes.push(...d.cupLines);
@@ -1009,6 +1014,30 @@
     a.click();
     a.remove();
   };
+  // ---------- Site errors ----------
+  const errMsg = document.getElementById('errors-message');
+  async function loadErrors(body = {}) {
+    const out = await adminPost('errors', body);
+    if (!out.ok) { say(errMsg, 'bad', out.error); return; }
+    errorCount = out.items.length;
+    renderStatus();
+    const box = document.getElementById('errors-list');
+    const nameOf = (id) => ((season && season.config.players.find((p) => p.id === id)) || { name: id }).name;
+    const device = (ua) => (/iPhone|iPad/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'Other') + (/CriOS|Chrome/.test(ua) ? ', Chrome' : /Firefox|FxiOS/.test(ua) ? ', Firefox' : /Safari/.test(ua) ? ', Safari' : '');
+    const when = (iso) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    if (!out.items.length) { box.replaceChildren(el('p', 'ffwb-note', 'No errors' + (out.clearedAt ? ' since you cleared the list on ' + when(out.clearedAt) : ' so far') + '.')); return; }
+    box.replaceChildren(...out.items.map((x) => {
+      const d = el('details', 'adm-error');
+      const sum = el('summary');
+      sum.append(el('span', 'adm-error-msg', x.message), el('span', 'ffwb-note', (x.count > 1 ? x.count + ' times, last ' : '') + when(x.last) + (x.player ? ' \u00b7 ' + nameOf(x.player) : '') + ' \u00b7 ' + device(x.ua || '')));
+      const pre = el('pre', 'adm-error-stack', [x.source && 'At ' + x.source, x.page && 'Page ' + x.page, 'First seen ' + when(x.first), x.stack].filter(Boolean).join('\n'));
+      d.append(sum, pre);
+      return d;
+    }));
+  }
+  document.getElementById('errors-refresh').addEventListener('click', () => loadErrors());
+  document.getElementById('errors-clear').addEventListener('click', () => { if (confirm('Clear the error list?')) loadErrors({ action: 'clear' }).then(() => say(errMsg, 'ok', 'Cleared.')); });
+
   async function loadBackups() {
     const box = document.getElementById('backup-list');
     const out = await adminPost('backups', {});
@@ -1079,6 +1108,7 @@
   }
 
   let alertCount = null;
+  let errorCount = null;
   function renderStatus() {
     if (!season) return;
     const box = document.getElementById('adm-status');
@@ -1107,6 +1137,7 @@
       { label: 'Results', value: got + ' of ' + season.config.clubs.length, sub: got ? 'For week ' + w : 'Enter or check the feed', panel: 'p-results', tone: got === season.config.clubs.length ? 'ok' : '' },
       { label: 'Cups', value: cupText, sub: cupSub, panel: 'p-cups', tone: cupWarn ? 'warn' : '' },
       { label: 'Alerts', value: alertCount == null ? '-' : alertCount + ' phone' + (alertCount === 1 ? '' : 's'), sub: 'Send a message', panel: 'p-messages' },
+      { label: 'Site errors', value: errorCount == null ? '-' : errorCount ? String(errorCount) : 'None', sub: errorCount ? 'Take a look' : 'All quiet', panel: 'p-house', tone: errorCount ? 'warn' : errorCount === 0 ? 'ok' : '' },
     ];
     box.replaceChildren(...chips.map((c) => {
       const b = el('button', 'adm-chip' + (c.tone ? ' adm-chip-' + c.tone : ''));

@@ -149,7 +149,8 @@
   function maybeShow() {
     if (!season || pop.open) return;
     const picksTab = document.getElementById('picks');
-    if (picksTab && picksTab.hidden) return;
+    const homeTab = document.getElementById('home');
+    if (picksTab && picksTab.hidden && !(homeTab && !homeTab.hidden)) return;
     if (document.querySelector('dialog[open]')) return;
     const week = season.config.currentWeek;
     for (const cup of season.cups || []) {

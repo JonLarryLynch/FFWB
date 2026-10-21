@@ -27,22 +27,31 @@
 
   // ---------- Numbers that count up when they change ----------
   const last = new WeakMap();
+  // Numbers count up to their new value. The animation's own writes are ignored, and a new value replaces any
+  // animation already running on that number, so two never race.
+  const running = new WeakMap();
+  const writing = new WeakSet();
   function countUp(node) {
+    if (writing.has(node)) return;
     const text = node.textContent.trim();
     const to = Number(text);
     if (!Number.isFinite(to)) return;
+    const prev = running.get(node);
+    if (prev) cancelAnimationFrame(prev.raf);
     const from = last.has(node) ? last.get(node) : 0;
     last.set(node, to);
-    if (reduce || from === to) return;
+    if (reduce || from === to) { running.delete(node); return; }
     const start = performance.now();
     const dur = 700;
+    const put = (v) => { writing.add(node); node.textContent = v; Promise.resolve().then(() => setTimeout(() => writing.delete(node), 0)); };
+    const job = { raf: 0 };
     const step = (t) => {
       const k = Math.min(1, (t - start) / dur);
       const v = from + (to - from) * (1 - Math.pow(1 - k, 3));
-      node.textContent = String(Math.round(v * 2) / 2);
-      if (k < 1) requestAnimationFrame(step); else node.textContent = text;
+      if (k < 1) { put(String(Math.round(v * 2) / 2)); job.raf = requestAnimationFrame(step); } else { put(text); running.delete(node); }
     };
-    requestAnimationFrame(step);
+    job.raf = requestAnimationFrame(step);
+    running.set(node, job);
   }
 
   // ---------- Who moved: arrows beside the standings ----------

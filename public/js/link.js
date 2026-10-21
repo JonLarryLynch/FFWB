@@ -27,6 +27,7 @@
         if (!out.ok) { toast(out.error || 'That link did not work.', true); return; }
         store.set('ffwb-key-' + out.player, key);
         store.set('ffwb-player', out.player);
+        if (!store.get('ffwb-intro-done')) store.set('ffwb-intro-pending', '1');
         once.set(out.name);
         location.replace(location.pathname + location.hash);
       })

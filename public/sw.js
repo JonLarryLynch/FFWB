@@ -2,9 +2,9 @@
 // Pages, scripts and league data are fetched fresh when the network answers quickly, and come from the saved
 // copy when it does not. Images, fonts and the chart library are served from the copy and refreshed behind.
 const CACHE = 'ffwb-v3';
-const CORE = ['/', '/index.html', '/css/site.css', '/manifest.webmanifest', '/brand/crest.svg', '/icons/icon-192.png',
-  '/data/season.js', '/data/history.js', '/data/releases.js', '/js/whatsnew.js', '/js/rules.js', '/js/cups.js', '/js/link.js', '/js/shim.js', '/js/shame.js', '/js/app.js', '/js/fun.js', '/js/badges.js',
-  '/js/more.js', '/js/layout.js', '/js/explore.js', '/js/profile.js', '/js/cupsui.js', '/js/cupsplash.js', '/js/planner.js', '/js/picks.js', '/js/alerts.js', '/js/polish.js'];
+const CORE = ['/', '/index.html', '/js/errors.js', '/css/site.css', '/manifest.webmanifest', '/brand/crest.svg', '/icons/icon-192.png',
+  '/data/season.js', '/data/history.js', '/data/releases.js', '/js/intro.js', '/js/whatsnew.js', '/js/reveal.js', '/js/rules.js', '/js/cups.js', '/js/awards.js', '/js/link.js', '/js/shim.js', '/js/shame.js', '/js/app.js', '/js/fun.js', '/js/badges.js',
+  '/js/more.js', '/js/layout.js', '/js/explore.js', '/js/profile.js', '/js/cupsui.js', '/js/cupsplash.js', '/js/planner.js', '/js/picks.js', '/js/home.js', '/js/alerts.js', '/js/polish.js'];
 
 const D3 = 'https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js';
 self.addEventListener('install', (e) => {

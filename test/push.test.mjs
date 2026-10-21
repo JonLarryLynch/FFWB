@@ -91,4 +91,23 @@ await t('the commissioner can get their own alerts on a phone that is also a pla
   assert.ok(sent.some((x) => /Last call/.test(x.msg.body)), 'and the player reminder still goes');
 });
 
+await t('the reveal alert goes to everyone once, just after kickoff', async () => {
+  const { store, post, get, sent, sender } = setup();
+  await get('season');
+  await post('push/subscribe', { subscription: sub(1), player: 'jon' });
+  await post('push/subscribe', { subscription: sub(2), player: 'ben' });
+  for (const player of ['jon', 'ben']) await post('picks', { player, week: 8, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton'], lock: 'Man City', endpoint: sub(player === 'jon' ? 1 : 2).endpoint });
+  const ko = Date.parse('2026-10-24T11:30:00Z');
+  await store.setJSON('fixtures', { checkedAt: new Date().toISOString(), weeks: { 8: { kickoff: new Date(ko).toISOString(), games: {} } } });
+  sent.length = 0;
+  await remind(store, ko + 20 * 60e3, sender);
+  assert.equal(sent.length, 2, 'both phones');
+  assert.match(sent[0].msg.title, /Picks are in for week 8/);
+  assert.equal(sent[0].msg.url, '/?reveal=8');
+  await remind(store, ko + 80 * 60e3, sender);
+  assert.equal(sent.length, 2, 'only once');
+  await remind(store, ko + 10 * 3600e3, sender);
+  assert.equal(sent.length, 2, 'not hours later');
+});
+
 console.log(passed + ' tests passed');

@@ -33,14 +33,20 @@
   <p class="ffwb-offline" id="offline" hidden></p>
 
   <nav class="ffwb-tabs" role="tablist" aria-label="Views">
-    <button class="ffwb-tab" role="tab" id="tab-picks" data-tab="picks" aria-selected="true" aria-controls="picks">Picks</button>
+    <button class="ffwb-tab" role="tab" id="tab-home" data-tab="home" aria-selected="true" aria-controls="home">This week</button>
+    <button class="ffwb-tab" role="tab" id="tab-picks" data-tab="picks" aria-selected="false" aria-controls="picks">Picks</button>
     <button class="ffwb-tab" role="tab" id="tab-table" data-tab="table" aria-selected="false" aria-controls="table">Table</button>
     <button class="ffwb-tab" role="tab" id="tab-stats" data-tab="stats" aria-selected="false" aria-controls="stats">Stats</button>
     <button class="ffwb-tab" role="tab" id="tab-history" data-tab="history" aria-selected="false" aria-controls="history">History</button>
   </nav>
 
+  <!-- This week: only what matters right now -->
+  <section class="ffwb-page" id="home" role="tabpanel" aria-labelledby="tab-home">
+    <div id="home-app"><div class="ffwb-card"><p class="ffwb-note">Loading the league...</p></div></div>
+  </section>
+
   <!-- Picks -->
-  <section class="ffwb-page" id="picks" role="tabpanel" aria-labelledby="tab-picks">
+  <section class="ffwb-page" id="picks" role="tabpanel" aria-labelledby="tab-picks" hidden>
     <div id="picks-app"><div class="ffwb-card"><p class="ffwb-note">Loading the league...</p></div></div>
   </section>
 
@@ -237,6 +243,8 @@
   <div class="al-toast" id="alerts-toast" role="status" hidden></div>
   <dialog class="cs-pop" id="cup-splash" aria-label="Cup week"></dialog>
   <dialog class="wn-pop" id="whatsnew-pop" aria-labelledby="whatsnew-title"></dialog>
+  <dialog class="wn-pop rv-pop" id="reveal-pop" aria-labelledby="reveal-title"></dialog>
+  <dialog class="in-pop" id="intro-pop" aria-labelledby="intro-title"></dialog>
 
   <dialog class="xp-sheet" id="xp-sheet" aria-labelledby="xp-title">
     <div class="xp-sheet-inner">
@@ -251,17 +259,19 @@
 
   <footer class="ffwb-footer">
     <span id="as-of">FFWB, since 2016-17.</span>
-    <span class="ffwb-footer-links"><button class="ffwb-theme" type="button" id="whatsnew-link">What’s new</button><button class="ffwb-theme" type="button" id="theme-toggle" aria-label="Colour theme">Theme: Auto</button><a href="/admin.html">Commissioner</a></span>
+    <span class="ffwb-footer-links"><button class="ffwb-theme" type="button" id="intro-link">How to play</button><button class="ffwb-theme" type="button" id="whatsnew-link">What’s new</button><button class="ffwb-theme" type="button" id="theme-toggle" aria-label="Colour theme">Theme: Auto</button><a href="/admin.html">Commissioner</a></span>
   </footer>
 </div>
 </div>
 
+<script src="js/errors.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="data/season.js"></script>
 <script src="data/history.js"></script>
 <script src="data/releases.js"></script>
 <script src="js/rules.js"></script>
 <script src="js/cups.js"></script>
+<script src="js/awards.js"></script>
 <script src="js/link.js"></script>
 <script src="js/shim.js"></script>
 <script src="js/shame.js"></script>
@@ -276,8 +286,11 @@
 <script src="js/cupsplash.js"></script>
 <script src="js/planner.js"></script>
 <script src="js/picks.js"></script>
+<script src="js/home.js"></script>
 <script src="js/alerts.js"></script>
 <script src="js/polish.js"></script>
+<script src="js/intro.js"></script>
 <script src="js/whatsnew.js"></script>
+<script src="js/reveal.js"></script>
 </body>
 </html>

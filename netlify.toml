@@ -1,6 +1,12 @@
 # The site is the public folder. The league API is netlify/functions/api.mjs, served at /api/*.
+# Before each release, the build runs every test and opens the site in a real browser. If anything fails, the
+# build fails and the live site stays on the last good version.
 [build]
   publish = "public"
+  command = "(npx playwright install --only-shell chromium || echo \"Could not download the test browser\") && npm run check"
+
+[build.environment]
+  NODE_VERSION = "22"
 
 [functions]
   directory = "netlify/functions"

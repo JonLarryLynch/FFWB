@@ -217,8 +217,14 @@
     overrideWrap.append(override, el('span', null, 'Save anyway, overriding the rules'));
     overrideWrap.hidden = true;
 
-    // The save bar stays at the bottom of the screen while the picks are in view.
-    const bar = el('div', 'pk-bar');
+    // The pick tray stays at the bottom of the screen: a slot for each pick and a gold slot for the lock, so you
+    // can always see what is missing. Tap a club to fill the next slot; tap (or drag) a pick onto the lock slot to
+    // make it your lock; x takes a pick off.
+    const bar = el('div', 'pk-bar pk-tray');
+    const slots = el('div', 'pk-slots');
+    slots.setAttribute('role', 'group');
+    slots.setAttribute('aria-label', 'Your picks');
+    const trayFoot = el('div', 'pk-tray-foot');
     const barText = el('div', 'pk-bartext');
     const count = el('div', 'pk-count');
     const message = el('div', 'pk-message');
@@ -228,7 +234,8 @@
     clear.type = 'button';
     const save = el('button', 'pk-save', 'Save picks');
     save.type = 'button';
-    bar.append(barText, clear, save);
+    trayFoot.append(barText, clear, save);
+    bar.append(slots, trayFoot);
 
     const everyone = el('details', 'ffwb-more pk-everyone');
     const everyoneTitle = el('summary');
@@ -259,25 +266,138 @@
       state.message = null;
     }
 
+    const changed = () => { state.dirty = true; state.canOverride = false; render(); };
+    // Tapping a club: add it to the next empty slot (picks first, then the lock), or take it off if it is in.
     function tap(club) {
       if (!editable()) return;
       state.message = null;
-      if (state.lock === club) {
-        state.lock = null;
-      } else if (state.std.includes(club)) {
-        state.std = state.std.filter((c) => c !== club);
-        if (state.lock) state.std.push(state.lock);
-        state.lock = club;
-      } else if (state.std.length < allowed()) {
-        state.std.push(club);
-      } else if (!state.lock) {
-        state.lock = club;
+      if (state.lock === club) state.lock = null;
+      else if (state.std.includes(club)) state.std = state.std.filter((c) => c !== club);
+      else if (state.std.length < R.STANDARD_PICKS) state.std.push(club);
+      else if (!state.lock) state.lock = club;
+      else if (state.std.length < allowed()) state.std.push(club);
+      else { state.message = { kind: 'warn', text: 'Your tray is full. Take a pick off (\u00d7) to swap one in.' }; render(); return; }
+      changed();
+    }
+    // Make a pick the lock; the old lock (if any) goes back into the picks.
+    function makeLock(club) {
+      if (!editable() || state.lock === club) return;
+      state.message = null;
+      const old = state.lock;
+      state.std = state.std.filter((c) => c !== club);
+      if (old) state.std.push(old);
+      state.lock = club;
+      changed();
+    }
+    function unLock() {
+      if (!editable() || !state.lock) return;
+      if (state.std.length >= allowed()) { state.message = { kind: 'warn', text: 'Tap one of your picks to swap it with the lock.' }; render(); return; }
+      state.std.push(state.lock);
+      state.lock = null;
+      state.message = null;
+      changed();
+    }
+    function drop(club) {
+      if (!editable()) return;
+      if (state.lock === club) state.lock = null; else state.std = state.std.filter((c) => c !== club);
+      state.message = null;
+      changed();
+    }
+    // Drag a pick onto the lock slot (or the lock onto a pick) with a finger or mouse.
+    function draggable(chip, club, isLock) {
+      let start = null;
+      let ghost = null;
+      chip.addEventListener('pointerdown', (e) => { if (!editable() || e.target.closest('.pk-slot-x')) return; start = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
+      chip.addEventListener('pointermove', (e) => {
+        if (!start || e.pointerId !== start.id) return;
+        if (!ghost && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) {
+          ghost = chip.cloneNode(true);
+          ghost.classList.add('pk-ghost');
+          document.body.append(ghost);
+          chip.setPointerCapture(e.pointerId);
+          chip.classList.add('pk-slot-lifted');
+        }
+        if (ghost) {
+          ghost.style.left = e.clientX + 'px';
+          ghost.style.top = e.clientY + 'px';
+          const over = document.elementFromPoint(e.clientX, e.clientY);
+          for (const s of slots.querySelectorAll('.pk-slot')) s.classList.toggle('pk-slot-over', !!over && s.contains(over) && s !== chip);
+        }
+      });
+      const end = (e) => {
+        if (!start) return;
+        const wasDrag = !!ghost;
+        if (ghost) {
+          ghost.remove(); ghost = null;
+          chip.classList.remove('pk-slot-lifted');
+          const over = document.elementFromPoint(e.clientX, e.clientY);
+          const target = over && over.closest('.pk-slot');
+          for (const s of slots.querySelectorAll('.pk-slot')) s.classList.remove('pk-slot-over');
+          if (target && target !== chip) {
+            if (!isLock && target.classList.contains('pk-slot-lockslot')) makeLock(club);
+            else if (isLock && target.dataset.club) makeLock(target.dataset.club);
+          }
+          chip.dataset.dragged = '1';
+          setTimeout(() => { delete chip.dataset.dragged; }, 0);
+        }
+        start = null;
+        return wasDrag;
+      };
+      chip.addEventListener('pointerup', end);
+      chip.addEventListener('pointercancel', () => { if (ghost) { ghost.remove(); ghost = null; chip.classList.remove('pk-slot-lifted'); } start = null; });
+    }
+    function drawSlots(canEdit) {
+      const max = allowed();
+      const abbrOf = (c) => (window.FFWBPlanner ? window.FFWBPlanner.abbr(c) : c.slice(0, 3).toUpperCase());
+      const chips = [];
+      const slot = (club, i) => {
+        const bonusSlot = i >= R.STANDARD_PICKS;
+        const b = el('button', 'pk-slot' + (club ? ' pk-slot-on' : '') + (bonusSlot ? ' pk-slot-bonus' : ''));
+        b.type = 'button';
+        b.disabled = !canEdit && !club;
+        if (club) {
+          b.dataset.club = club;
+          b.append(el('span', 'pk-slot-name', club), el('span', 'pk-slot-abbr', abbrOf(club)));
+          if (canEdit) {
+            const x = el('span', 'pk-slot-x', '\u00d7');
+            x.setAttribute('aria-hidden', 'true');
+            x.addEventListener('click', (e) => { e.stopPropagation(); drop(club); });
+            b.append(x);
+          }
+          b.setAttribute('aria-label', club + '. Tap to make it your lock.');
+          b.addEventListener('click', (e) => { if (b.dataset.dragged) return; if (e.target.closest('.pk-slot-x')) return; makeLock(club); });
+          if (canEdit) draggable(b, club, false);
+        } else {
+          b.append(el('span', 'pk-slot-empty', bonusSlot ? 'Bonus' : 'Pick ' + (i + 1)));
+          b.setAttribute('aria-label', (bonusSlot ? 'Bonus pick, optional, ' : 'Pick ' + (i + 1) + ', ') + 'empty. Tap a club above to fill it.');
+          b.tabIndex = -1;
+        }
+        return b;
+      };
+      for (let i = 0; i < max; i += 1) chips.push(slot(state.std[i] || null, i));
+      const lk = el('button', 'pk-slot pk-slot-lockslot' + (state.lock ? ' pk-slot-on' : ''));
+      lk.type = 'button';
+      lk.append(el('span', 'pk-slot-lockicon', '\u{1F512}'));
+      if (state.lock) {
+        lk.dataset.club = state.lock;
+        lk.append(el('span', 'pk-slot-name', state.lock), el('span', 'pk-slot-abbr', abbrOf(state.lock)));
+        if (canEdit) {
+          const x = el('span', 'pk-slot-x', '\u00d7');
+          x.setAttribute('aria-hidden', 'true');
+          x.addEventListener('click', (e) => { e.stopPropagation(); drop(state.lock); });
+          lk.append(x);
+          draggable(lk, state.lock, true);
+        }
+        lk.setAttribute('aria-label', 'Lock: ' + state.lock + '. Counts double. Tap to move it back to your picks.');
+        lk.addEventListener('click', (e) => { if (lk.dataset.dragged || e.target.closest('.pk-slot-x')) return; unLock(); });
       } else {
-        state.message = { kind: 'warn', text: 'You already have ' + allowed() + ' picks and a lock. Tap one of them to take it off first.' };
+        lk.append(el('span', 'pk-slot-empty', 'Lock'));
+        lk.setAttribute('aria-label', 'Lock, empty. Tap one of your picks to make it your lock.');
+        lk.disabled = !canEdit;
+        lk.addEventListener('click', () => { if (state.std.length) { state.message = { kind: 'info', text: 'Tap one of your picks to make it your lock, or drag it here.' }; render(); } });
       }
-      state.dirty = true;
-      state.canOverride = false;
-      render();
+      chips.push(lk);
+      slots.replaceChildren(...chips);
     }
 
     async function post(body) {
@@ -449,7 +569,7 @@
       const lockedName = lockedOut() ? (s.config.players.find((p) => p.id === state.player) || { name: '' }).name : '';
       help.textContent = (!showEditor ? (admin ? 'Choose a player to edit their picks.' : 'Choose your name to make your picks.')
         : lockedName ? '\u{1F512} ' + lockedName + "'s picks can only be made from " + lockedName + "'s own phone or laptop. If you are " + lockedName + ', open your personal link on this device. The commissioner can send it again.'
-        : canEdit ? 'Tap once to pick, twice for your lock, three times to remove.'
+        : canEdit ? 'Tap clubs to fill your tray. Tap a pick in the tray (or drag it to the gold slot) to make it your lock. Your lock counts double.'
           : state.week > s.config.currentWeek && !admin ? 'Week ' + state.week + " isn't open yet. You can pick it once week " + s.config.currentWeek + ' is done.'
             : 'This week is closed.' + (admin ? '' : ' Ask the commissioner if something needs fixing.')) + closesAt;
       bonus.hidden = true;
@@ -608,6 +728,7 @@
       for (const e of problems) errorsBox.append(el('li', null, e));
       errorsBox.hidden = !problems.length;
 
+      drawSlots(canEdit);
       const saved = weekPicks()[String(state.week)];
       save.disabled = !canEdit || state.saving || !complete || (!state.dirty && !!saved) || (!!verdict && !verdict.ok && !(admin && override.checked));
       save.textContent = saved && state.dirty ? 'Save changes' : saved ? 'Saved' : 'Save picks';
@@ -652,7 +773,7 @@
     };
   }
 
-  window.FFWBPicks = { PicksEditor, weekStatus, resultCode, resultWord, kickedOff, when, whenLong };
+  window.FFWBPicks = { PicksEditor, weekStatus, resultCode, resultWord, kickedOff, when, whenLong, openPlanner };
 
   // On the main page, mount the editor in the Make picks tab and load the live season.
   const mount = document.getElementById('picks-app');
