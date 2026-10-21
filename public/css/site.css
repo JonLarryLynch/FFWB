@@ -1201,3 +1201,8 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .pl-sync-synced .pl-sync-dot { background: #2f9e5b; }
 .pl-sync-syncing .pl-sync-dot { background: var(--brand-gold); }
 .pl-sync-offline .pl-sync-dot, .pl-sync-local .pl-sync-dot { background: #d29a2c; }
+.pl-sync { flex-wrap: wrap; }
+.pl-sync-now { margin-left: auto; }
+.pl-sync-synced { color: #2f7d4f; font-weight: 600; }
+:root[data-theme="dark"] .pl-sync-synced { color: #7ed69a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pl-sync-synced { color: #7ed69a; } }

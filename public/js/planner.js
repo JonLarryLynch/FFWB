@@ -158,7 +158,7 @@
     return out;
   };
   const keyOf = (id) => { try { return localStorage.getItem('ffwb-key-' + id); } catch (err) { return null; } };
-  const sync = { state: {}, timer: null, listeners: [] };
+  const sync = { state: {}, at: {}, timer: null, listeners: [] };
   const syncState = (id) => (keyOf(id) ? sync.state[id] || 'idle' : 'local');
   const told = (id) => sync.listeners.forEach((fn) => fn(id, syncState(id)));
   // Send this device's squares and take back the merged plan.
@@ -166,6 +166,7 @@
     const key = keyOf(id);
     if (!key) return false;
     sync.state[id] = 'syncing';
+    told(id);
     try {
       const res = await fetch('/api/plan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ player: id, key, season: season.config.season, cells: cells(season, id) }) });
       const out = await res.json();
@@ -174,6 +175,7 @@
       const merged = merge(cells(season, id), out.cells);
       saveCells(season, id, merged);
       sync.state[id] = 'synced';
+      sync.at[id] = Date.now();
       told(id);
       if (JSON.stringify(merged) !== before) document.dispatchEvent(new CustomEvent('ffwb:map-changed', { detail: { synced: true } }));
       return true;
@@ -206,8 +208,9 @@
     later(season, id);
   }
   const onSync = (fn) => sync.listeners.push(fn);
+  const syncedAt = (id) => sync.at[id] || null;
 
-  window.FFWBPlanner = { plan, form, pickedLastWeek, glance, calendar, abbr, marks, toggleMark, clearMarks, syncNow, syncState, onSync };
+  window.FFWBPlanner = { plan, form, pickedLastWeek, glance, calendar, abbr, marks, toggleMark, clearMarks, syncNow, syncState, onSync, syncedAt };
 
   // Pull the plan from the other devices whenever the league loads, and again when this tab comes back.
   let lastSeason = null;

@@ -95,7 +95,15 @@
       const sy = el('div', 'pl-sync pl-sync-' + st);
       sy.append(el('span', 'pl-sync-dot'), el('span', null, st === 'local' ? 'Saved on this device only. Open your personal link here to keep your plan in step on your phone, laptop and home screen app.'
         : st === 'offline' ? 'Saved on this device. It will sync with your other devices when you are back online.'
-          : st === 'syncing' ? 'Syncing with your other devices...' : 'Synced with your other devices.'));
+          : st === 'syncing' ? 'Syncing with your other devices...'
+            : '\u2713 Synced with your other devices' + (P.syncedAt(id) ? ' at ' + new Date(P.syncedAt(id)).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '') + '.'));
+      if (st !== 'local') {
+        const now = el('button', 'pk-clear adm-small pl-sync-now', st === 'syncing' ? 'Syncing...' : 'Sync now');
+        now.type = 'button';
+        now.disabled = st === 'syncing';
+        now.addEventListener('click', () => P.syncNow(season, id));
+        sy.append(now);
+      }
       wrap.append(sy);
       if (st === 'local' && window.FFWBLink) wrap.append(window.FFWBLink.form());
     }
