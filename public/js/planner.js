@@ -213,5 +213,5 @@
   let lastSeason = null;
   const me = () => { try { return localStorage.getItem('ffwb-player'); } catch (err) { return null; } };
   if (window.FFWB && window.FFWB.onSeason) window.FFWB.onSeason((s) => { lastSeason = s; if (s && me()) syncNow(s, me()); });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && lastSeason && me()) syncNow(lastSeason, me()); });
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { if (!document.hidden && lastSeason && me()) syncNow(lastSeason, me()); });
 })();
