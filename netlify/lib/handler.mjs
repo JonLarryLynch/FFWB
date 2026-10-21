@@ -149,7 +149,16 @@ export function createHandler(getStore, getPasscode, extras = {}) {
       const st = cupsLib.state(season, cup);
       if (st.format !== 'knockout') continue;
       const r = st.bracket.rounds.findIndex((x) => x.week === week);
-      if (r < 0 || !st.bracket.rounds[r].matches.every((m) => m.status === 'final' || m.status === 'bye')) continue;
+      if (r < 0) continue;
+      // Dead level: the two players settle it with a penalty shootout in FIFA.
+      for (const m of st.bracket.rounds[r].matches.filter((x) => x.status === 'shootout')) {
+        for (const [me, them] of [[m.a, m.b], [m.b, m.a]]) {
+          await push.once(store, 'cup-' + cup.id + '-pk-' + m.key + '-' + me.id, () => push.send(store, {
+            title: st.name + ': penalties!', body: 'Dead level with ' + them.name + ' on points, lock and wins. Settle it with a penalty shootout in FIFA and tell the commissioner who won.', tag: 'cup',
+          }, { players: [me.id], sender: extras.pushSender }));
+        }
+      }
+      if (!st.bracket.rounds[r].matches.every((m) => m.status === 'final' || m.status === 'bye')) continue;
       const next = st.bracket.rounds[r + 1];
       if (!next) {
         if (st.champion) await push.once(store, 'cup-' + cup.id + '-won', () => push.send(store, { title: st.name, body: st.champion.name + ' wins the ' + st.name + '!', tag: 'cup' }, { sender: extras.pushSender }));
@@ -393,6 +402,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           return json(200, { ok: true, weeks: p.weeks, seeds: p.seeds.map((id) => names[id]) });
         }
         let made = null;
+        let overridden = null;
         const doc = await update(store, 'cups', (d) => {
           d.cups = d.cups || [];
           const find = (id) => d.cups.find((c) => c.id === id);
@@ -416,6 +426,8 @@ export function createHandler(getStore, getPasscode, extras = {}) {
               cup.overrides = cup.overrides || {};
               const key = String(body.key);
               if (body.winner && config.players.some((p) => p.id === body.winner)) cup.overrides[key] = body.winner; else delete cup.overrides[key];
+              made = null;
+              overridden = { cup, round: key === 'winner' ? cup.weeks.length - 1 : Number(key.split('-')[0]) };
             }
           }
           return d;
@@ -436,6 +448,10 @@ export function createHandler(getStore, getPasscode, extras = {}) {
               await push.send(store, { title: st.name + ' starts week ' + made.weeks[0], body: 'Most points over weeks ' + made.weeks.join(', ') + ' wins it.', tag: 'cup' }, { sender: extras.pushSender });
             }
           } catch (err) { console.error('Could not send the draw alert: ' + err.message); }
+        }
+        // A shootout result can complete a round, so send the next-round alerts now.
+        if (overridden && overridden.cup.weeks[overridden.round]) {
+          try { await cupAlerts(store, overridden.cup.weeks[overridden.round]); } catch (err) { console.error('Could not send cup alerts: ' + err.message); }
         }
         return json(200, { ok: true, cups: doc.cups.filter((c) => c.season === config.season) });
       }

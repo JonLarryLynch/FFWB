@@ -20,24 +20,25 @@ const mini = (picks, res) => ({ config: { players: [{ id: 'x', name: 'X' }, { id
 const all = (v) => Object.fromEntries(clubs.map((c) => [c, v]));
 const cup = { id: 'c', type: 'league', weeks: [1], seeds: ['x', 'y'], overrides: {} };
 
-await t('a level game goes to wins, then the lock, then the higher seed', async () => {
-  // Same points (2): X has 2 wins, Y has 1 win + lock draw... X: A win, B win, lock C loss = 2 pts, 2 wins. Y: lock D win = 2 pts, 1 win.
+await t('a level game goes to the lock, then wins, then a FIFA shootout the commissioner enters', async () => {
+  // Level on 2: X has two winning picks and a lost lock, Y a winning lock. The lock comes first, so Y.
   let s = mini({ x: { 1: { standard: ['A', 'B'], lock: 'C' } }, y: { 1: { standard: ['E', 'F'], lock: 'D' } } }, { ...all(0), A: 1, B: 1, D: 1 });
   let m = cups.bracket(s, cup).rounds[0].matches[0];
+  assert.equal(m.winner, 'y');
+  assert.match(m.how, /through on the lock/);
+  // Level on 2.5 with the same lock (a draw each): X has one winning pick, Y none, so X.
+  s = mini({ x: { 1: { standard: ['A', 'B', 'E'], lock: 'C' } }, y: { 1: { standard: ['D', 'F', 'A'], lock: 'C' } } }, { A: 0.5, B: 1, C: 0.5, D: 0.5, E: 0, F: 0.5 });
+  m = cups.bracket(s, cup).rounds[0].matches[0];
   assert.equal(m.winner, 'x');
   assert.match(m.how, /winning picks/);
-  // Same points and wins, better lock: X lock win (2) vs Y two wins + nothing... make both 2 pts, 1 win.
-  s = mini({ x: { 1: { standard: ['A', 'B'], lock: 'C' } }, y: { 1: { standard: ['D', 'E'], lock: 'F' } } }, { ...all(0), C: 1, D: 1, E: 0.5, F: 0.5 });
-  // X: lock C win = 2 pts, 1 win. Y: D 1 + E .5 + lock F draw 1 = 2.5. Adjust: E loss.
-  s.results[1].E = 0; s.results[1].F = 0.5;
-  // Y: D 1 + lock F draw 1 = 2 pts, 1 win, lock 1. X: lock 2.
-  m = cups.bracket(s, cup).rounds[0].matches[0];
-  assert.equal(m.winner, 'x');
-  assert.match(m.how, /lock/);
+  // Dead level on everything: a penalty shootout, and nobody goes through until the commissioner says.
   s = mini({ x: { 1: { standard: ['A', 'B'], lock: 'C' } }, y: { 1: { standard: ['D', 'E'], lock: 'F' } } }, all(0));
   m = cups.bracket(s, cup).rounds[0].matches[0];
-  assert.equal(m.winner, 'x', 'dead level goes to seed 1');
-  assert.match(m.how, /higher seed/);
+  assert.equal(m.status, 'shootout');
+  assert.equal(m.winner, null);
+  m = cups.bracket(s, { ...cup, overrides: { '0-0': 'y' } }).rounds[0].matches[0];
+  assert.equal(m.winner, 'y');
+  assert.match(m.how, /penalty shootout/);
   // Not decided while a game is postponed.
   s.results[1].A = 'P';
   assert.equal(cups.bracket(s, cup).rounds[0].matches[0].winner, null);
@@ -78,6 +79,7 @@ await t('results move winners on, a round can be pushed back, and the commission
   const { post, get, sent } = setup();
   await post('admin/cups', { passcode: 'p', action: 'create', type: 'league', firstWeek: 8 });
   await post('push/subscribe', { subscription: { endpoint: 'https://push.example/tim', keys: { p256dh: 'p', auth: 'a' } }, player: 'tim' });
+  await post('push/subscribe', { subscription: { endpoint: 'https://push.example/sam', keys: { p256dh: 'p', auth: 'a' } }, player: 'sam' });
   let s = await get();
   const clubs8 = s.config.clubs;
   // Everyone picks; Tim's clubs all win, so Tim beats Michael.
@@ -91,8 +93,16 @@ await t('results move winners on, a round can be pushed back, and the commission
   let st = cups.state(s, s.cups[0]);
   const timGame = st.bracket.rounds[0].matches.find((m) => [m.a, m.b].some((x) => x && x.id === 'tim'));
   assert.equal(timGame.winner, 'tim');
+  // Everyone else picked the same clubs, so their games are dead level: penalties, settled by the commissioner.
+  const pks = st.bracket.rounds[0].matches.filter((m) => m.status === 'shootout');
+  assert.ok(pks.length > 0);
+  assert.ok(sent.some((x) => x.to.endsWith('/sam') && /penalty shootout in FIFA/.test(x.msg.body)), 'shootout alert');
+  assert.equal(st.current.name, 'First round', 'the round is not over until the shootouts are in');
+  for (const m of pks) await post('admin/cups', { passcode: 'p', action: 'override', id: s.cups[0].id, key: m.key, winner: m.a.id });
+  s = await get();
+  st = cups.state(s, s.cups[0]);
   assert.equal(st.current.name, 'Quarter-finals');
-  assert.ok(sent.some((x) => /You're through! You play/.test(x.msg.body)), 'next round alert');
+  assert.ok(sent.some((x) => /You're through! You play/.test(x.msg.body)), 'next round alert once the shootouts are in');
   // Push the quarter-finals back a week.
   await post('admin/cups', { passcode: 'p', action: 'push-back', id: s.cups[0].id, round: 1 });
   s = await get();

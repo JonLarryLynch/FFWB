@@ -26,6 +26,8 @@
     const r = s.current;
     if (!r) return '';
     const left = r.matches.reduce((n, m) => n + (m.a ? 1 : 0) + (m.b ? 1 : 0), 0);
+    const pks = r.matches.filter((m) => m.status === 'shootout').length;
+    if (pks) return r.name + ' · ' + pks + ' penalty shootout' + (pks === 1 ? '' : 's') + ' to settle';
     return r.name + ' · week ' + r.week + (r.index > 0 ? ' · ' + left + ' left' : '');
   }
 
@@ -64,6 +66,7 @@
     go.addEventListener('click', () => { chosen = s.cup.type; window.FFWBExplore && window.FFWBExplore.open('cups-box'); });
     box.replaceChildren(art, text, go);
   }
+  const listNames = (n) => (n.length > 1 ? n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1] : n.join(''));
   const ordinal = (n) => n + ([, 'st', 'nd', 'rd'][(n % 100 >> 3 ^ 1) && n % 10] || 'th');
 
   // ---------- The full view ----------
@@ -82,7 +85,7 @@
     const winA = m.winner && m.a && m.winner === m.a.id;
     const winB = m.winner && m.b && m.winner === m.b.id;
     card.append(row(m.a, m.scoreA, winA, true), row(m.b, m.scoreB, winB, true));
-    const meta = m.status === 'final' ? (m.how || 'Full time') : m.status === 'live' ? 'In play this week' : m.status === 'waiting' ? 'Waiting on the last round' : 'Week ' + m.week;
+    const meta = m.status === 'final' ? (m.how || 'Full time') : m.status === 'shootout' ? 'Dead level: penalty shootout in FIFA' : m.status === 'live' ? 'In play this week' : m.status === 'waiting' ? 'Waiting on the last round' : 'Week ' + m.week;
     card.append(el('div', 'cb-meta', meta));
     return card;
   }
@@ -112,7 +115,7 @@
       grid.append(col);
     });
     wrap.append(tabs, grid);
-    wrap.append(el('p', 'ffwb-note', 'Each game is that week’s normal league points. Level games go to more winning picks, then the better lock, then the higher seed. Seeds come from the table at the draw.'));
+    wrap.append(el('p', 'ffwb-note', 'Each game is that week’s normal league points. Level games go to the better lock, then more winning picks, then a penalty shootout in FIFA. Seeds come from the table at the draw.'));
     return wrap;
   }
   function leagueView(s) {
@@ -134,7 +137,8 @@
     t.append(thead, tbody);
     const scroll = el('div', 'ffwb-plot');
     scroll.append(t);
-    wrap.append(scroll, el('p', 'ffwb-note', 'Most points over the festive weeks wins, counting every pick as normal. Ties go to more winning picks, then more locks won.'));
+    if (s.mini.shootout) wrap.append(el('p', 'cb-shootout', listNames(s.mini.shootout.map((r) => r.name)) + ' are dead level at the top: penalty shootout in FIFA.'));
+    wrap.append(scroll, el('p', 'ffwb-note', 'Most points over the festive weeks wins, counting every pick as normal. Ties go to the better locks, then more winning picks, then a penalty shootout in FIFA.'));
     return wrap;
   }
   function render() {

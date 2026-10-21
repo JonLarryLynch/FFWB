@@ -464,28 +464,7 @@ function drawArchive() {
   });
 }
 
-// Copy the weekly report for the group chat.
-const copy = document.getElementById('recap-copy');
-copy.addEventListener('click', () => {
-  const text = document.getElementById('recap-text');
-  const done = (label) => {
-    copy.textContent = label;
-    setTimeout(() => { copy.textContent = 'Copy'; }, 2000);
-  };
-  const select = () => {
-    const range = document.createRange();
-    range.selectNodeContents(text);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    done('Selected, now copy');
-  };
-  try {
-    navigator.clipboard.writeText(text.textContent).then(() => done('Copied'), select);
-  } catch (err) {
-    select();
-  }
-});
+
 
 window.ffwb.redraws.push(drawArchive);
 dash.onData(() => {

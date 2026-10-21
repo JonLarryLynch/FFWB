@@ -36,134 +36,157 @@
   </section>
 
   <div id="admin-app" hidden>
-    <div class="adm-grid">
-      <section class="ffwb-card" id="results-card">
-        <h2 class="ffwb-h">Results</h2>
-        <p class="ffwb-note">Set each club's result for the week: W, D, L or P for postponed. A postponed game scores nothing until you come back and give it a result. As soon as any result is saved, that week closes to picks. Once all 20 clubs have one, the next week opens.</p>
-        <div class="pk-weekbar">
-          <button class="pk-step" type="button" id="res-prev" aria-label="Previous week">‹</button>
-          <div class="pk-weektitle"><span class="pk-weekname" id="res-week">Week</span></div>
-          <button class="pk-step" type="button" id="res-next" aria-label="Next week">›</button>
-        </div>
-        <div class="res-feed" id="res-feed" aria-live="polite"></div>
-        <div class="res-list" id="res-grid"></div>
-        <div class="res-efl" id="res-efl" hidden>
-          <h3 class="ffwb-h">EFL picks</h3>
-          <div class="res-list" id="res-efl-grid"></div>
-        </div>
-        <div class="pk-actions">
-          <button class="pk-save" type="button" id="res-save" disabled>Save results</button>
-          <button class="pk-clear" type="button" id="res-all-l">Mark the rest as losses</button>
-          <button class="pk-clear" type="button" id="res-fetch">Check for results now</button>
-        </div>
-        <p class="pk-message" id="res-message" aria-live="polite"></p>
-      </section>
+    <div class="adm-status" id="adm-status" aria-live="polite"></div>
 
-      <div class="ffwb-page">
-        <section class="ffwb-card" id="chat-card">
-          <h2 class="ffwb-h">For the group chat</h2>
-          <h3 class="ffwb-h" id="nudge-title">Still to pick</h3>
-          <textarea class="adm-input adm-textarea" id="nudge-text" rows="3" aria-label="Reminder message"></textarea>
-          <div class="adm-row"><button class="pk-clear" type="button" id="nudge-copy">Copy reminder</button></div>
-          <h3 class="ffwb-h" id="recap-title">Weekly recap</h3>
-          <textarea class="adm-input adm-textarea" id="recap-text" rows="7" aria-label="Weekly recap"></textarea>
-          <div class="adm-row"><button class="pk-clear" type="button" id="recap-copy">Copy recap</button></div>
-          <h3 class="ffwb-h">Phone alert</h3>
-          <p class="ffwb-note" id="push-who">Players turn alerts on from the Picks tab. The site sends them automatically when a week opens, and reminds anyone who has not picked about a day and three hours before kickoff.</p>
-          <textarea class="adm-input adm-textarea" id="push-text" rows="2" maxlength="240" aria-label="Alert message" placeholder="Type a message to send to everyone with alerts on"></textarea>
-          <div class="adm-row"><button class="pk-clear" type="button" id="push-send">Send to everyone</button></div>
-          <p class="pk-message" id="chat-message" aria-live="polite"></p>
+    <nav class="adm-nav" role="tablist" aria-label="Commissioner">
+      <button type="button" role="tab" data-panel="p-results">Results</button>
+      <button type="button" role="tab" data-panel="p-messages">Messages</button>
+      <button type="button" role="tab" data-panel="p-picks">Fix picks</button>
+      <button type="button" role="tab" data-panel="p-cups">Cups</button>
+      <button type="button" role="tab" data-panel="p-weeks">Weeks &amp; EFL</button>
+      <button type="button" role="tab" data-panel="p-house">Housekeeping</button>
+    </nav>
+
+    <div class="adm-panel" id="p-results" role="tabpanel">
+<section class="ffwb-card" id="results-card">
+  <h2 class="ffwb-h">Results</h2>
+  <p class="ffwb-note">Set each club's result for the week: W, D, L or P for postponed. A postponed game scores nothing until you come back and give it a result. As soon as any result is saved, that week closes to picks. Once all 20 clubs have one, the next week opens.</p>
+  <div class="pk-weekbar">
+    <button class="pk-step" type="button" id="res-prev" aria-label="Previous week">‹</button>
+    <div class="pk-weektitle"><span class="pk-weekname" id="res-week">Week</span></div>
+    <button class="pk-step" type="button" id="res-next" aria-label="Next week">›</button>
+  </div>
+  <div class="res-feed" id="res-feed" aria-live="polite"></div>
+  <div class="res-list" id="res-grid"></div>
+  <div class="res-efl" id="res-efl" hidden>
+    <h3 class="ffwb-h">EFL picks</h3>
+    <div class="res-list" id="res-efl-grid"></div>
+  </div>
+  <div class="pk-actions">
+    <button class="pk-save" type="button" id="res-save" disabled>Save results</button>
+    <button class="pk-clear" type="button" id="res-all-l">Mark the rest as losses</button>
+    <button class="pk-clear" type="button" id="res-fetch">Check for results now</button>
+  </div>
+  <p class="pk-message" id="res-message" aria-live="polite"></p>
+</section>
+    </div>
+
+    <div class="adm-panel" id="p-messages" role="tabpanel" hidden>
+      <div class="adm-cols adm-cols-3" id="chat-card">
+        <section class="ffwb-card">
+          <h2 class="ffwb-h" id="nudge-title">Still to pick</h2>
+          <textarea class="adm-input adm-textarea" id="nudge-text" rows="5" aria-label="Reminder message"></textarea>
+          <div class="adm-row"><button class="pk-save" type="button" id="nudge-copy">Copy reminder</button></div>
         </section>
-
-        <section class="ffwb-card" id="weeks-card">
-          <h2 class="ffwb-h">Weeks</h2>
-          <p class="ffwb-note">Players can only pick the current week. It moves on by itself once all 20 results for it are saved, or you can set it here.</p>
-          <div class="adm-row">
-            <button class="pk-step" type="button" id="cw-down" aria-label="Earlier week">‹</button>
-            <span class="pk-weekname" id="cw-value">Week</span>
-            <button class="pk-step" type="button" id="cw-up" aria-label="Later week">›</button>
-            <button class="pk-save" type="button" id="cw-save">Set as current week</button>
-          </div>
-          <h3 class="ffwb-h">Close a week early</h3>
-          <label class="pk-override adm-toggle"><input type="checkbox" id="auto-close"><span>Close each week at its first kickoff</span></label>
-          <p class="ffwb-note">Off means people can keep picking until you close the week or enter a result, like the sheet. With it on, click a week that has kicked off to reopen it for someone late. Click any week to close it early, and again to undo. Orange is closed by you, grey has kicked off, outlined is reopened by you, green has results in.</p>
-          <div class="pk-weekdots" id="closed-weeks"></div>
-          <p class="pk-message" id="cw-message" aria-live="polite"></p>
+        <section class="ffwb-card">
+          <h2 class="ffwb-h" id="recap-title">Weekly recap</h2>
+          <textarea class="adm-input adm-textarea" id="recap-text" rows="9" aria-label="Weekly recap"></textarea>
+          <div class="adm-row"><button class="pk-save" type="button" id="recap-copy">Copy recap</button></div>
         </section>
+        <section class="ffwb-card">
+          <h2 class="ffwb-h">Phone alert</h2>
+          <p class="ffwb-note" id="push-who">Players turn alerts on with the bell. The site sends them automatically when a week opens, and reminds anyone who has not picked about a day and three hours before kickoff.</p>
+          <textarea class="adm-input adm-textarea" id="push-text" rows="3" maxlength="240" aria-label="Alert message" placeholder="Type a message to send to everyone with alerts on"></textarea>
+          <div class="adm-row"><button class="pk-save" type="button" id="push-send">Send to everyone</button></div>
+        </section>
+      </div>
+      <p class="pk-message" id="chat-message" aria-live="polite"></p>
+    </div>
 
-        <section class="ffwb-card" id="cups-card">
-          <h2 class="ffwb-h">Cups</h2>
-          <p class="ffwb-note">League Cup in the autumn, Festive Fixtures at Christmas, FA Cup in the spring. Knockouts are seeded from the table before their first week, with the top of the table getting a bye, and run one round a week. Festive Fixtures is the most points over the weeks you choose.</p>
-          <div class="adm-cupform">
-            <label>Cup <select class="ffwb-select" id="cup-type"><option value="league">League Cup</option><option value="festive">Festive Fixtures</option><option value="fa">FA Cup</option></select></label>
-            <label>First week <input class="adm-input adm-num" id="cup-first" type="number" min="1" max="38"></label>
-            <label id="cup-length-wrap" hidden>Weeks <input class="adm-input adm-num" id="cup-length" type="number" min="1" max="8" value="3"></label>
-          </div>
-          <div class="adm-row">
-            <button class="pk-clear" type="button" id="cup-preview">Preview the draw</button>
-            <button class="pk-save" type="button" id="cup-make" disabled>Make the draw</button>
-          </div>
-          <div id="cup-plan"></div>
-          <p class="pk-message" id="cup-message" aria-live="polite"></p>
+    <div class="adm-panel" id="p-picks" role="tabpanel" hidden>
+      <p class="ffwb-note adm-lead">Any player, any week, including closed weeks. If picks break a rule you will see why, and can save them anyway.</p>
+      <div id="admin-picks" data-admin="1"></div>
+    </div>
+
+    <div class="adm-panel" id="p-cups" role="tabpanel" hidden>
+      <div class="adm-cols adm-cols-cups">
+  <section class="ffwb-card" id="cups-card">
+    <h2 class="ffwb-h">Draw a cup</h2>
+    <p class="ffwb-note">League Cup in the autumn, Festive Fixtures at Christmas, FA Cup in the spring. Knockouts are seeded from the table before their first week, with the top of the table getting a bye, and run one round a week. Festive Fixtures is the most points over the weeks you choose.</p>
+    <div class="adm-cupform">
+      <label>Cup <select class="ffwb-select" id="cup-type"><option value="league">League Cup</option><option value="festive">Festive Fixtures</option><option value="fa">FA Cup</option></select></label>
+      <label>First week <input class="adm-input adm-num" id="cup-first" type="number" min="1" max="38"></label>
+      <label id="cup-length-wrap" hidden>Weeks <input class="adm-input adm-num" id="cup-length" type="number" min="1" max="8" value="3"></label>
+    </div>
+    <div class="adm-row">
+      <button class="pk-clear" type="button" id="cup-preview">Preview the draw</button>
+      <button class="pk-save" type="button" id="cup-make" disabled>Make the draw</button>
+    </div>
+    <div id="cup-plan"></div>
+    <p class="pk-message" id="cup-message" aria-live="polite"></p>
+  </section>
+        <section class="ffwb-card">
+          <h2 class="ffwb-h">This season's cups</h2>
           <div id="cup-list"></div>
-        </section>
-
-        <section class="ffwb-card" id="efl-card">
-          <h2 class="ffwb-h">EFL picks</h2>
-          <p class="ffwb-note">Switch the EFL pick on for any week. Players then get one optional Championship pick that week, worth 1 for a win and a half for a draw, never doubled, and added to their season total.</p>
-          <div class="pk-weekdots" id="efl-weeks"></div>
-          <h3 class="ffwb-h">Championship clubs</h3>
-          <p class="ffwb-note" id="efl-clubs-note"></p>
-          <div class="pk-actions">
-            <button class="pk-clear" type="button" id="efl-load">Load clubs from the feed</button>
-          </div>
-          <details class="ffwb-more" id="efl-edit">
-            <summary>Edit the list by hand</summary>
-            <textarea class="adm-input adm-textarea" id="efl-list" rows="8" aria-label="Championship clubs, one per line"></textarea>
-            <button class="pk-save" type="button" id="efl-save-list">Save list</button>
-          </details>
-          <p class="pk-message" id="efl-message" aria-live="polite"></p>
-        </section>
-
-        <section class="ffwb-card" id="shame-card">
-          <h2 class="ffwb-h">The Shame Club</h2>
-          <p class="ffwb-note">Anyone whose picks include both teams from the same match joins automatically. This list is for members from before the site, one per line. Put a title in brackets and a nickname after aka, like Greg (Platinum Member) or Michael aka Diddler.</p>
-          <textarea class="adm-input adm-textarea" id="shame-list" rows="6" aria-label="Shame Club members"></textarea>
-          <div class="adm-row"><button class="pk-clear" type="button" id="shame-save">Save list</button></div>
-          <p class="pk-message" id="shame-message" aria-live="polite"></p>
-        </section>
-
-        <section class="ffwb-card" id="backup-card">
-          <h2 class="ffwb-h">Backup</h2>
-          <p class="ffwb-note">The site saves a backup every Tuesday morning and keeps the last 12. You can also download everything (picks, results and the change log) as one file right now.</p>
-          <div class="adm-row">
-            <button class="pk-clear" type="button" id="backup">Download backup now</button>
-            <button class="pk-clear" type="button" id="sign-out">Sign out</button>
-          </div>
-          <div class="adm-backups" id="backup-list"></div>
-          <p class="pk-message" id="backup-message" aria-live="polite"></p>
         </section>
       </div>
     </div>
 
-    <details class="ffwb-more adm-fold" style="margin-top: 1rem">
-      <summary>Fix anyone's picks</summary>
-      <div class="ffwb-more-body">
-        <p class="ffwb-note">Any player, any week, including closed weeks. If picks break a rule you will see why, and can save them anyway.</p>
-        <div id="admin-picks" data-admin="1"></div>
-      </div>
+    <div class="adm-panel" id="p-weeks" role="tabpanel" hidden>
+      <div class="adm-cols">
+  <section class="ffwb-card" id="weeks-card">
+    <h2 class="ffwb-h">Weeks</h2>
+    <p class="ffwb-note">Players can only pick the current week. It moves on by itself once all 20 results for it are saved, or you can set it here.</p>
+    <div class="adm-row">
+      <button class="pk-step" type="button" id="cw-down" aria-label="Earlier week">‹</button>
+      <span class="pk-weekname" id="cw-value">Week</span>
+      <button class="pk-step" type="button" id="cw-up" aria-label="Later week">›</button>
+      <button class="pk-save" type="button" id="cw-save">Set as current week</button>
+    </div>
+    <h3 class="ffwb-h">Close a week early</h3>
+    <label class="pk-override adm-toggle"><input type="checkbox" id="auto-close"><span>Close each week at its first kickoff</span></label>
+    <p class="ffwb-note">Off means people can keep picking until you close the week or enter a result, like the sheet. With it on, click a week that has kicked off to reopen it for someone late. Click any week to close it early, and again to undo. Orange is closed by you, grey has kicked off, outlined is reopened by you, green has results in.</p>
+    <div class="pk-weekdots" id="closed-weeks"></div>
+    <p class="pk-message" id="cw-message" aria-live="polite"></p>
+  </section>
+  <section class="ffwb-card" id="efl-card">
+    <h2 class="ffwb-h">EFL picks</h2>
+    <p class="ffwb-note">Switch the EFL pick on for any week. Players then get one optional Championship pick that week, worth 1 for a win and a half for a draw, never doubled, and added to their season total.</p>
+    <div class="pk-weekdots" id="efl-weeks"></div>
+    <h3 class="ffwb-h">Championship clubs</h3>
+    <p class="ffwb-note" id="efl-clubs-note"></p>
+    <div class="pk-actions">
+      <button class="pk-clear" type="button" id="efl-load">Load clubs from the feed</button>
+    </div>
+    <details class="ffwb-more" id="efl-edit">
+      <summary>Edit the list by hand</summary>
+      <textarea class="adm-input adm-textarea" id="efl-list" rows="8" aria-label="Championship clubs, one per line"></textarea>
+      <button class="pk-save" type="button" id="efl-save-list">Save list</button>
     </details>
+    <p class="pk-message" id="efl-message" aria-live="polite"></p>
+  </section>
+      </div>
+    </div>
 
-    <details class="ffwb-more adm-fold" id="log-card" style="margin-top: 1rem">
-      <summary>Change log</summary>
-      <div class="ffwb-more-body">
-        <div class="adm-row" style="justify-content: space-between">
-          <p class="ffwb-note">Every saved change to picks or results, newest first. If someone changes another player's picks, it shows here.</p>
+    <div class="adm-panel" id="p-house" role="tabpanel" hidden>
+      <div class="adm-cols">
+  <section class="ffwb-card" id="shame-card">
+    <h2 class="ffwb-h">The Shame Club</h2>
+    <p class="ffwb-note">Anyone whose picks include both teams from the same match joins automatically. This list is for members from before the site, one per line. Put a title in brackets and a nickname after aka, like Greg (Platinum Member) or Michael aka Diddler.</p>
+    <textarea class="adm-input adm-textarea" id="shame-list" rows="6" aria-label="Shame Club members"></textarea>
+    <div class="adm-row"><button class="pk-clear" type="button" id="shame-save">Save list</button></div>
+    <p class="pk-message" id="shame-message" aria-live="polite"></p>
+  </section>
+  <section class="ffwb-card" id="backup-card">
+    <h2 class="ffwb-h">Backup</h2>
+    <p class="ffwb-note">The site saves a backup every Tuesday morning and keeps the last 12. You can also download everything (picks, results and the change log) as one file right now.</p>
+    <div class="adm-row">
+      <button class="pk-clear" type="button" id="backup">Download backup now</button>
+      <button class="pk-clear" type="button" id="sign-out">Sign out</button>
+    </div>
+    <div class="adm-backups" id="backup-list"></div>
+    <p class="pk-message" id="backup-message" aria-live="polite"></p>
+  </section>
+      </div>
+      <section class="ffwb-card" id="log-card">
+        <div class="ffwb-cardhead">
+          <h2 class="ffwb-h">Change log</h2>
           <button class="pk-clear" type="button" id="log-refresh">Refresh</button>
         </div>
+        <p class="ffwb-note">Every saved change to picks or results, newest first. If someone changes another player's picks, it shows here.</p>
         <div class="ffwb-plot ffwb-tall" id="log"></div>
-      </div>
-    </details>
+      </section>
+    </div>
   </div>
 </div>
 </div>

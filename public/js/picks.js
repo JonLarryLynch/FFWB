@@ -316,7 +316,7 @@
           const theirs = m.a && m.a.id === state.player ? m.scoreB : m.scoreA;
           line = !game.them ? 'You have a bye this round'
             : 'You v ' + game.them.name + (mine && theirs ? ', ' + fmt1(mine.points) + ' to ' + fmt1(theirs.points) : '')
-              + (m.status === 'final' ? (m.winner === state.player ? '. Through!' : '. Out.') : '');
+              + (m.status === 'final' ? (m.winner === state.player ? '. Through!' : '. Out.') : m.status === 'shootout' ? '. Dead level: penalty shootout in FIFA!' : '');
         } else {
           line = game.detail + (game.pos ? ". You're " + game.pos + (['th', 'st', 'nd', 'rd'][(game.pos % 100 >> 3 ^ 1) && game.pos % 10] || 'th') + ' so far' : '');
         }

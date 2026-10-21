@@ -490,6 +490,8 @@
   async function loadPush() {
     const out = await adminPost('push', {});
     if (!out.ok) return;
+    alertCount = out.count;
+    renderStatus();
     const who = document.getElementById('push-who');
     who.textContent = (out.count ? out.count + ' phone' + (out.count === 1 ? ' has' : 's have') + ' alerts on (' + listNames(out.who) + '). ' : 'Nobody has turned alerts on yet. ')
       + 'Players turn them on from the Picks tab. The site sends one when a week opens, and reminds anyone who has not picked about a day and three hours before kickoff.';
@@ -578,10 +580,10 @@
           rr.append(top);
           for (const m of r.matches) {
             if (m.bye || !m.a || !m.b) continue;
-            const line = el('div', 'adm-cup-match');
-            line.append(el('span', null, m.a.name + ' v ' + m.b.name + (m.winner ? ': ' + (m.winner === m.a.id ? m.a.name : m.b.name) + ' through' : '')));
+            const line = el('div', 'adm-cup-match' + (m.status === 'shootout' ? ' adm-cup-pk' : ''));
+            line.append(el('span', null, m.a.name + ' v ' + m.b.name + (m.winner ? ': ' + (m.winner === m.a.id ? m.a.name : m.b.name) + ' through' : m.status === 'shootout' ? ': dead level. Who won the shootout?' : '')));
             const sel = el('select', 'ffwb-select adm-small');
-            sel.append(new Option('Decided by points', ''), new Option(m.a.name + ' through', m.a.id), new Option(m.b.name + ' through', m.b.id));
+            sel.append(new Option(m.status === 'shootout' ? 'Shootout winner...' : 'Decided by points', ''), new Option(m.a.name + (m.status === 'shootout' ? ' won it' : ' through'), m.a.id), new Option(m.b.name + (m.status === 'shootout' ? ' won it' : ' through'), m.b.id));
             sel.value = (s.cup.overrides || {})[m.key] || '';
             sel.setAttribute('aria-label', 'Winner of ' + m.a.name + ' v ' + m.b.name);
             sel.addEventListener('change', () => cupAction({ action: 'override', id: s.cup.id, key: m.key, winner: sel.value || null }, sel.value ? 'Winner set by you.' : 'Back to being decided by points.'));
@@ -592,6 +594,17 @@
         }
       } else {
         card.append(el('p', 'ffwb-note', 'Weeks ' + s.cup.weeks.join(', ') + '. Leader: ' + (s.mini.rows[0] ? s.mini.rows[0].name : 'nobody yet') + '.'));
+        if (s.mini.shootout || (s.cup.overrides || {}).winner) {
+          const line = el('div', 'adm-cup-match' + (s.mini.shootout ? ' adm-cup-pk' : ''));
+          const tied = s.mini.shootout || s.mini.rows.slice(0, 2);
+          line.append(el('span', null, s.mini.shootout ? listNames(tied.map((r) => r.name)) + ' are dead level. Who won the shootout?' : 'Winner set by you'));
+          const sel = el('select', 'ffwb-select adm-small');
+          sel.append(new Option('Shootout winner...', ''), ...s.mini.rows.filter((r) => tied.some((t) => t.id === r.id) || r.id === (s.cup.overrides || {}).winner).map((r) => new Option(r.name + ' won it', r.id)));
+          sel.value = (s.cup.overrides || {}).winner || '';
+          sel.addEventListener('change', () => cupAction({ action: 'override', id: s.cup.id, key: 'winner', winner: sel.value || null }, sel.value ? 'Shootout winner saved.' : 'Cleared.'));
+          line.append(sel);
+          card.append(line);
+        }
       }
       const del = el('button', 'pk-clear adm-small adm-danger', 'Delete this cup');
       del.type = 'button';
@@ -660,6 +673,84 @@
     say(msg, 'ok', 'Backup downloaded.');
   });
 
+  // ---------- Tabs, the status strip and info buttons ----------
+  const tabs = [...document.querySelectorAll('.adm-nav [data-panel]')];
+  function showPanel(id, remember = true) {
+    if (!document.getElementById(id)) id = 'p-results';
+    for (const t of tabs) { const on = t.dataset.panel === id; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; }
+    for (const p of document.querySelectorAll('.adm-panel')) p.hidden = p.id !== id;
+    if (remember) { try { sessionStorage.setItem('ffwb-adm-tab', id); history.replaceState(null, '', '#' + id.slice(2)); } catch (err) { /* nicety */ } }
+    // Charts and tables drawn while hidden need a redraw.
+    window.dispatchEvent(new Event('resize'));
+  }
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => showPanel(t.dataset.panel));
+    t.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      n.focus(); showPanel(n.dataset.panel);
+    });
+  });
+  const fromHash = location.hash ? 'p-' + location.hash.slice(1) : null;
+  let saved = null;
+  try { saved = sessionStorage.getItem('ffwb-adm-tab'); } catch (err) { /* nicety */ }
+  showPanel(fromHash && document.getElementById(fromHash) ? fromHash : saved || 'p-results', false);
+
+  // Long explanations sit behind a small (i) button beside each heading.
+  for (const note of document.querySelectorAll('.adm-panel .ffwb-card > p.ffwb-note')) {
+    // The heading just above the note, or the one above the control that sits between them.
+    let head = note.previousElementSibling;
+    if (head && head.matches('.ffwb-cardhead')) head = head.querySelector('h2.ffwb-h');
+    if (head && head.matches('label') && head.previousElementSibling && head.previousElementSibling.matches('h3.ffwb-h')) head = head.previousElementSibling;
+    if (!head || !head.matches('h2.ffwb-h, h3.ffwb-h')) continue;
+    note.hidden = true;
+    const b = el('button', 'ffwb-info', 'i');
+    b.type = 'button';
+    b.setAttribute('aria-label', 'What is this?');
+    b.setAttribute('aria-expanded', 'false');
+    b.addEventListener('click', () => { note.hidden = !note.hidden; b.setAttribute('aria-expanded', String(!note.hidden)); });
+    head.append(b);
+  }
+
+  let alertCount = null;
+  function renderStatus() {
+    if (!season) return;
+    const box = document.getElementById('adm-status');
+    const w = season.config.currentWeek;
+    const picked = season.config.players.filter((p) => (season.picks[p.id] || {})[String(w)]).length;
+    const res = season.results[String(w)] || {};
+    const got = Object.keys(res).length;
+    const open = season.openWeeks.includes(w);
+    let cupText = 'None drawn';
+    let cupSub = 'Draw one in Cups';
+    let cupWarn = false;
+    if (window.FFWBCups) {
+      const live = (season.cups || []).map((c) => window.FFWBCups.state(season, c)).filter((s) => s.status !== 'done');
+      const next = live.map((s) => {
+        if (s.format === 'league') { const nw = s.cup.weeks.find((x) => x >= w) || s.cup.weeks[0]; return { s, week: nw, what: s.name }; }
+        return s.current ? { s, week: s.current.week, what: s.name + ', ' + s.current.name.toLowerCase() } : null;
+      }).filter(Boolean).sort((a, b) => a.week - b.week)[0];
+      if (next) { cupText = next.what; cupSub = 'Week ' + next.week; }
+      const pks = live.reduce((n, s) => n + (s.format === 'knockout' ? s.bracket.rounds.reduce((k, r) => k + r.matches.filter((m) => m.status === 'shootout').length, 0) : (s.mini.shootout ? 1 : 0)), 0);
+      if (pks) { cupSub = pks + ' shootout' + (pks === 1 ? '' : 's') + ' to enter'; cupWarn = true; }
+      else if ((season.cups || []).length) { cupText = 'All done'; cupSub = 'This season'; }
+    }
+    const chips = [
+      { label: 'Week ' + w, value: open ? 'Open for picks' : 'Closed', sub: open ? 'Players can pick now' : 'Results are coming in', panel: 'p-weeks', tone: open ? 'ok' : '' },
+      { label: 'Picks in', value: picked + ' of ' + season.config.players.length, sub: picked < season.config.players.length ? 'Send a reminder' : 'Everyone is in', panel: 'p-messages', tone: picked === season.config.players.length ? 'ok' : 'warn' },
+      { label: 'Results', value: got + ' of ' + season.config.clubs.length, sub: got ? 'For week ' + w : 'Enter or check the feed', panel: 'p-results', tone: got === season.config.clubs.length ? 'ok' : '' },
+      { label: 'Cups', value: cupText, sub: cupSub, panel: 'p-cups', tone: cupWarn ? 'warn' : '' },
+      { label: 'Alerts', value: alertCount == null ? '-' : alertCount + ' phone' + (alertCount === 1 ? '' : 's'), sub: 'Send a message', panel: 'p-messages' },
+    ];
+    box.replaceChildren(...chips.map((c) => {
+      const b = el('button', 'adm-chip' + (c.tone ? ' adm-chip-' + c.tone : ''));
+      b.type = 'button';
+      b.append(el('span', 'adm-chip-label', c.label), el('span', 'adm-chip-value', c.value), el('span', 'adm-chip-sub', c.sub));
+      b.addEventListener('click', () => showPanel(c.panel));
+      return b;
+    }));
+  }
+
   // ---------- Season data ----------
   window.FFWB.onSeason((s) => {
     season = s;
@@ -669,6 +760,7 @@
     renderEfl();
     renderShame();
     renderCups();
+    renderStatus();
     renderResults();
     picksEditor.setSeason(s);
   });
