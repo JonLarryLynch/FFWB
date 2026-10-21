@@ -983,3 +983,23 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 :root[data-theme="dark"] .sh-platinum .sh-note { color: #d4d7e0; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pk-plan-go, :root:not([data-theme="light"]) .cb-col-head, :root:not([data-theme="light"]) .pl-k, :root:not([data-theme="light"]) .adm-chip-label { color: var(--brand-gold); } }
 :root[data-theme="dark"] .pk-plan-go, :root[data-theme="dark"] .cb-col-head, :root[data-theme="dark"] .pl-k, :root[data-theme="dark"] .adm-chip-label { color: var(--brand-gold); }
+
+/* The Map: planning marks. */
+.pl-tip { margin: 0; font-size: 0.82rem; color: var(--color-fg-muted); }
+.pl-cell { padding: 0 !important; }
+.pl-tap { appearance: none; font: inherit; width: 100%; min-width: 3.2rem; padding: 0.38rem 0.3rem; border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 0.72rem; white-space: nowrap; }
+.pl-tap:hover:not(:disabled) { background: color-mix(in srgb, var(--brand-gold) 14%, transparent); }
+.pl-tap:disabled { cursor: default; }
+.pl-tap:focus-visible { outline: 2px solid var(--brand-gold); outline-offset: -2px; }
+.pl-planned { background: color-mix(in srgb, #2f9e5b 20%, transparent); }
+.pl-planned .pl-tap { color: var(--color-fg); font-weight: 700; }
+.pl-pk { background: color-mix(in srgb, var(--color-bad) 26%, transparent) !important; }
+.pl-pk .pl-tap { color: var(--color-bad); font-weight: 700; }
+.pl-wk-n { display: block; font-size: 0.62rem; font-weight: 500; color: var(--color-fg-muted); }
+.pl-over { color: var(--color-bad) !important; }
+.pl-over .pl-wk-n { color: var(--color-bad); font-weight: 700; }
+.pl-owe-p { font-size: 0.7rem; font-weight: 600; color: #2f9e5b; }
+.pl-covered td:first-child { color: #2f9e5b; }
+.pl-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap; }
+.pl-foot .ffwb-note { flex: 1 1 18rem; margin: 0; }
+.pk-badge-planned { background: color-mix(in srgb, #2f9e5b 22%, var(--color-panel)); color: var(--color-fg); border: 1px dashed #2f9e5b; }

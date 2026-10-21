@@ -136,5 +136,25 @@
     return out;
   }
 
-  window.FFWBPlanner = { plan, form, pickedLastWeek, glance, calendar, abbr };
+  // Planning marks on The Map: "I mean to take this club that week". Kept on this phone only, never sent.
+  const markKey = (season, id) => 'ffwb-map-' + season.config.season + '-' + id;
+  function marks(season, id) {
+    try { return new Set(JSON.parse(localStorage.getItem(markKey(season, id)) || '[]')); } catch (err) { return new Set(); }
+  }
+  function saveMarks(season, id, set) {
+    try { localStorage.setItem(markKey(season, id), JSON.stringify([...set])); } catch (err) { /* only a convenience */ }
+  }
+  function toggleMark(season, id, week, club) {
+    const m = marks(season, id);
+    const k = week + '|' + club;
+    if (m.has(k)) m.delete(k); else m.add(k);
+    saveMarks(season, id, m);
+    return m;
+  }
+  function clearMarks(season, id, weeks) {
+    const keep = new Set([...marks(season, id)].filter((k) => !weeks.includes(Number(k.split('|')[0]))));
+    saveMarks(season, id, keep);
+  }
+
+  window.FFWBPlanner = { plan, form, pickedLastWeek, glance, calendar, abbr, marks, toggleMark, clearMarks };
 })();
