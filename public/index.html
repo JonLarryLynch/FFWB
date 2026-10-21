@@ -14,6 +14,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="FFWB">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script>try{var t=localStorage.getItem("ffwb-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 <link rel="stylesheet" href="css/site.css">
 </head>
 <body>
@@ -249,7 +250,7 @@
 
   <footer class="ffwb-footer">
     <span id="as-of">FFWB, since 2016-17.</span>
-    <a href="/admin.html">Commissioner</a>
+    <span class="ffwb-footer-links"><button class="ffwb-theme" type="button" id="theme-toggle" aria-label="Colour theme">Theme: Auto</button><a href="/admin.html">Commissioner</a></span>
   </footer>
 </div>
 </div>
@@ -273,5 +274,6 @@
 <script src="js/planner.js"></script>
 <script src="js/picks.js"></script>
 <script src="js/alerts.js"></script>
+<script src="js/polish.js"></script>
 </body>
 </html>

@@ -963,3 +963,23 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .adm-ns-players { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; }
 .adm-ns-player { display: inline-flex; align-items: center; gap: 0.3rem; font-size: var(--cds-font-size-caption); }
 .adm-danger-fill { background: var(--color-bad); border-color: var(--color-bad); color: #fff; align-self: flex-start; }
+
+/* Polish: theme switch, movement arrows, confetti. */
+.ffwb-footer-links { display: inline-flex; align-items: center; gap: 1rem; }
+.ffwb-theme { appearance: none; font: inherit; font-size: var(--cds-font-size-caption); padding: 0.2rem 0.7rem; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg-muted); }
+.ffwb-theme:hover { color: var(--color-fg); border-color: var(--brand-gold); }
+.mv { margin-left: 0.4rem; font-size: 0.7rem; font-weight: 700; }
+.mv-up { color: #2f9e5b; } .mv-down { color: var(--color-bad); }
+.cf-box { position: fixed; left: 0; right: 0; bottom: 0; height: 0; z-index: 90; pointer-events: none; }
+.cf-box i { position: absolute; bottom: 4rem; width: 9px; height: 14px; border-radius: 2px; animation: cf-pop 2.2s cubic-bezier(0.15, 0.7, 0.3, 1) forwards; }
+@keyframes cf-pop {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  45% { transform: translate(calc(var(--x) * 0.8), var(--y)) rotate(calc(var(--r) * 0.6)); opacity: 1; }
+  100% { transform: translate(var(--x), 120px) rotate(var(--r)); opacity: 0; }
+}
+:root[data-theme="dark"] .sh-platinum { background: color-mix(in srgb, #c9ccd6 18%, var(--color-panel)); }
+:root[data-theme="dark"] .sh-note { color: #e8808c; }
+:root[data-theme="dark"] .sh-platinum .sh-note { color: #d4d7e0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pk-plan-go, :root:not([data-theme="light"]) .cb-col-head, :root:not([data-theme="light"]) .pl-k, :root:not([data-theme="light"]) .adm-chip-label { color: var(--brand-gold); } }
+:root[data-theme="dark"] .pk-plan-go, :root[data-theme="dark"] .cb-col-head, :root[data-theme="dark"] .pl-k, :root[data-theme="dark"] .adm-chip-label { color: var(--brand-gold); }

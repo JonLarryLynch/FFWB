@@ -257,7 +257,7 @@
           const name = state.season.config.players.find((p) => p.id === state.player).name;
           state.message = { kind: 'ok', text: clearing ? 'Week ' + state.week + ' cleared for ' + name + '.' : 'Saved ' + name + "'s picks for week " + state.week + '.' };
           if (opts && opts.onSaved) opts.onSaved();
-          if (!admin && !clearing) document.dispatchEvent(new CustomEvent('ffwb:picks-saved', { detail: { week: state.week } }));
+          if (!admin && !clearing) document.dispatchEvent(new CustomEvent('ffwb:picks-saved', { detail: { week: state.week, bonus: allowed() > R.STANDARD_PICKS } }));
         }
       } catch (err) {
         state.message = { kind: 'bad', text: 'Could not reach the league server. Check your connection and try again.' };
@@ -408,7 +408,8 @@
         const g = P.glance(s, state.player);
         if (g && g.rank) {
           const move = g.was == null ? '' : g.was > g.rank ? '\u25B2' + (g.was - g.rank) : g.was < g.rank ? '\u25BC' + (g.rank - g.was) : '\u2013';
-          const bits = [el('span', 'pk-g-rank', ordinalOf(g.rank)), el('span', 'pk-g-of', 'of ' + g.players), el('span', 'pk-g-pts', fmt(g.points) + ' pts')];
+          const bits = [el('span', 'pk-g-rank', ordinalOf(g.rank)), el('span', 'pk-g-of', 'of ' + g.players), el('span', 'pk-g-pts', null)];
+          bits[2].append(el('span', 'pk-g-pts-n', fmt(g.points)), document.createTextNode(' pts'));
           if (move) bits.push(el('span', 'pk-g-move' + (move[0] === '\u25B2' ? ' pk-up' : move[0] === '\u25BC' ? ' pk-down' : ''), move));
           if (g.streak >= 2) bits.push(el('span', 'pk-g-chip', g.streak + ' locks in a row'));
           if (g.cup) bits.push(el('span', 'pk-g-chip pk-g-cup', g.cup));
