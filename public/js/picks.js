@@ -37,6 +37,7 @@
     return { open: false, label: 'Closed' };
   }
 
+  const REACTS = ['\u{1F525}', '\u{1F62C}', '\u{1F602}'];
   const ordinalOf = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 >> 3 ^ 1) && n % 10] || 'th');
 
   // The planner sheet: every club against the weeks left in the half, with clashes marked.
@@ -299,6 +300,31 @@
         let pts = '';
         if (wp && anyResult) pts = fmt(wp.standard.reduce((a, c) => a + R.pickPoints(res[c], false), 0) + R.pickPoints(res[wp.lock], true) + (wp.efl ? R.pickPoints(eflRes[wp.efl], false) : 0));
         tr.append(picksTd, el('td', 'ffwb-num ffwb-strong', pts));
+        // Reactions: one tap to put a fire, a grimace or a laugh on someone's picks.
+        if (!admin && wp) {
+          const box = el('div', 'pk-react');
+          const mine = state.player || remember.get('ffwb-player');
+          const got = (((s.reactions || {})[String(state.week)] || {})[p.id]) || {};
+          for (const emo of REACTS) {
+            const who = got[emo] || [];
+            const b = el('button', 'pk-react-b' + (mine && who.includes(mine) ? ' pk-react-on' : '') + (who.length ? '' : ' pk-react-empty'));
+            b.type = 'button';
+            b.append(el('span', null, emo), el('span', 'pk-react-n', who.length ? String(who.length) : ''));
+            const names = who.map((id) => (s.config.players.find((x) => x.id === id) || { name: id }).name);
+            b.title = who.length ? names.join(', ') : 'React to ' + p.name + "'s picks";
+            b.setAttribute('aria-label', emo + ' on ' + p.name + "'s picks" + (who.length ? ', ' + who.length + ' so far' : ''));
+            b.addEventListener('click', async () => {
+              if (!mine) { state.message = { kind: 'warn', text: 'Choose your name first to react.' }; render(); return; }
+              try {
+                const res = await fetch('/api/react', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ week: state.week, target: p.id, emoji: emo, by: mine }) });
+                const out = await res.json();
+                if (out.ok) { s.reactions = out.reactions; renderEveryone(); }
+              } catch (err) { /* try again later */ }
+            });
+            box.append(b);
+          }
+          picksTd.append(box);
+        }
         tbody.append(tr);
       }
       t.append(thead, tbody);

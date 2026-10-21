@@ -8,6 +8,7 @@
 //   auto/results    results fetched from football-data.org, as suggestions for the commissioner
 //   fixtures        { checkedAt, weeks: { "8": { kickoff, games: { club: { vs, home, at, off } } } } }
 //   backups/<date>  a full copy of the league, saved by the Tuesday job
+//   reactions/<season> { "8": { target player: { "🔥": [player ids] } } }
 //   cups            { cups: [{ id, type, season, weeks: [...], seeds: [player ids], overrides, drawnAt }] }
 //   push/*          phone notification keys, subscriptions and which reminders have gone out
 import crypto from 'node:crypto';
@@ -20,6 +21,7 @@ import * as push from './push.mjs';
 
 const HISTORY_KEEP = 150;
 const RESULT_VALUES = new Set([1, 0.5, 0, 'P']);
+const REACTIONS = new Set(['\u{1F525}', '\u{1F62C}', '\u{1F602}']);
 
 const json = (status, body) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
@@ -86,15 +88,16 @@ export function createHandler(getStore, getPasscode, extras = {}) {
 
   async function loadAll(store) {
     const config = await ensureSeeded(store);
-    const [results, docs, fixtures, cups] = await Promise.all([
+    const [results, docs, fixtures, cups, reactions] = await Promise.all([
       store.get('results', { type: 'json' }),
       Promise.all(config.players.map((p) => store.get('picks/' + p.id, { type: 'json' }))),
       store.get('fixtures', { type: 'json' }),
       store.get('cups', { type: 'json' }),
+      store.get('reactions/' + config.season, { type: 'json' }),
     ]);
     const picks = {};
     config.players.forEach((p, i) => { picks[p.id] = docs[i] || { player: p.id, weeks: {}, history: [] }; });
-    return { config, results: results || { weeks: {}, history: [] }, picks, fixtures: fixtures || null, cups: (cups && cups.cups) || [] };
+    return { config, results: results || { weeks: {}, history: [] }, picks, fixtures: fixtures || null, cups: (cups && cups.cups) || [], reactions: reactions || {} };
   }
 
   // Keep kickoff times fresh: if they are more than 12 hours old, fetch them again (one call to the feed).
@@ -127,7 +130,8 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     throw new Error('Someone else was saving at the same moment. Please try again.');
   }
 
-  const publicView = ({ config, results, picks, fixtures, cups }) => ({
+  const publicView = ({ config, results, picks, fixtures, cups, reactions }) => ({
+    reactions: reactions || {},
     cups: (cups || []).filter((c) => c.season === config.season),
     ok: true,
     config: { eflWeeks: [], eflClubs: [], reopenedWeeks: [], autoClose: false, shameClub: SHAME_CLUB, ...config },
@@ -140,6 +144,30 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     picks: Object.fromEntries(Object.entries(picks).map(([id, d]) => [id, d.weeks])),
     serverTime: new Date().toISOString(),
   });
+
+  // Badges earned this week, once each: a perfect week, and a lock streak reaching 10 (then every 5 after).
+  async function badgeAlerts(store, week) {
+    const all = await loadAll(store);
+    const res = all.results.weeks[String(week)] || {};
+    if (!all.config.clubs.every((c) => res[c] === 1 || res[c] === 0.5 || res[c] === 0)) return;
+    for (const p of all.config.players) {
+      const weeks = all.picks[p.id].weeks;
+      const mine = weeks[String(week)];
+      if (!mine) continue;
+      if (rules.isPerfect(mine, res)) {
+        await push.once(store, 'badge-perfect-' + all.config.season + '-' + week + '-' + p.id, () => push.send(store, { title: 'Badge: Perfect week', body: 'Every pick won in week ' + week + '. You get a bonus pick in week ' + (week + 1) + '.', tag: 'badge' }, { players: [p.id], sender: extras.pushSender }));
+      }
+      let streak = 0;
+      for (let w = week; w >= 1; w -= 1) {
+        const pk = weeks[String(w)];
+        const r = all.results.weeks[String(w)] || {};
+        if (pk && pk.lock && r[pk.lock] === 1) streak += 1; else break;
+      }
+      if (streak >= 10 && streak % 5 === 0) {
+        await push.once(store, 'badge-locks-' + all.config.season + '-' + streak + '-' + p.id, () => push.send(store, { title: 'Badge: ' + streak + ' locks in a row', body: 'Your lock has won ' + streak + ' weeks running. Keep it going.', tag: 'badge' }, { players: [p.id], sender: extras.pushSender }));
+      }
+    }
+  }
 
   // After a cup week is final, tell everyone still in a knockout who they play next, once.
   async function cupAlerts(store, week) {
@@ -156,6 +184,14 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           await push.once(store, 'cup-' + cup.id + '-pk-' + m.key + '-' + me.id, () => push.send(store, {
             title: st.name + ': penalties!', body: 'Dead level with ' + them.name + ' on points, lock and wins. Settle it with a penalty shootout in FIFA and tell the commissioner who won.', tag: 'cup',
           }, { players: [me.id], sender: extras.pushSender }));
+        }
+      }
+      // Giant killers: knocking out someone seeded at least eight places higher.
+      for (const m of st.bracket.rounds[r].matches.filter((x) => x.status === 'final' && x.a && x.b)) {
+        const win = m.winner === m.a.id ? m.a : m.b;
+        const lose = win === m.a ? m.b : m.a;
+        if (win.seed - lose.seed >= 8) {
+          await push.once(store, 'badge-giant-' + cup.id + '-' + m.key, () => push.send(store, { title: 'Badge: Giant killer', body: 'Seed ' + win.seed + ' knocks out seed ' + lose.seed + ' (' + lose.name + ') in the ' + st.name + '.', tag: 'badge' }, { players: [win.id], sender: extras.pushSender }));
         }
       }
       if (!st.bracket.rounds[r].matches.every((m) => m.status === 'final' || m.status === 'bye')) continue;
@@ -230,6 +266,25 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           return d;
         }, () => ({ player: player.id, weeks: {}, history: [] }));
         return json(200, { ok: true, weeks: doc.weeks });
+      }
+
+      if (route === 'react' && req.method === 'POST') {
+        const { config } = await loadAll(store);
+        const ids = new Set(config.players.map((p) => p.id));
+        const week = Number(body.week);
+        const emoji = String(body.emoji || '');
+        if (!ids.has(body.by) || !ids.has(body.target)) return fail(400, 'Choose your name first.');
+        if (!REACTIONS.has(emoji)) return fail(400, 'That reaction is not one of ours.');
+        if (!Number.isInteger(week) || week < 1 || week > rules.WEEKS) return fail(400, 'Choose a week from 1 to 38.');
+        const doc = await update(store, 'reactions/' + config.season, (d) => {
+          const w = d[String(week)] || (d[String(week)] = {});
+          const t = w[body.target] || (w[body.target] = {});
+          const list = new Set(t[emoji] || []);
+          if (list.has(body.by)) list.delete(body.by); else list.add(body.by);
+          if (list.size) t[emoji] = [...list]; else delete t[emoji];
+          return d;
+        }, () => ({}));
+        return json(200, { ok: true, reactions: doc });
       }
 
       if (route === 'push/key' && req.method === 'GET') {
@@ -308,6 +363,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           } catch (err) { console.error('Could not send the week open notice: ' + err.message); }
         }
         try { await cupAlerts(store, week); } catch (err) { console.error('Could not send cup alerts: ' + err.message); }
+        try { await badgeAlerts(store, week); } catch (err) { console.error('Could not send badge alerts: ' + err.message); }
         return json(200, { ok: true, results: doc.weeks, eflResults: doc.efl || {}, config: cfg });
       }
 

@@ -395,6 +395,17 @@ function drawPlayers() {
     const shame = window.FFWBShame && window.FFWBShame.of(c.player);
     if (shame) sub.append(el('span', 'sh-badge', 'Shame Club' + (shame.note ? ': ' + shame.note : '')));
     head.append(sub);
+    const badges = window.FFWBBadges ? window.FFWBBadges.forPlayer(c.player) : [];
+    if (badges.length) {
+      const row = el('div', 'ffwb-badges');
+      for (const b of badges) {
+        const chip = el('span', 'ffwb-badge' + (b.tone ? ' ffwb-badge-' + b.tone : ''));
+        chip.title = b.detail;
+        chip.append(el('span', 'ffwb-badge-icon', b.icon), el('span', null, b.label));
+        row.append(chip);
+      }
+      head.append(row);
+    }
     const grid = el('div', 'ffwb-pc-grid');
     for (const [field, label] of cardStats) {
       const v = c[field];

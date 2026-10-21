@@ -924,3 +924,26 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .pl-bad td:nth-child(3) { color: var(--color-bad); }
 @media (max-width: 640px) { .pl-sum { grid-template-columns: repeat(2, 1fr); } }
 .pk-g-of { color: var(--color-fg-muted); margin-left: -0.35rem; }
+
+/* Badges on player cards. */
+.ffwb-badges { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.55rem; }
+.ffwb-badge { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.18rem 0.6rem 0.18rem 0.3rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600;
+  background: color-mix(in srgb, var(--brand-navy) 8%, var(--color-panel)); border: 1px solid var(--color-border-line); }
+.ffwb-badge-icon { display: grid; place-items: center; width: 1.35rem; height: 1.35rem; border-radius: 50%; background: var(--color-panel); font-size: 0.8rem; box-shadow: 0 0 0 1px var(--color-border-line); }
+.ffwb-badge-gold { background: color-mix(in srgb, var(--brand-gold) 22%, var(--color-panel)); border-color: color-mix(in srgb, var(--brand-gold) 60%, transparent); }
+
+/* Reactions on everyone's picks. */
+.pk-react { display: flex; gap: 0.25rem; margin-top: 0.3rem; }
+.pk-react-b { appearance: none; font: inherit; display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.08rem 0.45rem; border-radius: 999px; cursor: pointer; font-size: 0.8rem;
+  border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg); transition: transform 0.12s ease; }
+.pk-react-b:active { transform: scale(1.15); }
+.pk-react-empty { opacity: 0.45; filter: grayscale(0.6); }
+.pk-react-empty:hover { opacity: 1; filter: none; }
+.pk-react-on { border-color: var(--brand-gold); background: color-mix(in srgb, var(--brand-gold) 20%, var(--color-panel)); opacity: 1; filter: none; }
+.pk-react-n { font-size: 0.72rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Names that open a player card. */
+.pp-link { cursor: pointer; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--brand-gold) 70%, transparent); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.pp-link:hover { color: var(--brand-claret); text-decoration-color: var(--brand-claret); }
+.pp-link:focus-visible { outline: 2px solid var(--brand-gold); outline-offset: 2px; border-radius: 3px; }
+.xp-navy .pp-link:hover, .cup-banner .pp-link:hover { color: inherit; }
