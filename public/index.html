@@ -51,62 +51,57 @@
       <p class="ffwb-note">The last five weeks are shown (three on phones). Ties are split on total wins, then lock wins, then lock points.</p>
       <div class="ffwb-plot dash-skeleton"></div>
     </div>
+    <div class="xp" data-xp-tab="table"></div>
 
-    <div class="ffwb-card ffwb-chart" id="race-chart" data-source="race">
-      <h2 class="ffwb-h">The race</h2>
-      <p class="ffwb-note">League position after each week. The top three are in colour; hover a line to follow one player.</p>
-      <div class="ffwb-plot dash-skeleton"></div>
-    </div>
-
-    <details class="ffwb-more">
-      <summary>More this season</summary>
-      <div class="ffwb-more-body">
-        <div class="ffwb-kpis" id="season-figures">
-          <div class="ffwb-card">
-            <div class="ffwb-kpi-label">Weeks scored</div>
-            <div class="ffwb-kpi-value" id="k-weeks">-</div>
-            <div class="ffwb-kpi-sub">of a 38-week season</div>
-          </div>
-          <div class="ffwb-card">
-            <div class="ffwb-kpi-label">Leading score</div>
-            <div class="ffwb-kpi-value" id="k-top">-</div>
-            <div class="ffwb-kpi-sub" id="k-leaders">-</div>
-          </div>
-          <div class="ffwb-card">
-            <div class="ffwb-kpi-label">First to last</div>
-            <div class="ffwb-kpi-value" id="k-spread">-</div>
-            <div class="ffwb-kpi-sub">points across <span id="k-players">-</span> players</div>
-          </div>
-          <div class="ffwb-card">
-            <div class="ffwb-kpi-label">Locks won</div>
-            <div class="ffwb-kpi-value" id="k-lockrate">-</div>
-            <div class="ffwb-kpi-sub"><span id="k-lockwins">-</span> of <span id="k-locks">-</span> league-wide</div>
-          </div>
+    <div class="xp-store" hidden>
+      <div class="ffwb-card ffwb-chart" id="race-chart" data-source="race">
+        <h2 class="ffwb-h">The race</h2>
+        <p class="ffwb-note">League position after each week. The top three are in colour; hover a line to follow one player.</p>
+        <div class="ffwb-plot dash-skeleton"></div>
+      </div>
+      <div class="ffwb-kpis" id="season-figures">
+        <div class="ffwb-card">
+          <div class="ffwb-kpi-label">Weeks scored</div>
+          <div class="ffwb-kpi-value" id="k-weeks">-</div>
+          <div class="ffwb-kpi-sub">of a 38-week season</div>
         </div>
-        <div class="ffwb-two">
-          <div class="ffwb-card ffwb-chart" id="club-chart" data-source="club_picks">
-            <h2 class="ffwb-h">Where the picks went</h2>
-            <p class="ffwb-note">Every pick on a club and how it landed. Per pick counts a win as 1 and a draw as a half; club per game is the club's own average.</p>
-            <div class="ffwb-legend">
-              <span><i class="ffwb-swatch ffwb-w"></i>Won</span>
-              <span><i class="ffwb-swatch ffwb-d"></i>Drew</span>
-              <span><i class="ffwb-swatch ffwb-l"></i>Lost</span>
-            </div>
-            <div class="ffwb-plot dash-skeleton"></div>
-          </div>
-          <div class="ffwb-card ffwb-chart" id="lock-chart" data-source="season_picks standings">
-            <h2 class="ffwb-h">Locks, week by week</h2>
-            <p class="ffwb-note">One square per week, in table order. A lock pays double, so these decide most of the table.</p>
-            <div class="ffwb-legend">
-              <span><i class="ffwb-swatch ffwb-w"></i>Won</span>
-              <span><i class="ffwb-swatch ffwb-d"></i>Drew</span>
-              <span><i class="ffwb-swatch ffwb-l"></i>Lost</span>
-            </div>
-            <div class="ffwb-plot dash-skeleton"></div>
-          </div>
+        <div class="ffwb-card">
+          <div class="ffwb-kpi-label">Leading score</div>
+          <div class="ffwb-kpi-value" id="k-top">-</div>
+          <div class="ffwb-kpi-sub" id="k-leaders">-</div>
+        </div>
+        <div class="ffwb-card">
+          <div class="ffwb-kpi-label">First to last</div>
+          <div class="ffwb-kpi-value" id="k-spread">-</div>
+          <div class="ffwb-kpi-sub">points across <span id="k-players">-</span> players</div>
+        </div>
+        <div class="ffwb-card">
+          <div class="ffwb-kpi-label">Locks won</div>
+          <div class="ffwb-kpi-value" id="k-lockrate">-</div>
+          <div class="ffwb-kpi-sub"><span id="k-lockwins">-</span> of <span id="k-locks">-</span> league-wide</div>
         </div>
       </div>
-    </details>
+      <div class="ffwb-card ffwb-chart" id="club-chart" data-source="club_picks">
+        <h2 class="ffwb-h">Where the picks went</h2>
+        <p class="ffwb-note">Every pick on a club and how it landed. Per pick counts a win as 1 and a draw as a half; club per game is the club's own average.</p>
+        <div class="ffwb-legend">
+          <span><i class="ffwb-swatch ffwb-w"></i>Won</span>
+          <span><i class="ffwb-swatch ffwb-d"></i>Drew</span>
+          <span><i class="ffwb-swatch ffwb-l"></i>Lost</span>
+        </div>
+        <div class="ffwb-plot dash-skeleton"></div>
+      </div>
+      <div class="ffwb-card ffwb-chart" id="lock-chart" data-source="season_picks standings">
+        <h2 class="ffwb-h">Locks, week by week</h2>
+        <p class="ffwb-note">One square per week, in table order. A lock pays double, so these decide most of the table.</p>
+        <div class="ffwb-legend">
+          <span><i class="ffwb-swatch ffwb-w"></i>Won</span>
+          <span><i class="ffwb-swatch ffwb-d"></i>Drew</span>
+          <span><i class="ffwb-swatch ffwb-l"></i>Lost</span>
+        </div>
+        <div class="ffwb-plot dash-skeleton"></div>
+      </div>
+    </div>
   </section>
 
   <!-- Stats -->
@@ -123,72 +118,62 @@
     <div id="awards-box">
       <div class="ffwb-plot ffwb-plain dash-skeleton"></div>
     </div>
+    <div class="xp" data-xp-tab="stats"></div>
 
-    <div class="ffwb-cardhead ffwb-section">
-      <h2 class="ffwb-h">Player card</h2>
-      <select class="ffwb-select" id="player-pills" aria-label="Player"></select>
-    </div>
-    <div id="player-box">
-      <div class="ffwb-plot ffwb-plain dash-skeleton"></div>
-    </div>
-
-    <div class="ffwb-card" id="odds-box">
-      <h2 class="ffwb-h">Title odds</h2>
-      <p class="ffwb-note">For fun: the rest of the season replayed thousands of times from past league weeks.</p>
-      <div class="ffwb-plot dash-skeleton"></div>
-    </div>
-
-    <details class="ffwb-more">
-      <summary>The Herd, sheep and mavericks</summary>
-      <div class="ffwb-more-body ffwb-two">
-        <div class="ffwb-card" id="herd-card">
-          <h2 class="ffwb-h">Can you beat the Herd?</h2>
-          <p class="ffwb-note">A phantom player that locks what most of you locked and takes the four other most popular clubs.</p>
-          <div id="herd-table-box"><div class="ffwb-plot dash-skeleton"></div></div>
-          <h3 class="ffwb-h">What the Herd picked</h3>
-          <div id="herd-picks-box"><div class="ffwb-plot ffwb-plain"></div></div>
+    <div class="xp-store" hidden>
+      <div id="player-section">
+        <div class="ffwb-cardhead">
+          <select class="ffwb-select" id="player-pills" aria-label="Player"></select>
         </div>
-        <div class="ffwb-card" id="herd-box">
-          <h2 class="ffwb-h">Sheep and mavericks</h2>
-          <p class="ffwb-note">How much of the league was on the same club as each player's picks. A solo pick is one nobody else made.</p>
-          <div class="ffwb-plot dash-skeleton"></div>
+        <div id="player-box">
+          <div class="ffwb-plot ffwb-plain dash-skeleton"></div>
         </div>
       </div>
-    </details>
+      <div class="ffwb-card" id="odds-box">
+        <h2 class="ffwb-h">Title odds</h2>
+        <p class="ffwb-note">For fun: the rest of the season replayed thousands of times from past league weeks.</p>
+        <div class="ffwb-plot dash-skeleton"></div>
+      </div>
+      <div class="ffwb-card" id="herd-card">
+        <h2 class="ffwb-h">Can you beat the Herd?</h2>
+        <p class="ffwb-note">A phantom player that locks what most of you locked and takes the four other most popular clubs.</p>
+        <div id="herd-table-box"><div class="ffwb-plot dash-skeleton"></div></div>
+        <h3 class="ffwb-h">What the Herd picked</h3>
+        <div id="herd-picks-box"><div class="ffwb-plot ffwb-plain"></div></div>
+      </div>
+      <div class="ffwb-card" id="herd-box">
+        <h2 class="ffwb-h">Sheep and mavericks</h2>
+        <p class="ffwb-note">How much of the league was on the same club as each player's picks. A solo pick is one nobody else made.</p>
+        <div class="ffwb-plot dash-skeleton"></div>
+      </div>
+    </div>
   </section>
 
   <!-- History -->
   <section class="ffwb-page" id="history" role="tabpanel" aria-labelledby="tab-history" hidden>
-    <div class="ffwb-subtabs" role="group" aria-label="History">
-      <button class="ffwb-pill" type="button" data-sub="alltime" aria-pressed="true">All-time</button>
-      <button class="ffwb-pill" type="button" data-sub="records" aria-pressed="false">Record book</button>
-      <button class="ffwb-pill" type="button" data-sub="archive" aria-pressed="false">Past seasons</button>
-    </div>
+    <div class="xp" data-xp-tab="history"></div>
 
-    <div class="ffwb-sub" id="alltime">
+    <div class="xp-store" hidden>
       <div class="ffwb-card" id="careers-box">
         <h2 class="ffwb-h">Career records</h2>
         <p class="ffwb-note">Completed seasons. Pts vs league avg is a player's average gap to each season's league average.</p>
         <div class="ffwb-plot dash-skeleton"></div>
       </div>
-      <details class="ffwb-card ffwb-fold ffwb-chart" id="finish-chart" data-source="history_seasons careers">
-        <summary class="ffwb-h">Finishing position by season</summary>
+      <div class="ffwb-card ffwb-chart" id="finish-chart" data-source="history_seasons careers">
+        <h2 class="ffwb-h">Finishing position by season</h2>
         <p class="ffwb-note">Filled cells are titles; darker shading is a higher finish.</p>
         <div class="ffwb-plot"></div>
-      </details>
-      <details class="ffwb-card ffwb-fold" id="honours-box">
-        <summary class="ffwb-h">Honours by season</summary>
+      </div>
+      <div class="ffwb-card" id="honours-box">
+        <h2 class="ffwb-h">Honours by season</h2>
         <p class="ffwb-note">As recorded on the old Trophies &amp; Statistics tab.</p>
         <div class="ffwb-plot"></div>
-      </details>
-      <details class="ffwb-card ffwb-fold" id="clubs-box">
-        <summary class="ffwb-h">Clubs, all-time</summary>
+      </div>
+      <div class="ffwb-card" id="clubs-box">
+        <h2 class="ffwb-h">Clubs, all-time</h2>
         <p class="ffwb-note">Every scored pick since 2016-17, for clubs picked at least 100 times. Locks won shows from 20 locks.</p>
         <div class="ffwb-plot ffwb-tall"></div>
-      </details>
-    </div>
-
-    <div class="ffwb-sub" id="records" hidden>
+      </div>
       <div id="records-box">
         <div class="ffwb-plot ffwb-plain dash-skeleton"></div>
       </div>
@@ -197,55 +182,64 @@
         <p class="ffwb-note">Members have, at least once, run so short on picks that they took both teams from the same match. New members are added automatically.</p>
         <div class="ffwb-plot ffwb-plain"></div>
       </section>
-      <details class="ffwb-card ffwb-fold" id="cabinet-box">
-        <summary class="ffwb-h">Trophy cabinet</summary>
+      <div class="ffwb-card" id="cabinet-box">
+        <h2 class="ffwb-h">Trophy cabinet</h2>
         <p class="ffwb-note">League titles from full-season points; the rest from the old Trophies tab. A shared cup counts for both names.</p>
         <div class="ffwb-plot"></div>
-      </details>
-      <details class="ffwb-card ffwb-fold" id="weeks-box">
-        <summary class="ffwb-h">Big weeks and lock runs</summary>
+      </div>
+      <div class="ffwb-card" id="weeks-box">
+        <h2 class="ffwb-h">Big weeks and lock runs</h2>
         <p class="ffwb-note">A perfect week is every pick winning; a shocker is 1.5 points or fewer. Lock runs carry across seasons.</p>
         <div class="ffwb-plot"></div>
-      </details>
-      <details class="ffwb-card ffwb-fold ffwb-chart" id="h2h-chart" data-source="head_to_head">
-        <summary class="ffwb-h">Head to head</summary>
+      </div>
+      <div class="ffwb-card ffwb-chart" id="h2h-chart" data-source="head_to_head">
+        <h2 class="ffwb-h">Head to head</h2>
         <p class="ffwb-note">Read across: how often the player on the left outscored the player above, leaving out level weeks.</p>
         <div class="ffwb-plot"></div>
-      </details>
-      <details class="ffwb-card ffwb-fold" id="edges-box">
-        <summary class="ffwb-h">Lucky clubs and bogey clubs</summary>
+      </div>
+      <div class="ffwb-card" id="edges-box">
+        <h2 class="ffwb-h">Lucky clubs and bogey clubs</h2>
         <p class="ffwb-note">Where each player most beats, and most trails, the rest of the league on the same club. Clubs picked 40 times or more.</p>
         <div class="ffwb-plot"></div>
-      </details>
-      <details class="ffwb-card ffwb-fold" id="loyalty-box">
-        <summary class="ffwb-h">Heart or head</summary>
+      </div>
+      <div class="ffwb-card" id="loyalty-box">
+        <h2 class="ffwb-h">Heart or head</h2>
         <p class="ffwb-note">How often players pick their own club compared with everyone else, and how it pays.</p>
         <div class="ffwb-plot"></div>
-      </details>
-      <details class="ffwb-card ffwb-fold" id="black-box">
-        <summary class="ffwb-h">Black weekends</summary>
+      </div>
+      <div class="ffwb-card" id="black-box">
+        <h2 class="ffwb-h">Black weekends</h2>
         <p class="ffwb-note">Every week when not one lock in the league won.</p>
         <div class="ffwb-plot"></div>
-      </details>
-    </div>
-
-    <div class="ffwb-sub" id="archive" hidden>
-      <div class="ffwb-cardhead">
-        <h2 class="ffwb-h">Season</h2>
-        <select class="ffwb-select" id="season-pills" aria-label="Season"></select>
       </div>
-      <div class="ffwb-card ffwb-chart" id="archive-chart" data-source="archive_race">
-        <h2 class="ffwb-h">How the race went</h2>
-        <p class="ffwb-note">Position after each week. The top three at the end are in colour. A points deduction shows only in the final table.</p>
-        <div class="ffwb-plot dash-skeleton"></div>
-        <p class="ffwb-note ffwb-strong" id="archive-short" hidden></p>
+      <div id="archive-section">
+        <div class="ffwb-cardhead">
+          <select class="ffwb-select" id="season-pills" aria-label="Season"></select>
+        </div>
+        <div class="ffwb-card ffwb-chart" id="archive-chart" data-source="archive_race">
+          <h2 class="ffwb-h">How the race went</h2>
+          <p class="ffwb-note">Position after each week. The top three at the end are in colour. A points deduction shows only in the final table.</p>
+          <div class="ffwb-plot dash-skeleton"></div>
+          <p class="ffwb-note ffwb-strong" id="archive-short" hidden></p>
+        </div>
+        <div class="ffwb-card" id="archive-table-box">
+          <h2 class="ffwb-h">Final table</h2>
+          <div class="ffwb-plot"></div>
+        </div>
       </div>
-      <details class="ffwb-card ffwb-fold" id="archive-table-box">
-        <summary class="ffwb-h">Final table</summary>
-        <div class="ffwb-plot"></div>
-      </details>
     </div>
   </section>
+
+  <dialog class="xp-sheet" id="xp-sheet" aria-labelledby="xp-title">
+    <div class="xp-sheet-inner">
+      <header class="xp-sheet-head">
+        <div><div class="xp-kicker" id="xp-kicker"></div><h2 class="xp-title" id="xp-title"></h2></div>
+        <button class="xp-close" type="button" id="xp-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="xp-sheet-body" id="xp-body"></div>
+      <footer class="xp-sheet-foot"><button class="xp-next" type="button" id="xp-next"></button></footer>
+    </div>
+  </dialog>
 
   <footer class="ffwb-footer">
     <span id="as-of">FFWB, since 2016-17.</span>
@@ -264,6 +258,7 @@
 <script src="js/fun.js"></script>
 <script src="js/more.js"></script>
 <script src="js/layout.js"></script>
+<script src="js/explore.js"></script>
 <script src="js/picks.js"></script>
 <script src="js/alerts.js"></script>
 </body>

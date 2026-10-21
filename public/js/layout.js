@@ -1,15 +1,6 @@
-// FFWB page layout: the History switch, foldable sections, info buttons and old links.
+// FFWB page layout: info buttons, the home screen tip and old links.
 (function () {
   const redraw = () => window.dispatchEvent(new Event('resize'));
-
-  // History: All-time, Record book and Past seasons share one tab.
-  const subs = [...document.querySelectorAll('.ffwb-subtabs [data-sub]')];
-  function showSub(name) {
-    for (const b of subs) b.setAttribute('aria-pressed', String(b.dataset.sub === name));
-    for (const s of document.querySelectorAll('.ffwb-sub')) s.hidden = s.id !== name;
-    redraw();
-  }
-  for (const b of subs) b.addEventListener('click', () => { showSub(b.dataset.sub); window.dash.setLink(b.dataset.sub); });
 
   // Charts drawn while folded away have no width, so draw again when a section opens.
   document.addEventListener('toggle', (e) => { if (e.target.tagName === 'DETAILS' && e.target.open) redraw(); }, true);
@@ -60,12 +51,11 @@
     footer.before(tip);
   })();
 
-  // Links from the old layout, like #records, still land in the right place.
+  // Links from the old layout, like #records, still land on the right tab.
   const OLD = { season: 'table', awards: 'stats', players: 'stats', alltime: 'history', records: 'history', archive: 'history' };
   const asked = location.hash.slice(1);
   if (OLD[asked]) {
     const tab = document.getElementById('tab-' + OLD[asked]);
     if (tab) tab.click();
-    if (OLD[asked] === 'history') showSub(asked === 'history' ? 'alltime' : asked);
   }
 })();
