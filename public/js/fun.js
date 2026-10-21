@@ -237,12 +237,12 @@ dash.calc('trophy_cabinet', {
   fn: (honours, history_seasons) => {
     const by = new Map();
     const get = (p) => {
-      if (!by.has(p)) by.set(p, { player: p, titles: 0, first_half: 0, second_half: 0, fa_cup: 0, league_cup: 0, community_shield: 0, total: 0 });
+      if (!by.has(p)) by.set(p, { player: p, titles: 0, first_half: 0, second_half: 0, fa_cup: 0, league_cup: 0, festive: 0, community_shield: 0, total: 0 });
       return by.get(p);
     };
     for (const r of history_seasons) if (r.full_season !== '' && Number(r.finish) === 1) get(r.player).titles += 1;
     for (const r of honours) {
-      for (const field of ['first_half', 'second_half', 'fa_cup', 'league_cup', 'community_shield']) {
+      for (const field of ['first_half', 'second_half', 'fa_cup', 'league_cup', 'festive', 'community_shield']) {
         for (const raw of String(r[field] || '').split('/')) {
           const name = raw.replace(/\*/g, '').trim();
           if (name) get(name)[field] += 1;
@@ -250,7 +250,7 @@ dash.calc('trophy_cabinet', {
       }
     }
     return [...by.values()]
-      .map((c) => ({ ...c, total: c.titles + c.first_half + c.second_half + c.fa_cup + c.league_cup + c.community_shield }))
+      .map((c) => ({ ...c, total: c.titles + c.first_half + c.second_half + c.fa_cup + c.league_cup + c.festive + c.community_shield }))
       .filter((c) => c.total > 0)
       .sort((a, b) => b.total - a.total || b.titles - a.titles || a.player.localeCompare(b.player));
   },
@@ -524,7 +524,7 @@ function drawRecords() {
       add(c.titles, 'trophy-champion', 'League title');
       add(c.first_half, 'medal-first', 'First half');
       add(c.second_half, 'medal-second', 'Second half');
-      const cups = c.fa_cup + c.league_cup + c.community_shield;
+      const cups = c.fa_cup + c.league_cup + c.festive + c.community_shield;
       if (cups) { const more = document.createElement('span'); more.className = 'ffwb-shelf-more'; more.textContent = '+' + cups + ' cup' + (cups === 1 ? '' : 's'); items.append(more); }
       row.append(name, items);
       shelf.append(row);
@@ -539,6 +539,7 @@ function drawRecords() {
       { field: 'second_half', label: 'Second half', num: true, fmt: fmtInt, shade },
       { field: 'fa_cup', label: 'FA Cup', num: true, fmt: fmtInt, shade },
       { field: 'league_cup', label: 'League Cup', num: true, fmt: fmtInt, shade },
+      { field: 'festive', label: 'Festive', num: true, fmt: fmtInt, shade },
       { field: 'community_shield', label: 'Shield', num: true, fmt: fmtInt, shade },
     ], cabinet);
   });

@@ -23,6 +23,7 @@
     odds: '<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="15" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/>',
     herd: '<path d="M6 14a4 4 0 0 1 1-7.9A5 5 0 0 1 16.5 7 3.5 3.5 0 0 1 18 14z"/><path d="M8 14v4M15 14v4"/>',
     compass: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+    cup: '<path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 5H4.5v1.5A3.5 3.5 0 0 0 8 10M17 5h2.5v1.5A3.5 3.5 0 0 1 16 10"/><path d="M12 13v3M8 20h8l-1-4H9z"/>',
     trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7M10 17h4v3h-4z"/>',
     laurel: '<path d="M12 20c-4-2-7-6-7-11M12 20c4-2 7-6 7-11"/><path d="M5 9c2 0 3 1 3 3M19 9c-2 0-3 1-3 3M6 14c2 0 3 1 3 2.5M18 14c-2 0-3 1-3 2.5"/>',
     star: '<path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-2.9-5.4 2.9 1.1-6L3.2 9.4l6.1-.8z"/>',
@@ -42,7 +43,10 @@
   // Every tile: the section it opens, where it sits, and its hook.
   const TILES = [
     // Table
-    { tab: 'table', id: 'race-chart', title: 'The race', icon: 'race', tone: 'navy', teaser() {
+    { tab: 'table', id: 'cups-box', title: 'Cups', icon: 'cup', tone: 'navy', size: 'wide', art: '/brand/cup-league.svg', teaser() {
+      return window.FFWBCupsUI ? window.FFWBCupsUI.teaser() : none;
+    } },
+    { tab: 'table', id: 'race-chart', title: 'The race', icon: 'race', tone: 'cream', teaser() {
       const race = get('race');
       if (!race.length) return none;
       const tops = {};
@@ -56,11 +60,11 @@
       const s = get('season_summary')[0];
       return s ? { big: pct(s.lock_win_rate), sub: 'of locks have won · ' + num(s.spread) + ' points first to last' } : none;
     } },
-    { tab: 'table', id: 'club-chart', title: 'Where the picks went', icon: 'target', tone: 'cream', teaser() {
+    { tab: 'table', id: 'club-chart', title: 'Where the picks went', icon: 'target', tone: 'cream', size: 'wide', teaser() {
       const c = [...get('club_picks')].sort((a, b) => b.picks - a.picks)[0];
       return c ? { big: c.club, sub: c.picks + ' picks so far, ' + Number(c.per_pick).toFixed(2) + ' points a pick' } : none;
     } },
-    { tab: 'table', id: 'lock-chart', title: 'Locks, week by week', icon: 'lock', tone: 'claret', teaser() {
+    { tab: 'table', id: 'lock-chart', title: 'Locks, week by week', icon: 'lock', tone: 'claret', size: 'wide', teaser() {
       const top = topBy(get('standings'), 'lock_wins');
       return top.length ? { big: names(top.map((r) => r.player)), sub: top[0].lock_wins + ' locks won' + (top.length > 1 ? ' each' : '') + ', the most in the league' } : none;
     } },
@@ -247,5 +251,5 @@
     if (tab) tab.click();
     setTimeout(() => open(asked), 300);
   }
-  window.FFWBExplore = { open: (id) => { const t = TILES.find((x) => x.id === id); if (t) open(t); } };
+  window.FFWBExplore = { open: (id) => { const t = TILES.find((x) => x.id === id); if (t) open(t); }, refresh: fill };
 })();

@@ -447,6 +447,22 @@
       lines.push('Biggest climb: ' + listNames(climbers.map((m) => m.name)) + ', up ' + moves[0].up + (climbers.length === 1 ? ' to ' + ordinal(climbers[0].pos) : '') + '.');
     }
     lines.push('Top 3: ' + now.slice(0, 3).map((r) => r.pos + '. ' + r.name + ' ' + pts(r.points)).join(', '));
+    // Cup news from this week.
+    for (const cup of season.cups || []) {
+      const st = window.FFWBCups && window.FFWBCups.state(season, cup);
+      if (!st) continue;
+      if (st.format === 'knockout') {
+        const r = st.bracket.rounds.find((x) => x.week === w);
+        if (!r || !r.matches.every((m) => m.status === 'final' || m.status === 'bye')) continue;
+        const next = st.bracket.rounds[r.index + 1];
+        const through = r.matches.filter((m) => !m.bye).map((m) => (m.winner === m.a.id ? m.a : m.b).name);
+        const byes = r.matches.filter((m) => m.bye).map((m) => (m.a || m.b).name);
+        lines.push(next ? st.name + ': ' + listNames(through) + (through.length > 1 ? ' are' : ' is') + ' through to the ' + next.name.toLowerCase() + (byes.length ? ', joining ' + listNames(byes) : '') + '.'
+          : st.name + ': ' + (st.champion ? st.champion.name + ' wins it!' : ''));
+      } else if (cup.weeks.includes(w) && st.mini.rows[0]) {
+        lines.push(st.name + (st.champion ? ': ' + st.champion.name + ' wins it with ' + pts(st.champion.points) + '.' : ': ' + st.mini.rows[0].name + ' leads on ' + pts(st.mini.rows[0].points) + '.'));
+      }
+    }
     const shamed = window.FFWBShame ? window.FFWBShame.offences(season).filter((o) => o.week === w) : [];
     for (const o of shamed) lines.push('Welcome to the Shame Club: ' + o.player + ' (' + o.home + ' v ' + o.away + ').');
     if (Object.values(res).includes('P')) lines.push('A postponed game still to come, so scores can change.');
@@ -489,6 +505,101 @@
   });
   document.getElementById('nudge-copy').addEventListener('click', () => copy('nudge-text', 'Reminder'));
   document.getElementById('recap-copy').addEventListener('click', () => copy('recap-text', 'Recap'));
+
+  // ---------- Cups ----------
+  const Cups = window.FFWBCups;
+  const cupMsg = document.getElementById('cup-message');
+  const cupType = document.getElementById('cup-type');
+  const cupFirst = document.getElementById('cup-first');
+  const cupLength = document.getElementById('cup-length');
+  const cupMake = document.getElementById('cup-make');
+  const cupPlan = document.getElementById('cup-plan');
+  const cupBody = () => ({ type: cupType.value, firstWeek: Number(cupFirst.value), length: Number(cupLength.value) });
+  cupType.addEventListener('change', () => { document.getElementById('cup-length-wrap').hidden = cupType.value !== 'festive'; cupMake.disabled = true; cupPlan.replaceChildren(); });
+  cupFirst.addEventListener('input', () => { cupMake.disabled = true; cupPlan.replaceChildren(); });
+  document.getElementById('cup-preview').addEventListener('click', async () => {
+    const out = await adminPost('cups', { action: 'preview', ...cupBody() });
+    if (!out.ok) { say(cupMsg, 'bad', out.error); cupMake.disabled = true; return; }
+    const t = Cups.TYPES[cupType.value];
+    const box = el('div', 'adm-cupplan');
+    box.append(el('p', 'ffwb-strong', t.name + ': weeks ' + out.weeks.join(', ')));
+    if (t.format === 'knockout') {
+      const order = Cups.seedOrder(2 ** Cups.roundsFor(out.seeds.length));
+      const list = el('ol', 'adm-pairs');
+      for (let i = 0; i < order.length; i += 2) {
+        const a = out.seeds[order[i] - 1];
+        const b = out.seeds[order[i + 1] - 1];
+        list.append(el('li', null, a && b ? '(' + order[i] + ') ' + a + ' v ' + b + ' (' + order[i + 1] + ')' : '(' + (a ? order[i] : order[i + 1]) + ') ' + (a || b) + ', bye'));
+      }
+      box.append(el('p', 'ffwb-note', 'First round, week ' + out.weeks[0] + ', seeded from the table as it stands before then:'), list);
+    } else {
+      box.append(el('p', 'ffwb-note', 'All ' + out.seeds.length + ' players, most points over those weeks wins.'));
+    }
+    cupPlan.replaceChildren(box);
+    cupMake.disabled = false;
+    say(cupMsg, 'info', 'Happy with that? Make the draw to lock it in and tell everyone.');
+  });
+  cupMake.addEventListener('click', async () => {
+    cupMake.disabled = true;
+    const out = await adminPost('cups', { action: 'create', ...cupBody() });
+    if (!out.ok) { say(cupMsg, 'bad', out.error); return; }
+    cupPlan.replaceChildren();
+    say(cupMsg, 'ok', 'The draw is made. Everyone with alerts on has been told who they play.');
+    window.FFWB.reload();
+  });
+  async function cupAction(body, done) {
+    const out = await adminPost('cups', body);
+    if (out.ok) { say(cupMsg, 'ok', done); window.FFWB.reload(); } else say(cupMsg, 'bad', out.error);
+  }
+  function renderCups() {
+    if (!season || !Cups) return;
+    if (!cupFirst.value) cupFirst.value = season.config.currentWeek;
+    const box = document.getElementById('cup-list');
+    const list = (season.cups || []).map((c) => Cups.state(season, c));
+    if (!list.length) { box.replaceChildren(el('p', 'ffwb-note', 'No cups drawn this season yet.')); return; }
+    box.replaceChildren(...list.map((s) => {
+      const card = el('div', 'adm-cup');
+      const head = el('div', 'adm-cup-head');
+      head.append(el('b', null, s.name), el('span', 'ffwb-muted', s.status === 'done' ? 'Won by ' + s.champion.name : s.status === 'live' ? 'Being played' : 'Drawn, starts week ' + s.cup.weeks[0]));
+      card.append(head);
+      if (s.format === 'knockout') {
+        for (const r of s.bracket.rounds) {
+          const rr = el('div', 'adm-cup-round');
+          const started = r.matches.some((m) => m.status === 'live' || m.status === 'final') && r.matches.some((m) => !m.bye);
+          const top = el('div', 'adm-cup-roundhead');
+          top.append(el('span', 'ffwb-strong', r.name + ', week ' + r.week));
+          if (!started) {
+            const push = el('button', 'pk-clear adm-small', 'Push back a week');
+            push.type = 'button';
+            push.title = 'Moves this round and every later one back one week';
+            push.addEventListener('click', () => cupAction({ action: 'push-back', id: s.cup.id, round: r.index }, r.name + ' moved to week ' + (r.week + 1) + ', and later rounds moved with it.'));
+            top.append(push);
+          }
+          rr.append(top);
+          for (const m of r.matches) {
+            if (m.bye || !m.a || !m.b) continue;
+            const line = el('div', 'adm-cup-match');
+            line.append(el('span', null, m.a.name + ' v ' + m.b.name + (m.winner ? ': ' + (m.winner === m.a.id ? m.a.name : m.b.name) + ' through' : '')));
+            const sel = el('select', 'ffwb-select adm-small');
+            sel.append(new Option('Decided by points', ''), new Option(m.a.name + ' through', m.a.id), new Option(m.b.name + ' through', m.b.id));
+            sel.value = (s.cup.overrides || {})[m.key] || '';
+            sel.setAttribute('aria-label', 'Winner of ' + m.a.name + ' v ' + m.b.name);
+            sel.addEventListener('change', () => cupAction({ action: 'override', id: s.cup.id, key: m.key, winner: sel.value || null }, sel.value ? 'Winner set by you.' : 'Back to being decided by points.'));
+            line.append(sel);
+            rr.append(line);
+          }
+          card.append(rr);
+        }
+      } else {
+        card.append(el('p', 'ffwb-note', 'Weeks ' + s.cup.weeks.join(', ') + '. Leader: ' + (s.mini.rows[0] ? s.mini.rows[0].name : 'nobody yet') + '.'));
+      }
+      const del = el('button', 'pk-clear adm-small adm-danger', 'Delete this cup');
+      del.type = 'button';
+      del.addEventListener('click', () => { if (confirm('Delete the ' + s.name + '? The draw and any overrides go with it.')) cupAction({ action: 'delete', id: s.cup.id }, s.name + ' deleted.'); });
+      card.append(del);
+      return card;
+    }));
+  }
 
   // ---------- Shame Club ----------
   const shameList = document.getElementById('shame-list');
@@ -557,6 +668,7 @@
     renderWeeks();
     renderEfl();
     renderShame();
+    renderCups();
     renderResults();
     picksEditor.setSeason(s);
   });

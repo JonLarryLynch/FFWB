@@ -61,7 +61,9 @@
     const weekTitle = el('div', 'pk-weektitle');
     const weekName = el('span', 'pk-weekname');
     const weekChip = el('span', 'pk-chip');
-    weekTitle.append(weekName, weekChip);
+    const cupChip = el('span', 'pk-cupchip');
+    cupChip.hidden = true;
+    weekTitle.append(weekName, weekChip, cupChip);
     const weekBar = el('div', 'pk-weekbar');
     weekBar.append(prev, weekTitle, next);
     who.append(whoSelect, weekBar);
@@ -73,6 +75,10 @@
     helpRow.append(help, how);
 
     const bonus = el('div', 'pk-bonus');
+    // This week's cup game, if the player has one.
+    const cupStrip = el('button', 'pk-cup');
+    cupStrip.type = 'button';
+    cupStrip.hidden = true;
     const grid = el('div', 'pk-grid');
     // The EFL pick: one Championship club, on weeks the commissioner switches it on.
     const eflRow = el('label', 'pk-efl');
@@ -119,7 +125,7 @@
     everyone.append(everyoneTitle, everyoneTable);
 
     const editor = el('div', 'ffwb-card pk-editor');
-    editor.append(who, helpRow, bonus, grid, eflRow, shameNote, errorsBox, overrideWrap, bar);
+    editor.append(who, helpRow, cupStrip, bonus, grid, eflRow, shameNote, errorsBox, overrideWrap, bar);
     root.replaceChildren(editor, everyone);
 
     const weekPicks = () => (state.season && state.player ? state.season.picks[state.player] || {} : {});
@@ -263,6 +269,21 @@
       weekName.textContent = 'Week ' + state.week;
       weekChip.textContent = st.label;
       weekChip.className = 'pk-chip ' + (st.open ? 'pk-chip-open' : 'pk-chip-closed');
+      // A cup badge on any week a cup is played, so looking ahead shows the cup weeks.
+      const cupHere = [];
+      for (const cup of s.cups || []) {
+        const i = cup.weeks.indexOf(state.week);
+        if (i < 0 || !window.FFWBCups) continue;
+        const t = window.FFWBCups.TYPES[cup.type];
+        const round = t.format === 'knockout' ? window.FFWBCups.roundName(i, cup.weeks.length) : 'week ' + (i + 1) + ' of ' + cup.weeks.length;
+        cupHere.push({ type: cup.type, text: t.name + ' · ' + round });
+      }
+      cupChip.hidden = !cupHere.length;
+      if (cupHere.length) {
+        cupChip.className = 'pk-cupchip cup-' + cupHere[0].type;
+        cupChip.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 5H4.5v1.5A3.5 3.5 0 0 0 8 10M17 5h2.5v1.5A3.5 3.5 0 0 1 16 10"/><path d="M12 13v3M8 20h8l-1-4H9z"/></svg>';
+        cupChip.append(document.createTextNode(cupHere.map((c) => c.text).join(' + ')));
+      }
       prev.disabled = state.week <= 1;
       next.disabled = state.week >= R.WEEKS;
 
@@ -282,6 +303,27 @@
       errorsBox.hidden = true;
       overrideWrap.hidden = true;
       if (!showEditor) { renderEveryone(); return; }
+
+      cupStrip.hidden = true;
+      const game = window.FFWBCups && s.cups && s.cups.length ? window.FFWBCups.gameFor(s, s.cups, state.player, state.week) : null;
+      if (game) {
+        cupStrip.className = 'pk-cup cup-' + game.cup.cup.type;
+        const fmt1 = (n) => String(Math.round(n * 10) / 10);
+        let line;
+        if (game.kind === 'knockout') {
+          const m = game.match;
+          const mine = m.a && m.a.id === state.player ? m.scoreA : m.scoreB;
+          const theirs = m.a && m.a.id === state.player ? m.scoreB : m.scoreA;
+          line = !game.them ? 'You have a bye this round'
+            : 'You v ' + game.them.name + (mine && theirs ? ', ' + fmt1(mine.points) + ' to ' + fmt1(theirs.points) : '')
+              + (m.status === 'final' ? (m.winner === state.player ? '. Through!' : '. Out.') : '');
+        } else {
+          line = game.detail + (game.pos ? ". You're " + game.pos + (['th', 'st', 'nd', 'rd'][(game.pos % 100 >> 3 ^ 1) && game.pos % 10] || 'th') + ' so far' : '');
+        }
+        cupStrip.replaceChildren(el('span', 'pk-cup-name', game.label + (game.round ? ' · ' + game.round : '')), el('span', 'pk-cup-line', line), el('span', 'pk-cup-go', '›'));
+        cupStrip.onclick = () => window.FFWBCupsUI && window.FFWBCupsUI.open(game.cup.cup.type);
+        cupStrip.hidden = false;
+      }
 
       const max = allowed();
       if (max > R.STANDARD_PICKS) {

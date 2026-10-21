@@ -649,3 +649,106 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .al-toast-yes { border: 1px solid var(--brand-gold); background: var(--brand-gold); color: var(--brand-navy); }
 .al-toast-no { border: 1px solid color-mix(in srgb, var(--brand-cream) 40%, transparent); background: transparent; color: var(--brand-cream); }
 @media (max-width: 640px) { .al-toast { bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px)); } }
+
+/* ---------- Cups ---------- */
+.cup-league { --cup: var(--brand-navy); --cup-hi: var(--brand-gold); }
+.cup-fa { --cup: var(--brand-claret); --cup-hi: #f0d48a; }
+.cup-festive { --cup: #2f6b4f; --cup-hi: #f0d48a; }
+
+/* The banner on the Table tab while a cup is on. */
+.cup-banner { display: flex; align-items: center; gap: 1rem; padding: 0.8rem 1rem; border-radius: 16px; background: var(--cup); color: var(--brand-cream);
+  border: 1px solid color-mix(in srgb, var(--brand-gold) 50%, transparent); box-shadow: 0 10px 26px -16px rgba(10, 15, 30, 0.6); position: relative; overflow: hidden; }
+.cup-banner[hidden] { display: none; }
+.cup-banner::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 28px, transparent 28px 56px); pointer-events: none; }
+.cup-banner-art { height: 4.2rem; width: auto; flex: none; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3)); }
+.cup-banner-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.cup-banner-kicker { font-family: var(--font-anthropic-serif); font-size: 0.78rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--cup-hi); }
+.cup-banner-stage { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; line-height: 1.15; }
+.cup-banner-me { font-size: var(--cds-font-size-caption); color: color-mix(in srgb, var(--brand-cream) 82%, transparent); }
+.cup-banner-go { appearance: none; position: relative; z-index: 1; font: inherit; font-family: var(--font-anthropic-serif); font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.8rem;
+  padding: 0.55rem 0.95rem; border-radius: 999px; border: 1px solid var(--cup-hi); background: var(--cup-hi); color: var(--brand-navy); cursor: pointer; flex: none; }
+@media (max-width: 640px) {
+  .cup-banner { flex-wrap: wrap; gap: 0.6rem 0.8rem; }
+  .cup-banner-art { height: 3.4rem; }
+  .cup-banner-stage { font-size: 1.1rem; }
+  .cup-banner-go { flex-basis: 100%; }
+}
+
+/* The strip on the Picks tab, and the badge on cup weeks. */
+.pk-cup { appearance: none; font: inherit; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.25rem 0.7rem; flex-wrap: wrap; width: 100%; margin-top: 0.6rem;
+  padding: 0.55rem 0.8rem; border-radius: var(--cds-radius); border: 0; background: var(--cup); color: var(--brand-cream); }
+.pk-cup[hidden] { display: none; }
+.pk-cup-name { font-family: var(--font-anthropic-serif); font-size: 0.75rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--cup-hi); }
+.pk-cup-line { flex: 1; font-weight: 600; }
+.pk-cup-go { font-size: 1.3rem; line-height: 1; color: var(--cup-hi); }
+.pk-cupchip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.12rem 0.6rem 0.12rem 0.45rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600;
+  background: var(--cup); color: var(--brand-cream); border: 1px solid var(--cup-hi); white-space: nowrap; align-self: center; }
+.pk-cupchip[hidden] { display: none; }
+.pk-cupchip svg { width: 0.95rem; height: 0.95rem; fill: none; stroke: var(--cup-hi); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* The cup view in the sheet. */
+.cb-body { display: flex; flex-direction: column; gap: 1rem; }
+.cb-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.cb-pill { appearance: none; font: inherit; font-weight: 600; font-size: var(--cds-font-size-caption); padding: 0.4rem 0.85rem; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg); }
+.cb-pill[aria-pressed="true"] { background: var(--brand-navy); border-color: var(--brand-navy); color: var(--brand-cream); }
+.cb-pill-fa[aria-pressed="true"] { background: var(--brand-claret); border-color: var(--brand-claret); }
+.cb-pill-festive[aria-pressed="true"] { background: #2f6b4f; border-color: #2f6b4f; }
+.cb-pill-off { opacity: 0.7; }
+.cb-head { display: flex; align-items: center; gap: 0.9rem; padding: 0.8rem 1rem; border-radius: 14px; background: var(--cup); color: var(--brand-cream); }
+.cb-head-art { height: 4rem; width: auto; }
+.cb-head-name { font-family: var(--font-display); font-weight: 700; font-size: 1.4rem; }
+.cb-head-stage { font-size: var(--cds-font-size-caption); color: var(--cup-hi); letter-spacing: 0.04em; }
+.cb-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.4rem; padding: 1.4rem 1rem; border-radius: 14px; border: 1px dashed color-mix(in srgb, var(--cup) 45%, var(--color-border-line)); background: var(--color-panel); }
+.cb-empty-art { height: 6rem; width: auto; opacity: 0.9; }
+.cb-empty h3 { margin: 0; font-family: var(--font-display); font-size: 1.3rem; }
+.cb-empty p { margin: 0; max-width: 32rem; color: var(--color-fg-muted); }
+
+.cb-tabs { display: none; gap: 0.4rem; }
+.cb-tab { appearance: none; font: inherit; flex: 1; font-family: var(--font-anthropic-serif); font-weight: 500; letter-spacing: 0.08em; padding: 0.45rem 0; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg); }
+.cb-tab[aria-pressed="true"] { background: var(--brand-navy); border-color: var(--brand-navy); color: var(--brand-cream); }
+.cb-bracket { display: grid; grid-template-columns: repeat(var(--rounds), minmax(11rem, 1fr)); gap: 0.9rem; overflow-x: auto; padding-bottom: 0.3rem; }
+.cb-col { display: flex; flex-direction: column; gap: 0.5rem; }
+.cb-col-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.4rem; font-family: var(--font-anthropic-serif); font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.8rem; color: var(--brand-claret);
+  padding-bottom: 0.3rem; border-bottom: 2px solid var(--brand-gold); }
+.cb-week { color: var(--color-fg-muted); letter-spacing: 0.04em; text-transform: none; font-family: var(--font-anthropic-sans); }
+.cb-list { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 0.55rem; }
+.cb-match { border-radius: 10px; border: 1px solid var(--color-border-line); background: var(--color-panel); overflow: hidden; }
+.cb-live { border-color: var(--brand-gold); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-gold) 35%, transparent); }
+.cb-row { display: grid; grid-template-columns: 1.6rem 1fr auto; align-items: center; gap: 0.35rem; padding: 0.35rem 0.6rem; font-size: 0.9rem; }
+.cb-row + .cb-row { border-top: 1px solid var(--color-border-line); }
+.cb-seed { font-size: 0.72rem; color: var(--color-fg-muted); text-align: right; }
+.cb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cb-score { font-variant-numeric: tabular-nums; font-weight: 600; }
+.cb-final .cb-row:not(.cb-win) { color: var(--color-fg-muted); }
+.cb-final .cb-row:not(.cb-win) .cb-name { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--color-fg-muted) 50%, transparent); }
+.cb-win { font-weight: 700; background: color-mix(in srgb, var(--brand-gold) 16%, transparent); box-shadow: inset 3px 0 0 var(--brand-gold); }
+.cb-me .cb-name::after { content: " (you)"; font-weight: 500; color: var(--brand-claret); font-size: 0.78rem; }
+.cb-meta { padding: 0.25rem 0.6rem 0.35rem; font-size: 0.72rem; color: var(--color-fg-muted); border-top: 1px dashed var(--color-border-line); }
+.cb-bye .cb-row { color: var(--color-fg); }
+.cb-table .cb-me td { background: color-mix(in srgb, var(--brand-claret) 8%, transparent); }
+.cb-table .cb-champ td { background: color-mix(in srgb, var(--brand-gold) 22%, transparent); font-weight: 700; }
+@media (max-width: 760px) {
+  .cb-tabs { display: flex; }
+  .cb-bracket { display: block; }
+  .cb-col { display: none; }
+  .cb-col.cb-col-on { display: flex; }
+}
+
+/* Cups on the commissioner page. */
+.adm-cupform { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; }
+.adm-cupform label { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: var(--cds-font-size-caption); }
+.adm-num { width: 4.5rem; }
+.adm-cupplan { padding: 0.7rem 0.9rem; border-radius: var(--cds-radius); background: color-mix(in srgb, var(--brand-gold) 10%, var(--color-panel)); border: 1px solid color-mix(in srgb, var(--brand-gold) 45%, transparent); }
+.adm-cupplan p { margin: 0 0 0.4rem; }
+.adm-pairs { margin: 0; padding-left: 1.3rem; columns: 2; font-size: var(--cds-font-size-caption); }
+.adm-cup { margin-top: 0.8rem; padding: 0.7rem 0.9rem; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); display: flex; flex-direction: column; gap: 0.5rem; }
+.adm-cup-head { display: flex; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+.adm-cup-round { display: flex; flex-direction: column; gap: 0.3rem; padding-top: 0.4rem; border-top: 1px dashed var(--color-border-line); }
+.adm-cup-roundhead { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.adm-cup-match { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: var(--cds-font-size-caption); flex-wrap: wrap; }
+.adm-small { font-size: 0.78rem; padding: 0.25rem 0.6rem; }
+.adm-danger { align-self: flex-start; color: var(--color-bad); border-color: color-mix(in srgb, var(--color-bad) 50%, transparent); }
+@media (max-width: 640px) { .adm-pairs { columns: 1; } }
+@media (max-width: 640px) { .pk-cup-name { flex-basis: 100%; } .pk-cupchip { white-space: normal; } }

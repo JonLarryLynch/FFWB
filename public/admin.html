@@ -91,6 +91,23 @@
           <p class="pk-message" id="cw-message" aria-live="polite"></p>
         </section>
 
+        <section class="ffwb-card" id="cups-card">
+          <h2 class="ffwb-h">Cups</h2>
+          <p class="ffwb-note">League Cup in the autumn, Festive Fixtures at Christmas, FA Cup in the spring. Knockouts are seeded from the table before their first week, with the top of the table getting a bye, and run one round a week. Festive Fixtures is the most points over the weeks you choose.</p>
+          <div class="adm-cupform">
+            <label>Cup <select class="ffwb-select" id="cup-type"><option value="league">League Cup</option><option value="festive">Festive Fixtures</option><option value="fa">FA Cup</option></select></label>
+            <label>First week <input class="adm-input adm-num" id="cup-first" type="number" min="1" max="38"></label>
+            <label id="cup-length-wrap" hidden>Weeks <input class="adm-input adm-num" id="cup-length" type="number" min="1" max="8" value="3"></label>
+          </div>
+          <div class="adm-row">
+            <button class="pk-clear" type="button" id="cup-preview">Preview the draw</button>
+            <button class="pk-save" type="button" id="cup-make" disabled>Make the draw</button>
+          </div>
+          <div id="cup-plan"></div>
+          <p class="pk-message" id="cup-message" aria-live="polite"></p>
+          <div id="cup-list"></div>
+        </section>
+
         <section class="ffwb-card" id="efl-card">
           <h2 class="ffwb-h">EFL picks</h2>
           <p class="ffwb-note">Switch the EFL pick on for any week. Players then get one optional Championship pick that week, worth 1 for a win and a half for a draw, never doubled, and added to their season total.</p>
@@ -152,6 +169,7 @@
 </div>
 
 <script src="js/rules.js"></script>
+<script src="js/cups.js"></script>
 <script src="js/shim.js"></script>
 <script src="js/shame.js"></script>
 <script src="js/picks.js"></script>

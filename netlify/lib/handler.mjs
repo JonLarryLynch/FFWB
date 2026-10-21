@@ -8,9 +8,11 @@
 //   auto/results    results fetched from football-data.org, as suggestions for the commissioner
 //   fixtures        { checkedAt, weeks: { "8": { kickoff, games: { club: { vs, home, at, off } } } } }
 //   backups/<date>  a full copy of the league, saved by the Tuesday job
+//   cups            { cups: [{ id, type, season, weeks: [...], seeds: [player ids], overrides, drawnAt }] }
 //   push/*          phone notification keys, subscriptions and which reminders have gone out
 import crypto from 'node:crypto';
 import rules from '../../public/js/rules.js';
+import cupsLib from '../../public/js/cups.js';
 import seed from './seed.mjs';
 import { runFetch, fetchTeams, fetchFixtures } from './autoresults.mjs';
 import { saveBackup, listBackups } from './backup.mjs';
@@ -58,6 +60,11 @@ const upcomingWeeks = (config, results) => {
   for (let w = config.currentWeek; w <= rules.WEEKS; w += 1) if (!Object.keys(results.weeks[String(w)] || {}).length) out.push(w);
   return out;
 };
+// The season in the shape the shared cup code expects.
+const seasonOf = ({ config, results, picks }) => ({
+  config, results: results.weeks, eflResults: results.efl || {},
+  picks: Object.fromEntries(Object.entries(picks).map(([id, d]) => [id, d.weeks])),
+});
 const FIXTURES_STALE_MS = 12 * 60 * 60 * 1000;
 // The Shame Club as it stood in the group chat (Dec 2025). New members are also found automatically
 // from picks and fixtures; this list is for the ones before that, and the commissioner can edit it.
@@ -79,14 +86,15 @@ export function createHandler(getStore, getPasscode, extras = {}) {
 
   async function loadAll(store) {
     const config = await ensureSeeded(store);
-    const [results, docs, fixtures] = await Promise.all([
+    const [results, docs, fixtures, cups] = await Promise.all([
       store.get('results', { type: 'json' }),
       Promise.all(config.players.map((p) => store.get('picks/' + p.id, { type: 'json' }))),
       store.get('fixtures', { type: 'json' }),
+      store.get('cups', { type: 'json' }),
     ]);
     const picks = {};
     config.players.forEach((p, i) => { picks[p.id] = docs[i] || { player: p.id, weeks: {}, history: [] }; });
-    return { config, results: results || { weeks: {}, history: [] }, picks, fixtures: fixtures || null };
+    return { config, results: results || { weeks: {}, history: [] }, picks, fixtures: fixtures || null, cups: (cups && cups.cups) || [] };
   }
 
   // Keep kickoff times fresh: if they are more than 12 hours old, fetch them again (one call to the feed).
@@ -119,7 +127,8 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     throw new Error('Someone else was saving at the same moment. Please try again.');
   }
 
-  const publicView = ({ config, results, picks, fixtures }) => ({
+  const publicView = ({ config, results, picks, fixtures, cups }) => ({
+    cups: (cups || []).filter((c) => c.season === config.season),
     ok: true,
     config: { eflWeeks: [], eflClubs: [], reopenedWeeks: [], autoClose: false, shameClub: SHAME_CLUB, ...config },
     openWeeks: openWeeks(config, results, fixtures),
@@ -131,6 +140,33 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     picks: Object.fromEntries(Object.entries(picks).map(([id, d]) => [id, d.weeks])),
     serverTime: new Date().toISOString(),
   });
+
+  // After a cup week is final, tell everyone still in a knockout who they play next, once.
+  async function cupAlerts(store, week) {
+    const all = await loadAll(store);
+    const season = seasonOf(all);
+    for (const cup of all.cups.filter((c) => c.season === all.config.season)) {
+      const st = cupsLib.state(season, cup);
+      if (st.format !== 'knockout') continue;
+      const r = st.bracket.rounds.findIndex((x) => x.week === week);
+      if (r < 0 || !st.bracket.rounds[r].matches.every((m) => m.status === 'final' || m.status === 'bye')) continue;
+      const next = st.bracket.rounds[r + 1];
+      if (!next) {
+        if (st.champion) await push.once(store, 'cup-' + cup.id + '-won', () => push.send(store, { title: st.name, body: st.champion.name + ' wins the ' + st.name + '!', tag: 'cup' }, { sender: extras.pushSender }));
+        continue;
+      }
+      for (const m of next.matches) {
+        if (!m.a || !m.b) continue;
+        for (const [me, them] of [[m.a, m.b], [m.b, m.a]]) {
+          await push.once(store, 'cup-' + cup.id + '-' + next.index + '-' + me.id, () => push.send(store, {
+            title: st.name + ': ' + next.name,
+            body: "You're through! You play " + them.name + ' in week ' + next.week + '.',
+            tag: 'cup',
+          }, { players: [me.id], sender: extras.pushSender }));
+        }
+      }
+    }
+  }
 
   return async function handler(req) {
     const url = new URL(req.url);
@@ -262,6 +298,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
             await push.once(store, 'open-' + config.season + '-' + (week + 1), () => push.send(store, { title: 'Week ' + (week + 1) + ' is open', body: 'Week ' + week + ' results are in. Make your week ' + (week + 1) + ' picks.', tag: 'open' }, { sender: extras.pushSender }));
           } catch (err) { console.error('Could not send the week open notice: ' + err.message); }
         }
+        try { await cupAlerts(store, week); } catch (err) { console.error('Could not send cup alerts: ' + err.message); }
         return json(200, { ok: true, results: doc.weeks, eflResults: doc.efl || {}, config: cfg });
       }
 
@@ -325,6 +362,84 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         return json(200, { ok: true, config: cfg });
       }
 
+      if (route === 'admin/cups' && req.method === 'POST') {
+        const denied = needAdmin();
+        if (denied) return denied;
+        const all = await loadAll(store);
+        const { config } = all;
+        const season = seasonOf(all);
+        const type = String(body.type || '');
+        const T = cupsLib.TYPES[type];
+        // The seeds and weeks a new cup would get, from the table before its first week.
+        const plan = () => {
+          const first = Number(body.firstWeek);
+          if (!T) return { error: 'Choose a cup.' };
+          if (!Number.isInteger(first) || first < 1 || first > rules.WEEKS) return { error: 'Choose a first week from 1 to 38.' };
+          const seeds = cupsLib.table(season, first).map((r) => r.id);
+          let weeks;
+          if (T.format === 'league') {
+            const n = Math.max(1, Math.min(8, Number(body.length) || 3));
+            weeks = Array.from({ length: n }, (_, i) => first + i);
+          } else {
+            weeks = Array.from({ length: cupsLib.roundsFor(seeds.length) }, (_, i) => first + i);
+          }
+          if (weeks[weeks.length - 1] > rules.WEEKS) return { error: 'That cup would run past week 38. Start it earlier.' };
+          return { seeds, weeks };
+        };
+        const names = Object.fromEntries(config.players.map((p) => [p.id, p.name]));
+        if (body.action === 'preview') {
+          const p = plan();
+          if (p.error) return fail(400, p.error);
+          return json(200, { ok: true, weeks: p.weeks, seeds: p.seeds.map((id) => names[id]) });
+        }
+        let made = null;
+        const doc = await update(store, 'cups', (d) => {
+          d.cups = d.cups || [];
+          const find = (id) => d.cups.find((c) => c.id === id);
+          if (body.action === 'create') {
+            const p = plan();
+            if (p.error) throw Object.assign(new Error(p.error), { status: 400 });
+            const id = type + '-' + config.season;
+            if (find(id)) throw Object.assign(new Error('There is already a ' + T.name + ' this season. Delete it first to draw again.'), { status: 400 });
+            made = { id, type, season: config.season, weeks: p.weeks, seeds: p.seeds, overrides: {}, drawnAt: new Date().toISOString() };
+            d.cups.push(made);
+          } else {
+            const cup = find(String(body.id));
+            if (!cup) throw Object.assign(new Error('That cup is gone.'), { status: 404 });
+            if (body.action === 'delete') d.cups = d.cups.filter((c) => c !== cup);
+            if (body.action === 'push-back') {
+              const from = Math.max(0, Number(body.round) || 0);
+              if (cup.weeks[cup.weeks.length - 1] >= rules.WEEKS) throw Object.assign(new Error('The cup already ends in week 38.'), { status: 400 });
+              cup.weeks = cup.weeks.map((w, i) => (i >= from ? w + 1 : w));
+            }
+            if (body.action === 'override') {
+              cup.overrides = cup.overrides || {};
+              const key = String(body.key);
+              if (body.winner && config.players.some((p) => p.id === body.winner)) cup.overrides[key] = body.winner; else delete cup.overrides[key];
+            }
+          }
+          return d;
+        }, () => ({ cups: [] }));
+        if (made) {
+          // Tell everyone the draw is out, with their own first game.
+          try {
+            const st = cupsLib.state(season, made);
+            if (st.format === 'knockout') {
+              const r0 = st.bracket.rounds[0];
+              for (const m of r0.matches) {
+                for (const [me, them] of [[m.a, m.b], [m.b, m.a]]) {
+                  if (!me) continue;
+                  await push.send(store, { title: 'The ' + st.name + ' draw is out', body: them ? 'You play ' + them.name + ' in week ' + r0.week + '.' : 'You have a bye into round 2 as top of the table.', tag: 'cup' }, { players: [me.id], sender: extras.pushSender });
+                }
+              }
+            } else {
+              await push.send(store, { title: st.name + ' starts week ' + made.weeks[0], body: 'Most points over weeks ' + made.weeks.join(', ') + ' wins it.', tag: 'cup' }, { sender: extras.pushSender });
+            }
+          } catch (err) { console.error('Could not send the draw alert: ' + err.message); }
+        }
+        return json(200, { ok: true, cups: doc.cups.filter((c) => c.season === config.season) });
+      }
+
       if (route === 'admin/log' && req.method === 'POST') {
         const denied = needAdmin();
         if (denied) return denied;
@@ -358,6 +473,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
 
       return fail(404, 'There is nothing at this address.');
     } catch (err) {
+      if (err && err.status) return fail(err.status, err.message);
       console.error(err);
       return fail(500, err && err.message ? err.message : 'Something went wrong on the server.');
     }

@@ -499,6 +499,7 @@ function drawAllTime() {
       { field: 'second_half', label: 'Second half' },
       { field: 'fa_cup', label: 'FA Cup' },
       { field: 'league_cup', label: 'League Cup' },
+      { field: 'festive', label: 'Festive Fixtures' },
       { field: 'community_shield', label: 'Community Shield' },
     ], honours);
   });

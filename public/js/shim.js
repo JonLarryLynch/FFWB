@@ -131,7 +131,7 @@
     const avg = full.reduce((a, t) => a + t.points, 0) / full.length;
     const history = {
       history_seasons: full.map((t, i) => ({ season: label, player: t.player, first_half: n1(f1.get(t.player) || 0), second_half: n1(f2.get(t.player) || 0), full_season: n1(t.points), finish: String(i + 1), players: String(full.length), league_avg: n1(avg), source_tab: 'League site' })),
-      honours: [{ season: label, first_half: first[0].player, second_half: second[0].player, champion: full[0].player, fa_cup: '', league_cup: '', community_shield: '' }],
+      honours: [{ season: label, first_half: first[0].player, second_half: second[0].player, champion: full[0].player, fa_cup: '', league_cup: '', festive: '', community_shield: '' }],
       history_weeks: rows.map((r) => ({ season: label, week: String(r.week), player: r.player, points: n1(r.points), picks: String(r.all.length), wins: String(r.all.filter((x) => x.v === 1).length), lock_club: r.lock ? r.lock.club : '', lock_result: r.lock ? (r.lock.v === 1 ? 'W' : r.lock.v === 0.5 ? 'D' : 'L') : '', bonus: r.efl ? n1(r.efl) : '' })),
       history_picks: [],
     };
@@ -260,7 +260,18 @@
         const w = wrapUp(season);
         // Only add the season to History if it is not already there from the saved files.
         const known = (csv.honours || '').split('\n').some((l) => l.startsWith(season.config.season + ','));
-        extra = w.history && !known ? w.history : {};
+        extra = w.history && !known ? { ...w.history } : {};
+        // This season's honours so far, cups included, go into the honours table and trophy cabinet as they are won.
+        if (!known) {
+          const row = { season: season.config.season, first_half: w.crowns.first ? w.crowns.first.player : '', second_half: w.crowns.second ? w.crowns.second.player : '', champion: w.crowns.champion ? w.crowns.champion.player : '', fa_cup: '', league_cup: '', festive: '', community_shield: '' };
+          if (window.FFWBCups) {
+            for (const cup of season.cups || []) {
+              const st = window.FFWBCups.state(season, cup);
+              if (st.champion) row[st.honour] = st.champion.name;
+            }
+          }
+          if (Object.entries(row).some(([k, v]) => k !== 'season' && v)) extra.honours = [row];
+        }
         drawCrowns(w.crowns);
       } catch (err) { console.error('FFWB: could not work out the season winners', err); extra = {}; }
       loading = false;
