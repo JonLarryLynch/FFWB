@@ -135,7 +135,7 @@ await t('a week closes at its first kickoff, and the commissioner can reopen it'
   assert.equal((await post('picks', picks)).status, 200, 'late picks are fine by default');
   assert.equal((await post('admin/config', { passcode: 'p', autoClose: true })).status, 200);
   s = await get();
-  assert.ok(!s.openWeeks.includes(8) && s.openWeeks.includes(9));
+  assert.ok(!s.openWeeks.includes(8), 'closed at kickoff');
   const r = await post('picks', picks);
   assert.equal(r.status, 403);
   assert.match(r.body.error, /kicked off/);

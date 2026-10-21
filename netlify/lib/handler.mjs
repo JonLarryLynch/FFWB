@@ -39,16 +39,23 @@ export function kickedOff(config, fixtures, week, now = Date.now()) {
   return !!k && now >= Date.parse(k) && !(config.reopenedWeeks || []).includes(week);
 }
 
-// A week is closed to players once its week has passed, its first game kicks off (unless the commissioner
-// reopened it), the commissioner closes it, or any result is in.
+// Players pick one week at a time: only the current week is open. It closes once the commissioner closes it,
+// any result is in, or (if that setting is on) its first game kicks off and it has not been reopened.
 function isClosed(config, results, week, fixtures) {
   const r = results.weeks[String(week)];
   const hasResults = !!r && Object.values(r).some((v) => v !== null && v !== undefined);
-  return week < config.currentWeek || (config.lockedWeeks || []).includes(week) || hasResults || kickedOff(config, fixtures, week);
+  return week !== config.currentWeek || (config.lockedWeeks || []).includes(week) || hasResults || kickedOff(config, fixtures, week);
 }
 const openWeeks = (config, results, fixtures) => {
   const out = [];
   for (let w = 1; w <= rules.WEEKS; w += 1) if (!isClosed(config, results, w, fixtures)) out.push(w);
+  return out;
+};
+// Weeks still to be picked this season (the current one and every later one without results). The rules use
+// these to judge whether a player can still reach 3 picks of every club, since only one week is open at a time.
+const upcomingWeeks = (config, results) => {
+  const out = [];
+  for (let w = config.currentWeek; w <= rules.WEEKS; w += 1) if (!Object.keys(results.weeks[String(w)] || {}).length) out.push(w);
   return out;
 };
 const FIXTURES_STALE_MS = 12 * 60 * 60 * 1000;
@@ -116,6 +123,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     ok: true,
     config: { eflWeeks: [], eflClubs: [], reopenedWeeks: [], autoClose: false, shameClub: SHAME_CLUB, ...config },
     openWeeks: openWeeks(config, results, fixtures),
+    upcomingWeeks: upcomingWeeks(config, results),
     fixtures: fixtures ? fixtures.weeks : {},
     fixturesCheckedAt: fixtures ? fixtures.checkedAt : null,
     results: results.weeks,
@@ -151,7 +159,8 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         const week = Number(body.week);
         if (!Number.isInteger(week) || week < 1 || week > rules.WEEKS) return fail(400, 'Choose a week from 1 to 38.');
         if (!isAdmin && isClosed(config, results, week, fixtures)) {
-          const why = kickedOff(config, fixtures, week) ? 'Week ' + week + "'s first game has kicked off, so its picks are locked." : 'Week ' + week + ' is closed, so its picks can no longer be changed.';
+          const why = week > config.currentWeek ? 'Week ' + week + " isn't open yet. You can pick it once week " + config.currentWeek + ' is done.'
+            : kickedOff(config, fixtures, week) ? 'Week ' + week + "'s first game has kicked off, so its picks are locked." : 'Week ' + week + ' is closed, so its picks can no longer be changed.';
           return fail(403, why + ' Ask the commissioner if something is wrong.');
         }
 
@@ -164,7 +173,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         if (!clearing) {
           const standard = (body.standard || []).map(String);
           const lock = body.lock ? String(body.lock) : null;
-          const verdict = rules.check({ clubs: config.clubs, weekPicks: all.picks[player.id].weeks, week, standard, lock, openWeeks: openWeeks(config, results, fixtures), results: results.weeks });
+          const verdict = rules.check({ clubs: config.clubs, weekPicks: all.picks[player.id].weeks, week, standard, lock, openWeeks: upcomingWeeks(config, results), results: results.weeks });
           if (!verdict.ok && !(isAdmin && body.override)) return fail(400, verdict.errors[0], { errors: verdict.errors, canOverride: isAdmin });
           next = { standard, lock, by: isAdmin ? 'Commissioner' : player.name, at: new Date().toISOString() };
           if (efl) next.efl = efl;

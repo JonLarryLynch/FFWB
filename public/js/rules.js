@@ -58,7 +58,7 @@
 
   // Checks one week's picks against the league rules.
   // clubs: the season's 20 clubs. weekPicks: the player's picks for every week.
-  // openWeeks: weeks still open for picking, used to judge whether every club can still reach 3.
+  // openWeeks: weeks still to be picked (this one and later ones), used to judge whether every club can still reach 3.
   // Returns { ok, errors, owed, slotsLeft } where owed and slotsLeft describe the half after this week.
   function check({ clubs, weekPicks, week, standard, lock, openWeeks, results }) {
     const errors = [];

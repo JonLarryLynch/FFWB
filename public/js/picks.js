@@ -29,9 +29,10 @@
     const res = season.results[String(week)];
     const hasResults = !!res && Object.keys(res).length > 0;
     // The page may have been open since before kickoff, so check the clock here too.
-    if (season.openWeeks.includes(week) && !kickedOff(season, week)) return { open: true, label: week === season.config.currentWeek ? 'Open now' : 'Open' };
+    if (season.openWeeks.includes(week) && !kickedOff(season, week)) return { open: true, label: 'This week' };
     if (hasResults) return { open: false, label: 'Results in' };
     if (kickedOff(season, week)) return { open: false, label: 'Kicked off' };
+    if (week > season.config.currentWeek) return { open: false, label: 'Not open yet' };
     if ((season.config.lockedWeeks || []).includes(week)) return { open: false, label: 'Closed by the commissioner' };
     return { open: false, label: 'Closed' };
   }
@@ -273,7 +274,8 @@
           : Date.now() < Date.parse(fx.kickoff) ? ' First kickoff ' + whenLong(fx.kickoff) + '.' : '';
       help.textContent = (!showEditor ? (admin ? 'Choose a player to edit their picks.' : 'Choose your name to make your picks.')
         : canEdit ? 'Tap once to pick, twice for your lock, three times to remove.'
-          : 'This week is closed.' + (admin ? '' : ' Ask the commissioner if something needs fixing.')) + closesAt;
+          : state.week > s.config.currentWeek && !admin ? 'Week ' + state.week + " isn't open yet. You can pick it once week " + s.config.currentWeek + ' is done.'
+            : 'This week is closed.' + (admin ? '' : ' Ask the commissioner if something needs fixing.')) + closesAt;
       bonus.hidden = true;
       errorsBox.replaceChildren();
       errorsBox.hidden = true;
@@ -343,7 +345,7 @@
 
       // Rule check as they go.
       const chosen = state.std.length + (state.lock ? 1 : 0);
-      const verdict = chosen ? R.check({ clubs: s.config.clubs, weekPicks: weekPicks(), week: state.week, standard: state.std, lock: state.lock, openWeeks: s.openWeeks, results: s.results }) : null;
+      const verdict = chosen ? R.check({ clubs: s.config.clubs, weekPicks: weekPicks(), week: state.week, standard: state.std, lock: state.lock, openWeeks: s.upcomingWeeks || s.openWeeks, results: s.results }) : null;
       const complete = state.std.length >= R.STANDARD_PICKS && !!state.lock;
       count.textContent = state.std.length + ' of ' + max + ' picks' + (state.lock ? ' + lock' : ', no lock yet') + (showEfl && state.efl ? ' + EFL' : '');
       count.className = 'pk-count' + (complete && verdict && verdict.ok ? ' pk-count-ok' : '');

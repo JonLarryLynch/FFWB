@@ -151,7 +151,7 @@
   document.getElementById('cw-up').addEventListener('click', () => { if (cw < R.WEEKS) { cw += 1; renderWeeks(); } });
   document.getElementById('cw-save').addEventListener('click', async () => {
     const out = await adminPost('config', { currentWeek: cw });
-    if (out.ok) { say(cwMsg, 'ok', 'The current week is now week ' + out.config.currentWeek + '. Players can pick that week and any later one.'); window.FFWB.reload(); }
+    if (out.ok) { say(cwMsg, 'ok', 'The current week is now week ' + out.config.currentWeek + '. Players can pick that week only.'); window.FFWB.reload(); }
     else say(cwMsg, 'bad', out.error);
   });
 

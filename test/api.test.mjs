@@ -19,7 +19,8 @@ await t('season loads and seeds weeks 1 to 7', async () => {
   assert.equal(r.body.config.currentWeek, 8);
   assert.equal(Object.keys(r.body.picks.jon).length, 7);
   assert.equal(Object.keys(r.body.picks.aronson).length, 6);
-  assert.deepEqual(r.body.openWeeks.slice(0, 2), [8, 9]);
+  assert.deepEqual(r.body.openWeeks, [8], 'one week at a time');
+  assert.deepEqual(r.body.upcomingWeeks.slice(0, 2), [8, 9]);
   assert.equal(Object.keys(r.body.results).length, 7);
 });
 
@@ -57,10 +58,10 @@ await t('a fifth lock on the same club in a half is refused', async () => {
   const cityLocks = Object.values(s.picks.tim).filter((p) => p.lock === 'Man City').length;
   let week = 8;
   for (let i = cityLocks; i < 4; i += 1, week += 1) {
-    const r = await call('POST', 'picks', { player: 'tim', week, standard: ['Coventry City', 'Hull City', 'Sunderland', 'Fulham'], lock: 'Man City' });
+    const r = await call('POST', 'picks', { passcode: 'letmein', player: 'tim', week, standard: ['Coventry City', 'Hull City', 'Sunderland', 'Fulham'], lock: 'Man City' });
     assert.equal(r.status, 200, JSON.stringify(r.body));
   }
-  const r = await call('POST', 'picks', { player: 'tim', week, standard: ['Coventry City', 'Hull City', 'Sunderland', 'Fulham'], lock: 'Man City' });
+  const r = await call('POST', 'picks', { passcode: 'letmein', player: 'tim', week, standard: ['Coventry City', 'Hull City', 'Sunderland', 'Fulham'], lock: 'Man City' });
   assert.equal(r.status, 400);
   assert.match(r.body.error, /4 times this half/);
 });
@@ -69,7 +70,7 @@ await t('picks that leave too few weeks to reach 3 of every club are refused', a
   // Kooz fills weeks 8 to 18 with the same five clubs, leaving week 19 alone for everything still owed.
   let refused = null;
   for (let week = 8; week <= 19 && !refused; week += 1) {
-    const r = await call('POST', 'picks', { player: 'kooz', week, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton'], lock: ['Man City', 'Man U', 'Newcastle', 'Everton', 'Leeds', 'Fulham'][week % 6] });
+    const r = await call('POST', 'picks', { passcode: 'letmein', player: 'kooz', week, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton'], lock: ['Man City', 'Man U', 'Newcastle', 'Everton', 'Leeds', 'Fulham'][week % 6] });
     if (r.status !== 200) refused = r;
   }
   assert.ok(refused, 'expected a refusal');
@@ -116,7 +117,10 @@ await t('the commissioner can move the current week and close weeks', async () =
   const r = await call('POST', 'admin/config', { passcode: 'letmein', currentWeek: 9, lockedWeeks: [10] });
   assert.equal(r.body.config.currentWeek, 9);
   assert.deepEqual(r.body.config.lockedWeeks, [10]);
-  assert.equal((await call('POST', 'picks', { ...good, week: 10 })).status, 403);
+  assert.equal((await call('POST', 'picks', { ...good, week: 10 })).status, 403, 'a later week is not open');
+  assert.equal((await call('POST', 'picks', { ...good, week: 9 })).status, 200, 'the current week is');
+  assert.equal((await call('POST', 'admin/config', { passcode: 'letmein', lockedWeeks: [9] })).body.config.lockedWeeks[0], 9);
+  assert.equal((await call('POST', 'picks', { ...good, week: 9 })).status, 403, 'closed early by the commissioner');
   await call('POST', 'admin/config', { passcode: 'letmein', lockedWeeks: [] });
 });
 
