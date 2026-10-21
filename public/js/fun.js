@@ -72,7 +72,7 @@ dash.calc('herd', {
 
 dash.calc('awards', {
   title: 'Season awards',
-  description: 'This season’s bragging rights, worked out again each time a week is scored. A tie shares the award.',
+  description: 'This season’s bragging rights, worked out again each time a week is scored. A tie shares the award. What happened in the latest week is in the weekly report above.',
   inputs: ['race', 'herd'],
   fn: (race, herd) => {
     const names = (list) => (list.length > 3 ? list.length + ' players' : list.length > 1 ? list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1] : list[0] || '');
@@ -87,11 +87,6 @@ dash.calc('awards', {
     const last = weeks[weeks.length - 1];
     const now = race.filter((r) => r.week === last);
 
-    const top = pick(now, (r) => r.week_points, Math.max);
-    out.push({ award: 'Manager of the week', winner: names(top.map((r) => r.player)), detail: num(top[0].week_points) + ' points in week ' + last });
-    const low = pick(now, (r) => r.week_points, Math.min);
-    out.push({ award: 'Wooden spoon', winner: names(low.map((r) => r.player)), detail: num(low[0].week_points) + ' points in week ' + last });
-
     const span = weeks.slice(-3);
     const form = now.map((r) => ({ player: r.player, points: race.filter((x) => x.player === r.player && span.includes(x.week)).reduce((s, x) => s + x.week_points, 0) }));
     const hot = pick(form, (r) => r.points, Math.max);
@@ -99,16 +94,18 @@ dash.calc('awards', {
     const cold = pick(form, (r) => r.points, Math.min);
     out.push({ award: 'Gone cold', winner: names(cold.map((r) => r.player)), detail: num(cold[0].points) + ' points from the last ' + span.length + ' weeks' });
 
-    if (weeks.length > 1) {
-      const prev = weeks[weeks.length - 2];
-      const moves = now.map((r) => {
-        const before = race.find((x) => x.week === prev && x.player === r.player);
-        return { player: r.player, move: (before ? before.position : r.position) - r.position };
-      });
-      const up = pick(moves, (r) => r.move, Math.max);
-      if (up[0].move > 0) out.push({ award: 'Biggest climber', winner: names(up.map((r) => r.player)), detail: 'Up ' + up[0].move + (up[0].move === 1 ? ' place' : ' places') + ' in week ' + last });
-      const down = pick(moves, (r) => r.move, Math.min);
-      if (down[0].move < 0) out.push({ award: 'Biggest faller', winner: names(down.map((r) => r.player)), detail: 'Down ' + -down[0].move + (down[0].move === -1 ? ' place' : ' places') + ' in week ' + last });
+    // The weekly awards, added up over the season.
+    const live = typeof window !== 'undefined' && window.FFWB && window.FFWB.season;
+    if (live && window.FFWBAwards) {
+      const tally = window.FFWBAwards.season(live).tally;
+      const nameOf = Object.fromEntries(live.config.players.map((p) => [p.id, p.name]));
+      const rows = Object.entries(tally).map(([id, t]) => ({ player: nameOf[id] || id, ...t }));
+      const most = (k, award, what) => {
+        const best = rows.length ? Math.max(...rows.map((r) => r[k])) : 0;
+        if (best > 0) out.push({ award, winner: names(rows.filter((r) => r[k] === best).map((r) => r.player)), detail: what(best) });
+      };
+      most('top', 'Most weeks on top', (n) => 'Top scorer in ' + n + ' week' + (n === 1 ? '' : 's'));
+      most('bottled', 'Serial bottler', (n) => 'Bottled it ' + n + ' time' + (n === 1 ? '' : 's') + ', the worst lost lock of the week');
     }
 
     const best = pick(race, (r) => r.week_points, Math.max);
@@ -120,7 +117,7 @@ dash.calc('awards', {
       const maverick = pick(herd, (r) => r.herd, Math.min);
       out.push({ award: 'The maverick', winner: names(maverick.map((r) => r.player)), detail: 'Only ' + Math.round(maverick[0].herd * 100) + '% of the league on the same picks' });
       const wolf = pick(herd, (r) => r.solo_points, Math.max);
-      if (wolf[0].solo_points > 0) out.push({ award: 'Lone wolf', winner: names(wolf.map((r) => r.player)), detail: num(wolf[0].solo_points) + ' points from picks nobody else made' });
+      if (wolf[0].solo_points > 0) out.push({ award: 'Lone wolf of the season', winner: names(wolf.map((r) => r.player)), detail: num(wolf[0].solo_points) + ' points from picks nobody else made' });
     }
     return out;
   },

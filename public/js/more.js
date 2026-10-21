@@ -134,13 +134,13 @@ dash.calc('recap', {
     const lo = Math.min(...now.map((r) => r.week_points));
     const out = [];
     const items = [];
-    const add = (icon, label, text) => items.push({ icon, label, text });
+    const add = (icon, label, text, key) => items.push({ icon, label, text, key });
     out.push('Week ' + week + ' report.');
     const topN = names(now.filter((r) => r.week_points === hi).map((r) => r.player));
     const lowN = names(now.filter((r) => r.week_points === lo).map((r) => r.player));
     out.push(topN + ' took the week with ' + num(hi) + ' points, while ' + lowN + ' propped it up on ' + num(lo) + '.');
-    add('\u{1F3C6}', 'Top of the week', topN + ', ' + num(hi) + ' pts');
-    if (hi !== lo) add('\u{1F944}', 'Bottom of the week', lowN + ', ' + num(lo) + ' pts');
+    add('\u{1F3C6}', 'Top scorer', topN + ', ' + num(hi) + ' pts', 'top');
+    if (hi !== lo) add('\u{1F944}', 'Worst week', lowN + ', ' + num(lo) + ' pts', 'worst');
 
     if (weeks.length > 1) {
       const prev = weeks[weeks.length - 2];
@@ -187,7 +187,7 @@ dash.calc('recap', {
     if (skin) { out.push('Banana skin of the week: ' + skin.club + ', picked ' + skin.n + ' times for nothing.'); add('\u{1F34C}', 'Banana skin', skin.club + ', picked ' + skin.n + ' times for nothing'); }
 
     const solo = picks.filter((p) => p.result === 'W' && picks.filter((x) => x.club === p.club).length === 1);
-    if (solo.length) { out.push('Nobody else fancied ' + solo[0].club + ', but ' + solo[0].player + ' did, and it won.'); add('\u{1F43A}', 'Lone wolf', solo.map((p) => p.player + ' on ' + p.club).slice(0, 3).join(', ') + '. Nobody else had it, and it won'); }
+    if (solo.length) { out.push('Nobody else fancied ' + solo[0].club + ', but ' + solo[0].player + ' did, and it won.'); add('\u{1F43A}', 'Lone wolf', solo.map((p) => p.player + ' (' + p.club + ')').slice(0, 3).join(', '), 'lone'); }
     return [{ week, text: out.join(' '), items: JSON.stringify(items) }];
   },
 });
@@ -343,7 +343,16 @@ function drawAwardsExtras() {
   const text = document.getElementById('recap-text');
   const row = recap.status === 'ok' && recap.data && recap.data[0];
   text.classList.toggle('dash-skeleton', recap.status === 'loading');
-  const items = row && row.items ? JSON.parse(row.items) : [];
+  let items = row && row.items ? JSON.parse(row.items) : [];
+  // The week's awards come from the same place as on This week and player cards, so they always match.
+  const live = window.FFWB && window.FFWB.season;
+  const aw = row && live && window.FFWBAwards ? window.FFWBAwards.week(live, row.week) : null;
+  if (aw) {
+    const ICON = { top: '\u{1F3C6}', bottled: '\u{1F37E}', lone: '\u{1F43A}', worst: '\u{1F944}' };
+    const lines = window.FFWBAwards.lines(aw).map((a) => ({ icon: ICON[a.key], label: a.label, text: a.text, key: a.key }));
+    const rest = items.filter((it) => !['top', 'worst', 'lone'].includes(it.key));
+    items = [...lines.filter((a) => a.key === 'top' || a.key === 'worst'), ...rest.slice(0, 2), ...lines.filter((a) => a.key === 'bottled' || a.key === 'lone'), ...rest.slice(2)];
+  }
   if (items.length) {
     const head = el('div', 'ffwb-recap-week', 'Week ' + row.week);
     const list = el('ul', 'ffwb-recap-list');
