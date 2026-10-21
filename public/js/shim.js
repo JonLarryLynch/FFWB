@@ -300,7 +300,12 @@
     },
     async reload() {
       try {
-        const res = await fetch('/api/season', { cache: 'no-store' });
+        // Other people's picks stay hidden until the week kicks off; ask for our own by name. The commissioner's
+        // page passes the passcode to see everything.
+        const ls = (k, st) => { try { return st.getItem(k) || ''; } catch (err) { return ''; } };
+        const me = ls('ffwb-player', localStorage);
+        const pass = ls('ffwb-pass', sessionStorage);
+        const res = await fetch('/api/season' + (me ? '?me=' + encodeURIComponent(me) : ''), { cache: 'no-store', headers: pass ? { 'x-ffwb-pass': pass } : {} });
         if (!res.ok) throw new Error('The league server answered ' + res.status);
         const season = await res.json();
         if (!season.ok) throw new Error(season.error || 'The league server could not load the season.');

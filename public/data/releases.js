@@ -5,13 +5,14 @@ window.FFWB_RELEASES = [
     id: '2026-10-21',
     date: '21 October 2026',
     title: 'The big autumn update',
-    push: 'The Map, cups, the Shame Club, player cards and more. Tap to see what is new.',
+    push: 'The Map, cups, secret picks until kickoff, the Shame Club and more. Tap to see what is new.',
     sections: [
       {
         name: 'Picks',
         items: [
           ['The Map', 'Tap The Map on the Picks tab to see every club against the weeks left in the half, what you still owe, and the weeks where two clubs you owe play each other. Tap a square to plan a club for a week. Plans are just for you, stay on your phone and never make a pick.'],
           ['Planned tags', 'Clubs you planned for this week show a Planned tag on their tile.'],
+          ['Secret picks', 'Nobody can see your picks until the first game of the week kicks off. Before then everyone just sees a tick to show you have picked. You can always see your own.'],
           ['One week at a time', 'Only this week is open. Picks still stay open after kickoff for anyone running late.'],
           ['You at a glance', 'One line at the top with your rank, points, movement, lock streak and cup game.'],
           ['Smarter tiles', 'Each club shows its kickoff time, its last five results and how many of us picked it last week.'],

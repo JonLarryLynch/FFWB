@@ -5,8 +5,8 @@ import { memoryStore } from './memory-store.mjs';
 
 const store = memoryStore();
 const api = createHandler(() => store, 'letmein');
-const call = async (method, path, body) => {
-  const res = await api(new Request('https://x.test/api/' + path, { method, headers: { 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }));
+const call = async (method, path, body, headers = {}) => {
+  const res = await api(new Request('https://x.test/api/' + path, { method, headers: { 'content-type': 'application/json', ...headers }, body: body ? JSON.stringify(body) : undefined }));
   return { status: res.status, body: await res.json() };
 };
 let passed = 0;
@@ -41,6 +41,19 @@ await t('a player can save valid picks for an open week', async () => {
   assert.equal(r.body.weeks['8'].by, 'Jon');
 });
 
+await t('picks stay hidden from everyone else until the week kicks off', async () => {
+  const anon = (await call('GET', 'season')).body;
+  assert.equal(anon.picks.jon['8'], undefined, 'hidden from others');
+  assert.ok(anon.picks.jon['7'], 'past weeks still show');
+  assert.deepEqual(anon.hiddenPicked['8'], ['jon'], 'others see that Jon has picked');
+  const mine = (await call('GET', 'season?me=jon')).body;
+  assert.equal(mine.picks.jon['8'].lock, 'Man City', 'Jon sees his own');
+  const commish = await api(new Request('https://x.test/api/season', { headers: { 'x-ffwb-pass': 'letmein' } }));
+  assert.equal((await commish.json()).picks.jon['8'].lock, 'Man City', 'the commissioner sees everything');
+  const wrong = await api(new Request('https://x.test/api/season', { headers: { 'x-ffwb-pass': 'nope' } }));
+  assert.equal((await wrong.json()).picks.jon['8'], undefined);
+});
+
 await t('a closed week is refused', async () => {
   const r = await call('POST', 'picks', { ...good, week: 7 });
   assert.equal(r.status, 403);
@@ -54,7 +67,7 @@ await t('wrong number of picks and repeats are refused', async () => {
 });
 
 await t('a fifth lock on the same club in a half is refused', async () => {
-  const s = (await call('GET', 'season')).body;
+  const s = (await call('GET', 'season', null, { 'x-ffwb-pass': 'letmein' })).body;
   const cityLocks = Object.values(s.picks.tim).filter((p) => p.lock === 'Man City').length;
   let week = 8;
   for (let i = cityLocks; i < 4; i += 1, week += 1) {
@@ -101,7 +114,7 @@ await t('admin routes need the passcode', async () => {
 });
 
 await t('entering results closes the week, and a full set opens the next week', async () => {
-  const season = (await call('GET', 'season')).body;
+  const season = (await call('GET', 'season', null, { 'x-ffwb-pass': 'letmein' })).body;
   const partial = { Arsenal: 1, Chelsea: 0.5 };
   let r = await call('POST', 'admin/results', { passcode: 'letmein', week: 8, results: partial });
   assert.equal(r.status, 200);
@@ -150,7 +163,7 @@ await t('two saves at once for different players both land', async () => {
   const mk = (player) => a(new Request('https://x.test/api/picks', { method: 'POST', body: JSON.stringify({ ...good, player }) }));
   const res = await Promise.all(['alex', 'ben', 'sam'].map(mk));
   assert.deepEqual(res.map((x) => x.status), [200, 200, 200]);
-  const s = await (await a(new Request('https://x.test/api/season'))).json();
+  const s = await (await a(new Request('https://x.test/api/season', { headers: { 'x-ffwb-pass': 'p' } }))).json();
   assert.ok(s.picks.alex['8'] && s.picks.ben['8'] && s.picks.sam['8']);
 });
 
@@ -175,7 +188,7 @@ await t('a perfect bonus week stacks, and a postponed game means not perfect yet
   const post = async (path, body) => { const r = await h(new Request('https://x.test/api/' + path, { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, body: await r.json() }; };
   const five = ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton', 'Everton'];
   assert.equal((await post('picks', { player: 'basler', week: 8, standard: five, lock: 'Man City' })).status, 200);
-  const season = await (await h(new Request('https://x.test/api/season'))).json();
+  const season = await (await h(new Request('https://x.test/api/season', { headers: { 'x-ffwb-pass': 'p' } }))).json();
   const wins = Object.fromEntries(season.config.clubs.map((c) => [c, 1]));
   assert.equal((await post('admin/results', { passcode: 'p', week: 8, results: { ...wins, Everton: 'P' } })).status, 200);
   const notYet = await post('picks', { player: 'basler', week: 9, standard: [...five.slice(0, 4), 'Leeds'], lock: 'Man U' });
@@ -206,7 +219,7 @@ await t('EFL picks only count on weeks the commissioner switches on', async () =
   assert.equal(r.status, 200);
   assert.equal(r.body.weeks['8'].efl, 'Leicester');
   assert.equal((await post('admin/results', { passcode: 'p', week: 8, results: { Arsenal: 1 }, efl: { Leicester: 0.5 } })).status, 200);
-  const season = await (await h(new Request('https://x.test/api/season'))).json();
+  const season = await (await h(new Request('https://x.test/api/season', { headers: { 'x-ffwb-pass': 'p' } }))).json();
   assert.deepEqual(season.config.eflWeeks, [8]);
   assert.equal(season.eflResults['8'].Leicester, 0.5);
   assert.equal(season.picks.jon['8'].efl, 'Leicester');
@@ -215,7 +228,7 @@ await t('EFL picks only count on weeks the commissioner switches on', async () =
 await t('the Shame Club starts with the founders and the commissioner can edit it', async () => {
   const fresh = memoryStore();
   const h = createHandler(() => fresh, 'p');
-  const s = await (await h(new Request('https://x.test/api/season'))).json();
+  const s = await (await h(new Request('https://x.test/api/season', { headers: { 'x-ffwb-pass': 'p' } }))).json();
   assert.equal(s.config.shameClub.length, 6);
   assert.deepEqual(s.config.shameClub[1], { name: 'Greg', note: 'Platinum Member' });
   assert.deepEqual(s.config.shameClub[5], { name: 'Michael', aka: 'Diddler' });
@@ -238,10 +251,10 @@ await t('the commissioner can add, rename, retire and bring back players', async
   r = await post('admin/players', { passcode: 'p', action: 'retire', id: 'big-dave' });
   assert.ok(!r.body.config.players.some((x) => x.id === 'big-dave'));
   assert.ok(r.body.config.retired.some((x) => x.id === 'big-dave'));
-  let s = await (await h(new Request('https://x.test/api/season'))).json();
+  let s = await (await h(new Request('https://x.test/api/season', { headers: { 'x-ffwb-pass': 'p' } }))).json();
   assert.equal(s.picks['big-dave'], undefined, 'a retired player is off the table');
   r = await post('admin/players', { passcode: 'p', action: 'restore', id: 'big-dave' });
-  s = await (await h(new Request('https://x.test/api/season'))).json();
+  s = await (await h(new Request('https://x.test/api/season', { headers: { 'x-ffwb-pass': 'p' } }))).json();
   assert.equal(s.picks['big-dave']['8'].lock, 'Man City', 'and comes back with their picks');
   assert.equal((await post('admin/players', { passcode: 'wrong', action: 'add', name: 'X' })).status, 401);
 });
@@ -250,7 +263,7 @@ await t('the commissioner can start a new season, and the old one is kept for Hi
   const fresh = memoryStore();
   const h = createHandler(() => fresh, 'p');
   const post = async (path, body) => { const r = await h(new Request('https://x.test/api/' + path, { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, body: await r.json() }; };
-  const get = async () => (await h(new Request('https://x.test/api/season'))).json();
+  const get = async () => (await h(new Request('https://x.test/api/season', { headers: { 'x-ffwb-pass': 'p' } }))).json();
   // Michael picks both sides of a match in week 8, so he should join the Shame Club for good.
   await fresh.setJSON('fixtures', { checkedAt: new Date().toISOString(), weeks: { 8: { kickoff: null, games: { Arsenal: { vs: 'Chelsea', home: true }, Chelsea: { vs: 'Arsenal', home: false } } } } });
   await post('picks', { player: 'michael', week: 8, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton'], lock: 'Man City' });

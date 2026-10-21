@@ -37,6 +37,15 @@ function passcodeMatches(given, expected) {
 
 // When a week's first game kicks off, or null if the fixtures are not known.
 const kickoffOf = (fixtures, week) => (fixtures && fixtures.weeks && fixtures.weeks[String(week)] && fixtures.weeks[String(week)].kickoff) || null;
+// Everyone's picks for a week stay secret until its first game kicks off (or any result is in, or the week is
+// in the past). Before then the site only says who has picked, not what.
+export function picksRevealed(config, results, fixtures, week, now = Date.now()) {
+  const r = (results.weeks || {})[String(week)];
+  if (r && Object.values(r).some((v) => v !== null && v !== undefined)) return true;
+  if (week < config.currentWeek) return true;
+  const k = kickoffOf(fixtures, week);
+  return !!k && now >= Date.parse(k);
+}
 // Closing at kickoff is a setting the commissioner switches on; it is off unless they do.
 export function kickedOff(config, fixtures, week, now = Date.now()) {
   if (!config.autoClose) return false;
@@ -138,7 +147,21 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     throw new Error('Someone else was saving at the same moment. Please try again.');
   }
 
-  const publicView = ({ config, results, picks, fixtures, cups, reactions, archives }) => ({
+  // me: the player asking, who always sees their own picks. full: the commissioner, who sees everything.
+  function hidePicks({ config, results, picks, fixtures }, me, full) {
+    const shown = {};
+    const pickedIn = {};
+    for (const [id, d] of Object.entries(picks)) {
+      shown[id] = {};
+      for (const [w, p] of Object.entries(d.weeks || {})) {
+        if (full || id === me || picksRevealed(config, results, fixtures, Number(w))) shown[id][w] = p;
+        else (pickedIn[w] || (pickedIn[w] = [])).push(id);
+      }
+    }
+    return { shown, pickedIn };
+  }
+
+  const publicView = ({ config, results, picks, fixtures, cups, reactions, archives }, me = null, full = false) => ({
     archives: archives || [],
     reactions: reactions || {},
     cups: (cups || []).filter((c) => c.season === config.season),
@@ -150,7 +173,8 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     fixturesCheckedAt: fixtures ? fixtures.checkedAt : null,
     results: results.weeks,
     eflResults: results.efl || {},
-    picks: Object.fromEntries(Object.entries(picks).map(([id, d]) => [id, d.weeks])),
+    picks: hidePicks({ config, results, picks, fixtures }, me, full).shown,
+    hiddenPicked: hidePicks({ config, results, picks, fixtures }, me, full).pickedIn,
     serverTime: new Date().toISOString(),
   });
 
@@ -247,7 +271,10 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     };
 
     try {
-      if (route === 'season' && req.method === 'GET') return json(200, publicView(await freshFixtures(store, await loadAll(store))));
+      if (route === 'season' && req.method === 'GET') {
+        const full = passcodeMatches(req.headers.get('x-ffwb-pass') || '', passcode);
+        return json(200, publicView(await freshFixtures(store, await loadAll(store)), url.searchParams.get('me'), full));
+      }
 
       if (route === 'picks' && req.method === 'POST') {
         const all = await loadAll(store);

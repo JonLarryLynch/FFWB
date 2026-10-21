@@ -150,6 +150,8 @@
       if (!admin && state.player) remember.set('ffwb-player', state.player);
       loadWeek();
       render();
+      // This week's picks only come back for the name asking, so fetch again as the new name.
+      if (!admin && state.player && window.FFWB && window.FFWB.reload) window.FFWB.reload();
     });
 
     const prev = el('button', 'pk-step', '‹');
@@ -328,7 +330,8 @@
       const s = state.season;
       const res = s.results[String(state.week)] || {};
       const eflRes = (s.eflResults || {})[String(state.week)] || {};
-      const made = s.config.players.filter((p) => (s.picks[p.id] || {})[String(state.week)]).length;
+      const secret = new Set((s.hiddenPicked || {})[String(state.week)] || []);
+      const made = s.config.players.filter((p) => (s.picks[p.id] || {})[String(state.week)] || secret.has(p.id)).length;
       everyoneTitle.textContent = "See everyone's picks for week " + state.week + ' (' + made + ' of ' + s.config.players.length + ' in)';
       const t = el('table', 'ffwb-table pk-table');
       const hr = el('tr');
@@ -343,7 +346,9 @@
         if (p.id === state.player) tr.className = 'pk-me';
         tr.append(el('td', 'ffwb-strong', p.name));
         const picksTd = el('td', 'pk-picks');
-        if (!wp) {
+        if (!wp && secret.has(p.id)) {
+          picksTd.append(el('span', 'pk-tag pk-secret', '\u2713 Picked, hidden until kickoff'));
+        } else if (!wp) {
           picksTd.append(el('span', 'ffwb-muted', 'No picks yet'));
         } else {
           for (const c of wp.standard) picksTd.append(el('span', 'pk-tag pk-' + (resultCode(res[c]) || 'none'), c));
@@ -381,7 +386,8 @@
         tbody.append(tr);
       }
       t.append(thead, tbody);
-      everyoneTable.replaceChildren(t);
+      const kicks = el('p', 'ffwb-note pk-secret-note', 'Everyone\u2019s picks show once the first game of the week kicks off.');
+      if (secret.size) everyoneTable.replaceChildren(kicks, t); else everyoneTable.replaceChildren(t);
     }
 
     if (!admin) document.addEventListener('ffwb:map-changed', () => render());
