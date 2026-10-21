@@ -1,9 +1,9 @@
 // FFWB service worker: phone notifications, and a saved copy of the site so it opens on bad signal.
 // Pages, scripts and league data are fetched fresh when the network answers quickly, and come from the saved
 // copy when it does not. Images, fonts and the chart library are served from the copy and refreshed behind.
-const CACHE = 'ffwb-v1';
+const CACHE = 'ffwb-v2';
 const CORE = ['/', '/index.html', '/css/site.css', '/manifest.webmanifest', '/brand/crest.svg', '/icons/icon-192.png',
-  '/data/season.js', '/data/history.js', '/js/rules.js', '/js/cups.js', '/js/shim.js', '/js/shame.js', '/js/app.js', '/js/fun.js', '/js/badges.js',
+  '/data/season.js', '/data/history.js', '/data/releases.js', '/js/whatsnew.js', '/js/rules.js', '/js/cups.js', '/js/shim.js', '/js/shame.js', '/js/app.js', '/js/fun.js', '/js/badges.js',
   '/js/more.js', '/js/layout.js', '/js/explore.js', '/js/profile.js', '/js/cupsui.js', '/js/cupsplash.js', '/js/planner.js', '/js/picks.js', '/js/alerts.js', '/js/polish.js'];
 
 const D3 = 'https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js';

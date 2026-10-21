@@ -86,6 +86,13 @@
           <div class="adm-row"><button class="pk-save" type="button" id="recap-copy">Copy recap</button><button class="pk-clear" type="button" id="recap-image">Share as image</button></div>
         </section>
         <section class="ffwb-card">
+          <h2 class="ffwb-h">What's new</h2>
+          <p class="ffwb-note" id="wn-note">Release notes show once on each phone the next time someone opens the site. Send them as a phone alert to make sure everyone sees them.</p>
+          <div class="adm-wn" id="wn-preview"></div>
+          <div class="adm-row"><button class="pk-save" type="button" id="wn-send">Send to everyone's phone</button><button class="pk-clear" type="button" id="wn-copy">Copy as text</button></div>
+          <p class="adm-msg" id="wn-msg" role="status"></p>
+        </section>
+        <section class="ffwb-card">
           <h2 class="ffwb-h">Phone alert</h2>
           <p class="ffwb-note" id="push-who">Players turn alerts on with the bell. The site sends them automatically when a week opens, and reminds anyone who has not picked about a day and three hours before kickoff.</p>
           <textarea class="adm-input adm-textarea" id="push-text" rows="3" maxlength="240" aria-label="Alert message" placeholder="Type a message to send to everyone with alerts on"></textarea>
@@ -233,6 +240,7 @@
 <script src="js/shame.js"></script>
 <script src="js/planner.js"></script>
 <script src="js/picks.js"></script>
+<script src="data/releases.js"></script>
 <script src="js/admin.js"></script>
 </body>
 </html>

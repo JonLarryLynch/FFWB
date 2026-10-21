@@ -679,6 +679,27 @@
     if (out.ok) { say(chatMsg, 'ok', 'Sent to ' + out.sent + ' phone' + (out.sent === 1 ? '' : 's') + '.'); box.value = ''; loadPush(); }
     else say(chatMsg, 'bad', out.error);
   });
+  // What's new: send the newest release notes to every phone, or copy them for the group chat.
+  const rel = (window.FFWB_RELEASES || [])[0];
+  const wnMsg = document.getElementById('wn-msg');
+  const relText = (r) => 'What\u2019s new in FFWB (' + r.date + ')\n\n' + r.sections.map((s) => s.name.toUpperCase() + '\n' + s.items.map(([n, t]) => '\u2022 ' + n + ': ' + t).join('\n')).join('\n\n') + '\n\nThe full notes are on the site under What\u2019s new, at the bottom of the page.';
+  if (rel) {
+    const pv = document.getElementById('wn-preview');
+    pv.append(el('div', 'ffwb-strong', rel.title + ' (' + rel.date + ')'), el('div', 'ffwb-note', 'The alert says: \u201c' + rel.push + '\u201d'));
+    document.getElementById('wn-send').addEventListener('click', async () => {
+      if (!confirm('Send \u201c' + rel.title + '\u201d to everyone with alerts on?')) return;
+      say(wnMsg, 'info', 'Sending...');
+      const out = await adminPost('push', { title: 'What\u2019s new in FFWB', body: rel.push, url: '/?whatsnew=1', tag: 'release-' + rel.id });
+      if (out.ok) say(wnMsg, 'ok', 'Sent to ' + out.sent + ' phone' + (out.sent === 1 ? '' : 's') + '. Tapping it opens the notes.');
+      else say(wnMsg, 'bad', out.error);
+    });
+    document.getElementById('wn-copy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(relText(rel)); say(wnMsg, 'ok', 'Copied. Paste it into the group chat.'); } catch (err) { say(wnMsg, 'bad', 'Could not copy on this browser.'); }
+    });
+  } else {
+    document.getElementById('wn-send').disabled = true;
+    document.getElementById('wn-copy').disabled = true;
+  }
   document.getElementById('nudge-copy').addEventListener('click', () => copy('nudge-text', 'Reminder'));
   document.getElementById('recap-copy').addEventListener('click', () => copy('recap-text', 'Recap'));
 

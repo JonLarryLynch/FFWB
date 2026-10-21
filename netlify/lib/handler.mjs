@@ -340,7 +340,9 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           return json(200, { ok: true, count: players.length, who, commissionerPhones: Object.values(subs).filter((s) => s.commish).length, thisPhone: mine ? !!mine.commish : false });
         }
         const msg = String(body.body).slice(0, 240);
-        const r = await push.send(store, { title: body.title ? String(body.title).slice(0, 60) : 'FFWB', body: msg }, { sender: extras.pushSender });
+        // Only links back into the site: a path like /?whatsnew=1, never another website.
+        const url = typeof body.url === 'string' && /^\/(?!\/)[\w\-./?=&#]*$/.test(body.url) ? body.url : '/';
+        const r = await push.send(store, { title: body.title ? String(body.title).slice(0, 60) : 'FFWB', body: msg, url, tag: body.tag ? String(body.tag).slice(0, 40) : undefined }, { sender: extras.pushSender });
         return json(200, { ok: true, ...r });
       }
 
