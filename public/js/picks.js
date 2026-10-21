@@ -37,6 +37,52 @@
     return { open: false, label: 'Closed' };
   }
 
+  const ordinalOf = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 >> 3 ^ 1) && n % 10] || 'th');
+
+  // The planner sheet: every club against the weeks left in the half, with clashes marked.
+  function openPlanner(pl) {
+    const P = window.FFWBPlanner;
+    const season = window.FFWB && window.FFWB.season;
+    if (!P || !season) return;
+    const wrap = el('div', 'pl-wrap');
+    const head = el('div', 'pl-head pk-plan-' + pl.level);
+    head.append(el('span', 'pk-plan-dot'), el('span', null, pl.text));
+    wrap.append(head);
+    const sum = el('div', 'pl-sum');
+    for (const [k, v] of [['Weeks left', pl.left.length], ['Picks left', pl.slots], ['Still owed', pl.owed], ['Free picks', Math.max(0, pl.slots - pl.owed)]]) {
+      const b = el('div', 'pl-stat'); b.append(el('span', 'pl-k', k), el('span', 'pl-v', String(v))); sum.append(b);
+    }
+    wrap.append(sum);
+    if (pl.clashes.length) {
+      const c = el('p', 'pl-clash-note');
+      c.textContent = 'Watch out: ' + pl.clashes.slice(0, 3).map((x) => x.a + ' v ' + x.b + ' (week ' + x.week + ')').join(', ') + (pl.clashes.length > 3 ? ' and ' + (pl.clashes.length - 3) + ' more' : '') + '. You still owe both sides, so leave them to the same week and you are picking both teams in one match. That is how you join the Shame Club.';
+      wrap.append(c);
+    }
+    const t = el('table', 'pl-table');
+    const hr = el('tr');
+    hr.append(el('th', null, 'Club'), el('th', 'ffwb-num', 'Have'), el('th', 'ffwb-num', 'Owe'));
+    for (const w of pl.left) hr.append(el('th', 'ffwb-num pl-wk', 'W' + w));
+    const thead = el('thead'); thead.append(hr);
+    const tbody = el('tbody');
+    const clashSet = new Set(pl.clashes.flatMap((x) => [x.week + '|' + x.a, x.week + '|' + x.b]));
+    for (const c of [...pl.clubs].sort((a, b) => b.need - a.need || a.club.localeCompare(b.club))) {
+      const tr = el('tr', c.need ? (c.need > pl.left.length ? 'pl-bad' : c.need === pl.left.length ? 'pl-tight' : '') : 'pl-done');
+      tr.append(el('td', 'ffwb-strong', c.club), el('td', 'ffwb-num', c.have + (c.locks ? ' (' + c.locks + 'L)' : '')), el('td', 'ffwb-num ffwb-strong', c.need ? String(c.need) : '\u2713'));
+      for (const w of pl.left) {
+        const g = ((((season.fixtures || {})[String(w)] || {}).games) || {})[c.club];
+        const td = el('td', 'pl-cell' + (clashSet.has(w + '|' + c.club) ? ' pl-clash' : ''), g ? (g.home ? '' : '@') + P.abbr(g.vs) : '');
+        if (g) td.title = c.club + (g.home ? ' v ' : ' at ') + g.vs + ', week ' + w;
+        tr.append(td);
+      }
+      tbody.append(tr);
+    }
+    t.append(thead, tbody);
+    const scroll = el('div', 'pl-scroll');
+    scroll.append(t);
+    wrap.append(scroll, el('p', 'ffwb-note', 'Each club needs 3 picks a half, and you can only take a club once a week. Have counts picks this half (L is locks). The weeks show each club\u2019s opponent; @ is away. Red cells are games where you still owe both clubs.'));
+    if (window.FFWBExplore && window.FFWBExplore.openCustom) window.FFWBExplore.openCustom('Half ' + pl.half + ' planner', 'Your picks', wrap);
+  }
+
   function PicksEditor(root, opts) {
     const admin = !!(opts && opts.admin);
     const state = { season: null, player: null, week: null, std: [], lock: null, efl: null, dirty: false, saving: false, message: null, errors: [], canOverride: false };
@@ -76,6 +122,15 @@
 
     const bonus = el('div', 'pk-bonus');
     // This week's cup game, if the player has one.
+    // You at a glance, the season calendar and the half-season plan.
+    const glance = el('div', 'pk-glance');
+    glance.hidden = true;
+    const cal = el('div', 'pk-cal');
+    cal.setAttribute('role', 'group');
+    cal.setAttribute('aria-label', 'Season calendar');
+    const planBar = el('button', 'pk-plan');
+    planBar.type = 'button';
+    planBar.hidden = true;
     const cupStrip = el('button', 'pk-cup');
     cupStrip.type = 'button';
     cupStrip.hidden = true;
@@ -125,7 +180,7 @@
     everyone.append(everyoneTitle, everyoneTable);
 
     const editor = el('div', 'ffwb-card pk-editor');
-    editor.append(who, helpRow, cupStrip, bonus, grid, eflRow, shameNote, errorsBox, overrideWrap, bar);
+    editor.append(who, glance, cal, helpRow, cupStrip, planBar, bonus, grid, eflRow, shameNote, errorsBox, overrideWrap, bar);
     root.replaceChildren(editor, everyone);
 
     const weekPicks = () => (state.season && state.player ? state.season.picks[state.player] || {} : {});
@@ -304,6 +359,48 @@
       overrideWrap.hidden = true;
       if (!showEditor) { renderEveryone(); return; }
 
+      const P = window.FFWBPlanner;
+      // Calendar: every week, with what is on it. Tap a week to go to it.
+      if (P) {
+        const days = P.calendar(s);
+        cal.replaceChildren(...days.map((d) => {
+          const b = el('button', 'pk-day' + (d.done ? ' pk-day-done' : '') + (d.current ? ' pk-day-now' : '') + (d.week === state.week ? ' pk-day-on' : '') + (d.halfEnd ? ' pk-day-half' : '') + (d.marks.length ? ' pk-day-cup cup-' + d.marks[0].type : ''));
+          b.type = 'button';
+          b.textContent = String(d.week);
+          if (d.efl) b.append(el('i', 'pk-day-efl'));
+          b.title = 'Week ' + d.week + (d.current ? ', this week' : d.done ? ', results in' : '') + d.marks.map((m) => ', ' + m.text).join('') + (d.efl ? ', EFL pick' : '') + (d.halfEnd ? ', end of the first half' : '');
+          b.setAttribute('aria-label', b.title);
+          b.setAttribute('aria-pressed', String(d.week === state.week));
+          b.addEventListener('click', () => { if (state.week !== d.week) { state.week = d.week; loadWeek(); render(); } });
+          return b;
+        }));
+        requestAnimationFrame(() => { const on = cal.querySelector('.pk-day-on'); if (on && cal.scrollWidth > cal.clientWidth) cal.scrollLeft = on.offsetLeft - cal.clientWidth / 2 + on.offsetWidth / 2; });
+      }
+      // You at a glance.
+      glance.hidden = true;
+      if (P && state.player && !admin) {
+        const g = P.glance(s, state.player);
+        if (g && g.rank) {
+          const move = g.was == null ? '' : g.was > g.rank ? '\u25B2' + (g.was - g.rank) : g.was < g.rank ? '\u25BC' + (g.rank - g.was) : '\u2013';
+          const bits = [el('span', 'pk-g-rank', ordinalOf(g.rank)), el('span', 'pk-g-of', 'of ' + g.players), el('span', 'pk-g-pts', fmt(g.points) + ' pts')];
+          if (move) bits.push(el('span', 'pk-g-move' + (move[0] === '\u25B2' ? ' pk-up' : move[0] === '\u25BC' ? ' pk-down' : ''), move));
+          if (g.streak >= 2) bits.push(el('span', 'pk-g-chip', g.streak + ' locks in a row'));
+          if (g.cup) bits.push(el('span', 'pk-g-chip pk-g-cup', g.cup));
+          glance.replaceChildren(...bits);
+          glance.hidden = false;
+        }
+      }
+      // The half-season plan, with a warning when it is getting tight.
+      planBar.hidden = true;
+      if (P && state.player && R.halfOf(state.week) === R.halfOf(s.config.currentWeek) && state.week >= s.config.currentWeek) {
+        const draft = editable() && (state.std.length || state.lock) ? { standard: state.std, lock: state.lock } : null;
+        const pl = P.plan(s, state.player, state.week, draft);
+        planBar.className = 'pk-plan pk-plan-' + pl.level;
+        planBar.replaceChildren(el('span', 'pk-plan-dot'), el('span', 'pk-plan-text', pl.text), el('span', 'pk-plan-go', 'Planner \u203a'));
+        planBar.onclick = () => openPlanner(pl);
+        planBar.hidden = false;
+      }
+
       cupStrip.hidden = true;
       const game = window.FFWBCups && s.cups && s.cups.length ? window.FFWBCups.gameFor(s, s.cups, state.player, state.week) : null;
       if (game) {
@@ -337,6 +434,7 @@
       const res = s.results[String(state.week)] || {};
       const half = R.halfOf(state.week);
       const u = R.usage(weekPicks(), half, state.week);
+      const lastWeek = P ? P.pickedLastWeek(s, Math.min(state.week, s.config.currentWeek)) : { counts: {} };
       grid.replaceChildren(...s.config.clubs.map((club) => {
         const isLock = state.lock === club;
         const isPick = state.std.includes(club);
@@ -351,6 +449,18 @@
         if (game) tile.append(el('span', 'pk-tile-game', (game.home ? 'v ' : '@ ') + game.vs + (game.off ? ' · postponed' : ' · ' + when(game.at))));
         const short = used < R.MIN_PER_HALF;
         tile.append(el('span', 'pk-tile-meta' + (short ? ' pk-tile-short' : ''), (short ? used + ' of 3' : used + ' picked') + (locks ? ' · ' + locks + ' lock' + (locks === 1 ? '' : 's') : '')));
+        // Recent form, and how many of the league were on this club last week.
+        if (P) {
+          const f = P.form(s, club, Math.min(state.week, s.config.currentWeek));
+          if (f.length) {
+            const row = el('span', 'pk-form');
+            for (const r of f) row.append(el('i', 'pk-f pk-f-' + r));
+            const n = lastWeek.counts[club] || 0;
+            if (lastWeek.week) row.append(el('span', 'pk-f-n', n + ' last wk'));
+            row.title = 'Last ' + f.length + ': ' + f.join(' ') + (lastWeek.week ? '. ' + n + ' picked them in week ' + lastWeek.week : '');
+            tile.append(row);
+          }
+        }
         const r = res[club];
         if (r !== undefined) tile.append(el('span', 'pk-tile-badge pk-' + resultCode(r), resultWord(r)));
         else if (isLock) tile.append(el('span', 'pk-tile-badge pk-badge-lock', 'Lock'));

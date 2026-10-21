@@ -860,3 +860,67 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .cb-how { margin: 0.3rem 0 0; padding-left: 1.3rem; text-align: left; max-width: 30rem; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.9rem; }
 .cb-how li::marker { color: var(--brand-gold); font-weight: 700; }
 .cb-last { margin: 0.4rem 0 0; font-family: var(--font-anthropic-serif); letter-spacing: 0.04em; color: var(--brand-claret); }
+
+/* ---------- Picks: you at a glance, calendar, plan, club form ---------- */
+.pk-glance { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; margin-top: 0.55rem; padding: 0.45rem 0.7rem; border-radius: var(--cds-radius);
+  background: color-mix(in srgb, var(--brand-navy) 6%, var(--color-panel)); border: 1px solid var(--color-border-line); font-size: 0.85rem; }
+.pk-glance[hidden] { display: none; }
+.pk-g-rank { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; }
+.pk-g-pts { font-weight: 600; }
+.pk-g-move { font-weight: 700; color: var(--color-fg-muted); }
+.pk-up { color: #2f9e5b; } .pk-down { color: var(--color-bad); }
+.pk-g-chip { padding: 0.08rem 0.55rem; border-radius: 999px; background: color-mix(in srgb, var(--brand-gold) 22%, transparent); font-size: 0.78rem; font-weight: 600; }
+.pk-g-cup { background: var(--brand-navy); color: var(--brand-cream); }
+
+.pk-cal { display: flex; gap: 3px; margin-top: 0.6rem; overflow-x: auto; scrollbar-width: none; padding: 2px 1px 4px; scroll-behavior: smooth; }
+.pk-cal::-webkit-scrollbar { display: none; }
+.pk-day { appearance: none; font: inherit; position: relative; flex: 1 0 1.55rem; min-width: 1.55rem; height: 1.9rem; padding: 0; border-radius: 6px; cursor: pointer; font-size: 0.68rem; font-weight: 600;
+  border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+.pk-day-done { background: color-mix(in srgb, var(--brand-navy) 10%, var(--color-panel)); color: var(--color-fg-muted); }
+.pk-day-now { border-color: var(--brand-claret); color: var(--brand-claret); }
+.pk-day-on { background: var(--brand-navy); border-color: var(--brand-navy); color: var(--brand-cream); }
+.pk-day-half { margin-right: 6px; }
+.pk-day-half::after { content: ""; position: absolute; right: -6px; top: 2px; bottom: 2px; width: 2px; border-radius: 2px; background: var(--brand-gold); }
+.pk-day-cup { box-shadow: inset 0 -4px 0 var(--cup); }
+.pk-day-cup.pk-day-on { box-shadow: inset 0 -4px 0 var(--cup-hi); }
+.pk-day-efl { position: absolute; top: 2px; right: 2px; width: 5px; height: 5px; border-radius: 50%; background: #2f9e5b; }
+
+.pk-plan { appearance: none; font: inherit; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.55rem; width: 100%; margin-top: 0.55rem; padding: 0.5rem 0.75rem;
+  border-radius: var(--cds-radius); border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg); font-size: 0.85rem; }
+.pk-plan[hidden] { display: none; }
+.pk-plan-text { flex: 1; }
+.pk-plan-go { font-family: var(--font-anthropic-serif); font-weight: 500; letter-spacing: 0.06em; font-size: 0.8rem; color: var(--brand-claret); white-space: nowrap; }
+.pk-plan-dot { width: 0.7rem; height: 0.7rem; border-radius: 50%; flex: none; background: #2f9e5b; }
+.pk-plan-tight { border-color: var(--brand-gold); background: color-mix(in srgb, var(--brand-gold) 12%, var(--color-panel)); }
+.pk-plan-tight .pk-plan-dot { background: var(--brand-gold); }
+.pk-plan-bad { border-color: var(--color-bad); background: color-mix(in srgb, var(--color-bad) 9%, var(--color-panel)); font-weight: 600; }
+.pk-plan-bad .pk-plan-dot { background: var(--color-bad); }
+
+.pk-form { display: flex; align-items: center; gap: 2px; margin-top: 0.15rem; }
+.pk-f { width: 0.5rem; height: 0.5rem; border-radius: 2px; background: var(--cds-chart-muted); }
+.pk-f-W { background: #2f9e5b; } .pk-f-D { background: var(--brand-gold); } .pk-f-L { background: color-mix(in srgb, var(--color-bad) 75%, transparent); }
+.pk-f-n { margin-left: 0.3rem; font-size: 0.65rem; color: var(--color-fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* The planner sheet. */
+.pl-wrap { display: flex; flex-direction: column; gap: 0.8rem; }
+.pl-head { display: flex; align-items: center; gap: 0.55rem; padding: 0.55rem 0.8rem; border-radius: var(--cds-radius); border: 1px solid var(--color-border-line); font-weight: 600; }
+.pl-sum { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
+.pl-stat { display: flex; flex-direction: column; padding: 0.45rem 0.6rem; border-radius: 10px; background: var(--color-panel); border: 1px solid var(--color-border-line); }
+.pl-k { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--brand-claret); font-family: var(--font-anthropic-serif); }
+.pl-v { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; }
+.pl-clash-note { margin: 0; padding: 0.55rem 0.75rem; border-radius: var(--cds-radius); border: 1px solid var(--brand-claret); background: color-mix(in srgb, var(--brand-claret) 8%, var(--color-panel)); font-size: 0.85rem; }
+.pl-scroll { overflow-x: auto; border-radius: var(--cds-radius); border: 1px solid var(--color-border-line); background: var(--color-panel); }
+.pl-table { border-collapse: collapse; width: 100%; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.pl-table th, .pl-table td { padding: 0.32rem 0.45rem; border-bottom: 1px solid var(--color-border-line); white-space: nowrap; text-align: left; }
+.pl-table th { position: sticky; top: 0; background: var(--color-panel); font-weight: 600; color: var(--color-fg-muted); font-size: 0.72rem; }
+.pl-table th:first-child, .pl-table td:first-child { position: sticky; left: 0; background: var(--color-panel); z-index: 1; }
+.pl-table .ffwb-num { text-align: right; }
+.pl-wk { text-align: center !important; }
+.pl-cell { text-align: center !important; color: var(--color-fg-muted); font-size: 0.72rem; }
+.pl-clash { background: color-mix(in srgb, var(--brand-claret) 16%, transparent); color: var(--brand-claret); font-weight: 700; }
+.pl-done td { color: var(--color-fg-muted); }
+.pl-done td:first-child { font-weight: 500; }
+.pl-tight td:nth-child(3) { color: #9a7a32; }
+.pl-bad td:nth-child(3) { color: var(--color-bad); }
+@media (max-width: 640px) { .pl-sum { grid-template-columns: repeat(2, 1fr); } }
+.pk-g-of { color: var(--color-fg-muted); margin-left: -0.35rem; }

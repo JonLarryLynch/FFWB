@@ -227,6 +227,17 @@
     // Charts drawn while tucked away have no width, so draw them again now they can be seen.
     requestAnimationFrame(() => requestAnimationFrame(redraw));
   }
+  // Any content in the sheet, not tied to a tile (the pick planner, for one).
+  function openCustom(title, kicker, node) {
+    putBack();
+    body.replaceChildren(node);
+    body.scrollTop = 0;
+    document.getElementById('xp-title').textContent = title;
+    document.getElementById('xp-kicker').textContent = kicker || '';
+    nextBtn.textContent = 'Close';
+    nextBtn.onclick = () => close();
+    if (!sheet.open) { sheet.showModal(); document.documentElement.classList.add('xp-locked'); }
+  }
   function close() {
     if (sheet.open) sheet.close();
   }
@@ -251,5 +262,5 @@
     if (tab) tab.click();
     setTimeout(() => open(asked), 300);
   }
-  window.FFWBExplore = { open: (id) => { const t = TILES.find((x) => x.id === id); if (t) open(t); }, refresh: fill };
+  window.FFWBExplore = { open: (id) => { const t = TILES.find((x) => x.id === id); if (t) open(t); }, openCustom, refresh: fill };
 })();
