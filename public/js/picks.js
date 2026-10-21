@@ -42,8 +42,14 @@
 
   // The Map: every club against the weeks left in the half, with clashes marked. Tap a square to plan
   // taking that club that week. Plans are only a reference, kept on this phone, and never make a pick.
+  let mapOpen = null;
+  const mapShowing = () => { const d = document.getElementById('xp-sheet'); const t = document.getElementById('xp-title'); return !!(d && d.open && t && t.textContent === 'The Map'); };
+  // Keep an open Map up to date when a sync brings in changes from another device, or its status changes.
+  document.addEventListener('ffwb:map-changed', (e) => { if (e.detail && e.detail.synced && mapOpen && mapShowing()) openPlanner(mapOpen.pl, mapOpen.id); });
+  if (window.FFWBPlanner && window.FFWBPlanner.onSync) window.FFWBPlanner.onSync((id) => { if (mapOpen && mapOpen.id === id && mapShowing()) openPlanner(mapOpen.pl, mapOpen.id); });
   function openPlanner(pl, id) {
     const P = window.FFWBPlanner;
+    mapOpen = { pl, id };
     const season = window.FFWB && window.FFWB.season;
     if (!P || !season) return;
     const scrollWas = document.querySelector('.pl-scroll') ? document.querySelector('.pl-scroll').scrollLeft : 0;
@@ -82,8 +88,17 @@
     if (over.length) warn.push('Too many planned for week ' + over.join(', ') + ': ' + over.map((w) => (perWeek[w] || 0) + ' of ' + cap(w)).join(', ') + '.');
     if (!warn.length && pl.clashes.length) warn.push('Watch out: ' + pl.clashes.slice(0, 3).map((x) => x.a + ' v ' + x.b + ' (week ' + x.week + ')').join(', ') + (pl.clashes.length > 3 ? ' and ' + (pl.clashes.length - 3) + ' more' : '') + '. You still owe both sides, so plan them for different weeks.');
     for (const w of warn) wrap.append(el('p', 'pl-clash-note', w));
-    const tip = el('p', 'pl-tip', id ? 'Tap a square to plan that club for that week, and again to clear it. Plans are just for you: they stay on this phone and never make a pick.' : 'Choose your name on the Picks tab to plan ahead.');
+    const st = id ? P.syncState(id) : 'local';
+    const tip = el('p', 'pl-tip', id ? 'Tap a square to plan that club for that week, and again to clear it. Plans are just for you and never make a pick.' : 'Choose your name on the Picks tab to plan ahead.');
     wrap.append(tip);
+    if (id) {
+      const sy = el('div', 'pl-sync pl-sync-' + st);
+      sy.append(el('span', 'pl-sync-dot'), el('span', null, st === 'local' ? 'Saved on this device only. Open your personal link here to keep your plan in step on your phone, laptop and home screen app.'
+        : st === 'offline' ? 'Saved on this device. It will sync with your other devices when you are back online.'
+          : st === 'syncing' ? 'Syncing with your other devices...' : 'Synced with your other devices.'));
+      wrap.append(sy);
+      if (st === 'local' && window.FFWBLink) wrap.append(window.FFWBLink.form());
+    }
 
     const t = el('table', 'pl-table');
     const hr = el('tr');
@@ -175,6 +190,8 @@
     const how = el('details', 'pk-how');
     how.append(el('summary', null, 'How it works'), el('p', 'ffwb-note', 'Pick 4 clubs plus a lock each week. A win is 1 point, a draw a half, and your lock counts double. Every club needs 3 picks a half, and no club can be your lock more than 4 times a half; the numbers on each club show your picks so far this half. Win every pick in a week and you get a bonus pick the next week. You can change your picks until the week closes.'));
     helpRow.append(help, how);
+    const linkBox = el('div', 'pk-linkbox');
+    linkBox.hidden = true;
 
     const bonus = el('div', 'pk-bonus');
     // This week's cup game, if the player has one.
@@ -243,7 +260,7 @@
     everyone.append(everyoneTitle, everyoneTable);
 
     const editor = el('div', 'ffwb-card pk-editor');
-    editor.append(who, glance, cal, helpRow, cupStrip, planBar, bonus, grid, eflRow, shameNote, errorsBox, overrideWrap, bar);
+    editor.append(who, glance, cal, helpRow, linkBox, cupStrip, planBar, bonus, grid, eflRow, shameNote, errorsBox, overrideWrap, bar);
     root.replaceChildren(editor, everyone);
 
     const weekPicks = () => (state.season && state.player ? state.season.picks[state.player] || {} : {});
@@ -567,6 +584,8 @@
         : s.config.autoClose && !(s.config.reopenedWeeks || []).includes(state.week) ? ' Picks lock at the first kickoff, ' + whenLong(fx.kickoff) + '.'
           : Date.now() < Date.parse(fx.kickoff) ? ' First kickoff ' + whenLong(fx.kickoff) + '.' : '';
       const lockedName = lockedOut() ? (s.config.players.find((p) => p.id === state.player) || { name: '' }).name : '';
+      linkBox.hidden = !lockedName || !window.FFWBLink;
+      if (lockedName && window.FFWBLink && !linkBox.firstChild) linkBox.append(window.FFWBLink.form());
       help.textContent = (!showEditor ? (admin ? 'Choose a player to edit their picks.' : 'Choose your name to make your picks.')
         : lockedName ? '\u{1F512} ' + lockedName + "'s picks can only be made from " + lockedName + "'s own phone or laptop. If you are " + lockedName + ', open your personal link on this device. The commissioner can send it again.'
         : canEdit ? 'Tap clubs to fill your tray. Tap a pick in the tray (or drag it to the gold slot) to make it your lock. Your lock counts double.'

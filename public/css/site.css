@@ -1190,3 +1190,14 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .ffwb-recap-icon { grid-row: span 2; font-size: 1.2rem; line-height: 1.3; }
 .ffwb-recap-label { font-family: Oswald, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.72rem; color: var(--color-fg-muted); }
 .ffwb-recap-text { font-weight: 600; font-size: 0.95rem; }
+
+/* Paste-your-link box, and The Map's sync status. */
+.lk-form { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; width: 100%; }
+.lk-input { flex: 1 1 14rem; min-width: 0; }
+.lk-note { flex-basis: 100%; margin: 0; font-size: 0.78rem; }
+.pk-linkbox { margin: 0.2rem 0 0.6rem; }
+.pl-sync { display: flex; align-items: center; gap: 0.45rem; font-size: 0.8rem; color: var(--color-fg-muted); }
+.pl-sync-dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; flex: none; background: var(--color-border-line); }
+.pl-sync-synced .pl-sync-dot { background: #2f9e5b; }
+.pl-sync-syncing .pl-sync-dot { background: var(--brand-gold); }
+.pl-sync-offline .pl-sync-dot, .pl-sync-local .pl-sync-dot { background: #d29a2c; }

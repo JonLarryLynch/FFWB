@@ -354,4 +354,22 @@ await t('error reports are counted, kept short, and only the commissioner can re
   assert.equal((await post('admin/errors', { passcode: 'p', action: 'clear' })).body.items.length, 0);
 });
 
+await t('The Map syncs between a player\'s own devices and stays private', async () => {
+  const fresh = memoryStore();
+  const h = createHandler(() => fresh, 'p');
+  const post = async (path, body) => { const r = await h(new Request('https://x.test/api/' + path, { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, body: await r.json() }; };
+  const key = (await post('admin/keys', { passcode: 'p' })).body.players.find((x) => x.id === 'tim').key;
+  assert.equal((await post('plan', { player: 'tim', cells: { '9|Arsenal': { on: true, at: 1 } } })).status, 403, 'no key, no plan');
+  assert.equal((await post('plan', { player: 'tim', key: 'nope', cells: {} })).status, 403);
+  // Laptop plans Arsenal and Chelsea; phone (offline earlier) clears Arsenal later and adds Wolves.
+  let r = await post('plan', { player: 'tim', key, season: '2026-27', cells: { '9|Arsenal': { on: true, at: 100 }, '9|Chelsea': { on: true, at: 100 } } });
+  assert.equal(Object.keys(r.body.cells).length, 2);
+  r = await post('plan', { player: 'tim', key, season: '2026-27', cells: { '9|Arsenal': { on: false, at: 200 }, '10|Wolves': { on: true, at: 150 }, '9|Chelsea': { on: false, at: 50 } } });
+  assert.equal(r.body.cells['9|Arsenal'].on, false, 'the newer change wins');
+  assert.equal(r.body.cells['9|Chelsea'].on, true, 'an older change does not undo a newer one');
+  assert.equal(r.body.cells['10|Wolves'].on, true);
+  r = await post('plan', { player: 'tim', key, season: '2026-27', cells: { 'junk': { on: true, at: 1 } } });
+  assert.equal(r.body.cells.junk, undefined, 'bad squares are ignored');
+});
+
 console.log(passed + ' tests passed');

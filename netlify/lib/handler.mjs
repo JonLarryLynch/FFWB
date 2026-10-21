@@ -14,6 +14,8 @@
 //   keys            { players: { id: { key, locked, linkedAt, lastSeen, phone, email } } } personal links (and
 //                   contact details for sending them, seen only by the commissioner). Once a player opens
 //                   theirs, only a phone holding that key can save their picks or see them before kickoff.
+//   plans/<season>/<player> { cells: { "9|Arsenal": { on, at } } } The Map's planning squares, private to the
+//                   player: read and written only with their personal link's key
 //   errors          { items: [{ key, message, source, stack, page, player, ua, count, first, last }] } site errors
 //                   sent from phones, for the commissioner
 //   push/*          phone notification keys, subscriptions and which reminders have gone out
@@ -349,6 +351,25 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         if (body.action === 'clear') await store.setJSON('errors', { items: [], clearedAt: new Date().toISOString() });
         const doc = (await store.get('errors', { type: 'json' })) || { items: [] };
         return json(200, { ok: true, items: doc.items, clearedAt: doc.clearedAt || null });
+      }
+
+      // The Map's planning squares, synced between a player's own devices. Their key is required, so nobody else
+      // can read or change someone's plan. Each square keeps the time it changed, and the newest wins.
+      if (route === 'plan' && req.method === 'POST') {
+        const keys = await loadKeys(store);
+        const id = String(body.player || '');
+        if (!keys.players[id] || !keyOk(body.key, keys.players[id])) return fail(403, 'Open your personal link on this device to sync your plan.', { needsLink: true });
+        const season = String(body.season || '').replace(/[^\w-]/g, '').slice(0, 12) || 'season';
+        const incoming = {};
+        for (const [k, v] of Object.entries(body.cells && typeof body.cells === 'object' ? body.cells : {}).slice(0, 3000)) {
+          if (!/^\d{1,2}\|[^|]{1,40}$/.test(k) || !v || typeof v.at !== 'number') continue;
+          incoming[k] = { on: !!v.on, at: Math.min(v.at, Date.now() + 60e3) };
+        }
+        const doc = await update(store, 'plans/' + season + '/' + id, (d) => {
+          for (const [k, v] of Object.entries(incoming)) if (!d.cells[k] || v.at > d.cells[k].at) d.cells[k] = v;
+          return d;
+        }, () => ({ cells: {} }));
+        return json(200, { ok: true, cells: doc.cells });
       }
 
       // A phone opening a personal link: tie it to that player from now on.

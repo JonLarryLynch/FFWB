@@ -79,11 +79,14 @@
     } else {
       const top = el('div', 'hm-status hm-todo');
       top.append(el('span', 'hm-dot'), el('span', null, locked ? 'Picks are linked to your other device' : anyRes ? 'No picks this week' : 'You have not picked yet'));
-      const cta = el('button', 'pk-save hm-cta', locked ? 'Open your link on this device to pick' : 'Make my picks');
-      cta.type = 'button';
-      cta.disabled = locked;
-      cta.addEventListener('click', () => go('picks'));
-      picksCard.append(top, cta);
+      if (locked && window.FFWBLink) {
+        picksCard.append(top, el('p', 'ffwb-note', 'Your picks can only be made from devices linked to you. Open your personal link here, or paste it below.'), window.FFWBLink.form());
+      } else {
+        const cta = el('button', 'pk-save hm-cta', 'Make my picks');
+        cta.type = 'button';
+        cta.addEventListener('click', () => go('picks'));
+        picksCard.append(top, cta);
+      }
     }
     const picked = s.config.players.filter((p) => (s.picks[p.id] || {})[String(w)] || ((s.hiddenPicked || {})[String(w)] || []).includes(p.id)).length;
     picksCard.append(el('div', 'ffwb-note hm-count', picked + ' of ' + s.config.players.length + ' have picked.'));

@@ -136,25 +136,82 @@
     return out;
   }
 
-  // Planning marks on The Map: "I mean to take this club that week". Kept on this phone only, never sent.
+  // Planning marks on The Map: "I mean to take this club that week". Saved on this device straight away, and
+  // synced through the league server to the player's other devices once their personal link is open here.
+  // Each square keeps when it was last changed, so edits on two devices merge instead of overwriting.
   const markKey = (season, id) => 'ffwb-map-' + season.config.season + '-' + id;
-  function marks(season, id) {
-    try { return new Set(JSON.parse(localStorage.getItem(markKey(season, id)) || '[]')); } catch (err) { return new Set(); }
+  function cells(season, id) {
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem(markKey(season, id)) || 'null'); } catch (err) { raw = null; }
+    if (Array.isArray(raw)) return Object.fromEntries(raw.map((k) => [k, { on: true, at: 1 }])); // the old format
+    return raw && typeof raw === 'object' ? raw : {};
   }
-  function saveMarks(season, id, set) {
-    try { localStorage.setItem(markKey(season, id), JSON.stringify([...set])); } catch (err) { /* only a convenience */ }
+  function saveCells(season, id, c) {
+    try { localStorage.setItem(markKey(season, id), JSON.stringify(c)); } catch (err) { /* only a convenience */ }
+  }
+  function marks(season, id) {
+    return new Set(Object.entries(cells(season, id)).filter(([, v]) => v && v.on).map(([k]) => k));
+  }
+  const merge = (a, b) => {
+    const out = { ...a };
+    for (const [k, v] of Object.entries(b || {})) if (!out[k] || (v && v.at > out[k].at)) out[k] = v;
+    return out;
+  };
+  const keyOf = (id) => { try { return localStorage.getItem('ffwb-key-' + id); } catch (err) { return null; } };
+  const sync = { state: {}, timer: null, listeners: [] };
+  const syncState = (id) => (keyOf(id) ? sync.state[id] || 'idle' : 'local');
+  const told = (id) => sync.listeners.forEach((fn) => fn(id, syncState(id)));
+  // Send this device's squares and take back the merged plan.
+  async function syncNow(season, id) {
+    const key = keyOf(id);
+    if (!key) return false;
+    sync.state[id] = 'syncing';
+    try {
+      const res = await fetch('/api/plan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ player: id, key, season: season.config.season, cells: cells(season, id) }) });
+      const out = await res.json();
+      if (!out.ok) throw new Error(out.error || 'Could not sync');
+      const before = JSON.stringify(cells(season, id));
+      const merged = merge(cells(season, id), out.cells);
+      saveCells(season, id, merged);
+      sync.state[id] = 'synced';
+      told(id);
+      if (JSON.stringify(merged) !== before) document.dispatchEvent(new CustomEvent('ffwb:map-changed', { detail: { synced: true } }));
+      return true;
+    } catch (err) {
+      sync.state[id] = 'offline';
+      told(id);
+      return false;
+    }
+  }
+  function later(season, id) {
+    clearTimeout(sync.timer);
+    sync.timer = setTimeout(() => syncNow(season, id), 700);
+  }
+  function setCell(season, id, k, on) {
+    const c = cells(season, id);
+    c[k] = { on, at: Date.now() };
+    saveCells(season, id, c);
+    later(season, id);
   }
   function toggleMark(season, id, week, club) {
-    const m = marks(season, id);
     const k = week + '|' + club;
-    if (m.has(k)) m.delete(k); else m.add(k);
-    saveMarks(season, id, m);
-    return m;
+    setCell(season, id, k, !marks(season, id).has(k));
+    return marks(season, id);
   }
   function clearMarks(season, id, weeks) {
-    const keep = new Set([...marks(season, id)].filter((k) => !weeks.includes(Number(k.split('|')[0]))));
-    saveMarks(season, id, keep);
+    const c = cells(season, id);
+    const now = Date.now();
+    for (const k of Object.keys(c)) if (weeks.includes(Number(k.split('|')[0])) && c[k].on) c[k] = { on: false, at: now };
+    saveCells(season, id, c);
+    later(season, id);
   }
+  const onSync = (fn) => sync.listeners.push(fn);
 
-  window.FFWBPlanner = { plan, form, pickedLastWeek, glance, calendar, abbr, marks, toggleMark, clearMarks };
+  window.FFWBPlanner = { plan, form, pickedLastWeek, glance, calendar, abbr, marks, toggleMark, clearMarks, syncNow, syncState, onSync };
+
+  // Pull the plan from the other devices whenever the league loads, and again when this tab comes back.
+  let lastSeason = null;
+  const me = () => { try { return localStorage.getItem('ffwb-player'); } catch (err) { return null; } };
+  if (window.FFWB && window.FFWB.onSeason) window.FFWB.onSeason((s) => { lastSeason = s; if (s && me()) syncNow(s, me()); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && lastSeason && me()) syncNow(lastSeason, me()); });
 })();

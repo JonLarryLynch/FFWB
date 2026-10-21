@@ -2,7 +2,7 @@
 // can send it to everyone's phone from the Messages tab. Add a new entry at the top for each release.
 window.FFWB_RELEASES = [
   {
-    id: '2026-10-21b',
+    id: '2026-10-21c',
     date: '21 October 2026',
     title: 'The big autumn update',
     push: 'The reveal, weekly awards, a new way to pick, The Map, cups and more. Tap to see what is new.',
@@ -20,9 +20,9 @@ window.FFWB_RELEASES = [
         name: 'Picks',
         items: [
           ['The pick tray', 'Tap clubs to fill the tray at the bottom of the Picks tab. Tap a pick, or drag it onto the gold slot, to make it your lock. Save sits right there.'],
-          ['The Map', 'Tap The Map on the Picks tab to see every club against the weeks left in the half, what you still owe, and the weeks where two clubs you owe play each other. Tap a square to plan a club for a week. Plans are just for you, stay on your phone and never make a pick.'],
+          ['The Map', 'Tap The Map on the Picks tab to see every club against the weeks left in the half, what you still owe, and the weeks where two clubs you owe play each other. Tap a square to plan a club for a week. Plans are just for you, never make a pick, and follow you between your phone, laptop and home screen app once your link is open on each.'],
           ['Planned tags', 'Clubs you planned for this week show a Planned tag on their tile.'],
-          ['Your own link', 'The commissioner will text you a personal link. Open it on your phone, and on your laptop too if you pick from there. After that, only your own devices can change your picks. Keep it to yourself.'],
+          ['Your own link', 'The commissioner will text you a personal link. Open it on your phone, and on your laptop too if you pick from there. Using the home screen app? Paste the link into the box on This week. After that, only your own devices can change your picks. Keep it to yourself.'],
           ['Change alerts', 'If your picks are ever changed from anywhere but your own devices, you get a phone alert so it can be undone. Turn alerts on with the bell to get these.'],
           ['One week at a time', 'Only this week is open. Picks still stay open after kickoff for anyone running late.'],
           ['You at a glance', 'One line at the top with your rank, points, movement, lock streak and cup game.'],
