@@ -931,6 +931,7 @@
   }
   function drawLinks() {
     const box = document.getElementById('links-list');
+    if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
     const n = links.filter((p) => p.locked).length;
     const head = el('p', 'ffwb-note adm-links-sum', n + ' of ' + links.length + ' players linked.');
     const rows = links.map((p) => {
@@ -941,13 +942,30 @@
       const copy = el('button', 'pk-save adm-small', 'Copy link');
       copy.type = 'button';
       copy.addEventListener('click', () => copyText('Your FFWB link. Open it on your phone (and your laptop if you pick from there) and keep it to yourself: ' + linkUrl(p), p.name + "'s link copied. Text it to them."));
+      const note = 'Your FFWB link. Open it on your phone (and your laptop if you pick from there) and keep it to yourself: ' + linkUrl(p);
       const text = el('a', 'pk-clear adm-small', 'Text');
-      text.href = 'sms:?&body=' + encodeURIComponent('Your FFWB link. Open it on your phone (and your laptop if you pick from there) and keep it to yourself: ' + linkUrl(p));
+      text.href = 'sms:' + (p.phone || '') + '?&body=' + encodeURIComponent(note);
+      text.title = p.phone ? 'Text ' + p.phone : 'Add a number under Contact to fill in who it goes to';
+      const mail = el('a', 'pk-clear adm-small', 'Email');
+      mail.href = 'mailto:' + encodeURIComponent(p.email || '') + '?subject=' + encodeURIComponent('Your FFWB link') + '&body=' + encodeURIComponent('Hi ' + p.name + ',\n\n' + note + '\n\nOnce you open it, only your own devices can change your picks.');
+      mail.hidden = !p.email;
+      const edit = el('button', 'pk-clear adm-small', 'Contact');
+      edit.type = 'button';
+      const form = el('div', 'adm-link-contact');
+      form.hidden = true;
+      const ph = el('input', 'adm-input'); ph.type = 'tel'; ph.placeholder = 'Mobile number'; ph.value = p.phone || ''; ph.setAttribute('aria-label', p.name + "'s mobile number");
+      const em = el('input', 'adm-input'); em.type = 'email'; em.placeholder = 'Email'; em.value = p.email || ''; em.setAttribute('aria-label', p.name + "'s email");
+      const keep = el('button', 'pk-save adm-small', 'Save');
+      keep.type = 'button';
+      keep.addEventListener('click', () => loadLinks({ action: 'contact', id: p.id, phone: ph.value, email: em.value }, p.name + "'s contact details are saved."));
+      form.append(ph, em, keep);
+      edit.addEventListener('click', () => { form.hidden = !form.hidden; if (!form.hidden) ph.focus(); });
+      if (p.phone || p.email) who.append(el('span', 'ffwb-note', [p.phone, p.email].filter(Boolean).join(' \u00b7 ')));
       const reset = el('button', 'pk-clear adm-small adm-danger', 'Reset');
       reset.type = 'button';
       reset.title = 'Make a new link. The old one stops working, and so does every device that opened it.';
       reset.addEventListener('click', () => { if (confirm('Make a new link for ' + p.name + '? The old link stops working, and each of their devices needs the new one.')) loadLinks({ action: 'reset', id: p.id }, p.name + ' has a new link. Send it to them.'); });
-      acts.append(copy, text, reset);
+      acts.append(copy, text, mail, edit, reset);
       if (p.locked) {
         const unlock = el('button', 'pk-clear adm-small', 'Unlock');
         unlock.type = 'button';
@@ -955,12 +973,12 @@
         unlock.addEventListener('click', () => { if (confirm('Unlock ' + p.name + '? Anyone could pick as them until they open their link again.')) loadLinks({ action: 'unlock', id: p.id }, p.name + ' is unlocked until they open their link again.'); });
         acts.append(unlock);
       }
-      row.append(who, acts);
+      row.append(who, acts, form);
       return row;
     });
     box.replaceChildren(head, ...rows);
   }
-  document.getElementById('links-copy-all').addEventListener('click', () => copyText(links.map((p) => p.name + ': ' + linkUrl(p)).join('\n'), 'All ' + links.length + ' links copied. Send each person only their own.'));
+  document.getElementById('links-copy-all').addEventListener('click', () => copyText(links.map((p) => p.name + (p.email ? ' <' + p.email + '>' : '') + ': ' + linkUrl(p)).join('\n'), 'All ' + links.length + ' links copied. Send each person only their own.'));
 
   // ---------- Shame Club ----------
   const shameList = document.getElementById('shame-list');

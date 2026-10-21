@@ -1036,3 +1036,5 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .adm-link-who .ffwb-note { margin: 0; font-size: 0.78rem; }
 .adm-link-acts { display: flex; gap: 0.35rem; flex-wrap: wrap; }
 .adm-link-acts a { text-decoration: none; display: inline-flex; align-items: center; }
+.adm-link-contact { flex-basis: 100%; display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.adm-link-contact .adm-input { flex: 1 1 10rem; min-width: 0; }

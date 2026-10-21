@@ -11,7 +11,8 @@
 //   reactions/<season> { "8": { target player: { "🔥": [player ids] } } }
 //   archive/<season> a finished season, kept whole when a new one starts (shown in History)
 //   cups            { cups: [{ id, type, season, weeks: [...], seeds: [player ids], overrides, drawnAt }] }
-//   keys            { players: { id: { key, locked, linkedAt, lastSeen } } } personal links. Once a player opens
+//   keys            { players: { id: { key, locked, linkedAt, lastSeen, phone, email } } } personal links (and
+//                   contact details for sending them, seen only by the commissioner). Once a player opens
 //                   theirs, only a phone holding that key can save their picks or see them before kickoff.
 //   push/*          phone notification keys, subscriptions and which reminders have gone out
 import crypto from 'node:crypto';
@@ -343,6 +344,14 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         if (denied) return denied;
         const { config } = await loadAll(store);
         let keys = await ensureKeys(store, config);
+        if (body.action === 'contact') {
+          if (!keys.players[body.id]) return fail(404, 'That player is gone.');
+          const phone = String(body.phone || '').replace(/[^\d+]/g, '').slice(0, 16);
+          const email = String(body.email || '').trim().slice(0, 100);
+          if (phone && !/^\+?\d{7,15}$/.test(phone)) return fail(400, 'That phone number does not look right.');
+          if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail(400, 'That email address does not look right.');
+          keys = await update(store, 'keys', (d) => { Object.assign(d.players[body.id], { phone: phone || null, email: email || null }); return d; }, () => ({ players: {} }));
+        }
         if (body.action === 'reset' || body.action === 'unlock') {
           if (!keys.players[body.id]) return fail(404, 'That player is gone.');
           keys = await update(store, 'keys', (d) => {

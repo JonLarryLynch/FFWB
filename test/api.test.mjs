@@ -328,6 +328,11 @@ await t('personal links lock a name to its own phone, and changes alert the play
   assert.notEqual(reset.key, greg.key);
   assert.equal((await req('picks', { ...pick, key: greg.key })).status, 403);
   assert.equal((await req('picks', { ...pick, key: reset.key })).status, 200);
+  const c = (await req('admin/keys', { passcode: 'p', action: 'contact', id: 'greg', phone: '(312) 555-0199', email: 'greg@example.com' })).body.players.find((x) => x.id === 'greg');
+  assert.equal(c.phone, '3125550199');
+  assert.equal(c.email, 'greg@example.com');
+  assert.equal((await req('admin/keys', { passcode: 'p', action: 'contact', id: 'greg', email: 'nope' })).status, 400);
+  assert.equal(JSON.stringify((await req('season')).body).includes('greg@example.com'), false, 'never public');
   // Unlock lets the name work on trust again.
   await req('admin/keys', { passcode: 'p', action: 'unlock', id: 'greg' });
   assert.equal((await req('picks', pick)).status, 200);
