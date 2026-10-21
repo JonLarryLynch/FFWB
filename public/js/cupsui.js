@@ -145,7 +145,8 @@
     const body = document.querySelector('#cups-box .cb-body');
     if (!body || !season) return;
     const list = states();
-    if (!chosen || !list.some((s) => s.cup.type === chosen)) chosen = (lead(list) || { cup: { type: 'league' } }).cup.type;
+    // Lead with the cup that is on, but let any cup be opened, drawn or not.
+    if (!chosen || !C.TYPES[chosen]) chosen = (lead(list) || { cup: { type: 'league' } }).cup.type;
     // One pill per cup, including ones not drawn yet.
     const pills = el('div', 'cb-pills');
     for (const type of ORDER) {
@@ -164,8 +165,24 @@
       const empty = el('div', 'cb-empty cup-' + chosen);
       const art = el('img', 'cb-empty-art'); art.src = ART[chosen]; art.alt = '';
       empty.append(art, el('h3', null, t.name), el('p', null, t.format === 'league'
-        ? 'Not started yet. At ' + t.season + ', the most points over the festive weeks wins it.'
-        : 'Not drawn yet. The ' + t.name + ' runs in the ' + t.season.toLowerCase() + ': a seeded knockout, one round a week, with the top of the table getting a bye.'));
+        ? 'Not started yet. It runs over the Christmas weeks.'
+        : 'Not drawn yet. It runs in the ' + t.season.toLowerCase() + '.'));
+      const steps = t.format === 'league'
+        ? ['Everyone is in, nothing extra to pick.', 'Your normal points over the festive weeks are added up.', 'Most points wins. Ties go to the better locks, then more winning picks, then a penalty shootout in FIFA.']
+        : ['The draw is seeded from the table, and the top of the table gets a bye.', 'Each round is one week, decided by your normal league points.', 'Ties go to the better lock, then more winning picks, then a penalty shootout in FIFA.', 'Four rounds: first round, quarter-finals, semis, final.'];
+      const how = el('ol', 'cb-how');
+      for (const x of steps) how.append(el('li', null, x));
+      empty.append(how);
+      // The last time it was won, from the honours history.
+      const field = t.honour;
+      const h = window.dash ? window.dash.data('honours') : null;
+      const past = h && h.status === 'ok' ? h.data.filter((r) => r[field]).map((r) => ({ season: r.season, who: String(r[field]).replace(/\*/g, '').replace(/\//g, ' and ') })) : [];
+      if (past.length) {
+        const last = past[past.length - 1];
+        empty.append(el('p', 'cb-last', 'Last won by ' + last.who + ' in ' + last.season + (past.length > 1 ? '. Won ' + past.length + ' times since ' + past[0].season + '.' : '.')));
+      } else if (field === 'festive') {
+        empty.append(el('p', 'cb-last', 'A new trophy this season. Somebody gets to be first.'));
+      }
       parts.push(empty);
     } else {
       const head = el('div', 'cb-head cup-' + s.cup.type);
