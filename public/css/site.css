@@ -800,3 +800,60 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .cb-match.cb-shootout { border-color: var(--brand-claret); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-claret) 25%, transparent); font-weight: inherit; padding: 0; background: var(--color-panel); color: inherit; }
 .cb-match.cb-shootout .cb-meta { color: var(--brand-claret); font-weight: 600; }
 .adm-cup-pk { padding: 0.35rem 0.5rem; border-radius: 8px; background: color-mix(in srgb, var(--brand-claret) 10%, transparent); color: var(--brand-claret); font-weight: 600; }
+
+/* ---------- Cup week pop-up ---------- */
+.cs-pop { padding: 0; border: 0; background: transparent; max-width: none; width: min(27rem, calc(100vw - 2rem)); overflow: visible; }
+.cs-pop::backdrop { background: rgba(10, 15, 30, 0.62); backdrop-filter: blur(4px); }
+.cs-pop[open] { animation: cs-in 0.45s cubic-bezier(0.2, 0.9, 0.25, 1.2); }
+@keyframes cs-in { from { opacity: 0; transform: translateY(24px) scale(0.92); } to { opacity: 1; transform: none; } }
+.cs-card { position: relative; overflow: hidden; isolation: isolate; border-radius: 22px; padding: 1.6rem 1.4rem 1.3rem; text-align: center; color: var(--brand-cream);
+  border: 2px solid var(--brand-gold); box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.6); }
+.cs-league { background: radial-gradient(120% 80% at 50% 0%, #2c3e66, var(--brand-navy) 60%, #121b30); }
+.cs-fa { background: radial-gradient(120% 80% at 50% 0%, #a3303f, var(--brand-claret) 60%, #4f1019); }
+.cs-festive { background: radial-gradient(120% 80% at 50% 0%, #2f7553, #1f4d39 60%, #11291f); border-color: #e2c77f; }
+.cs-festive::after { content: ""; position: absolute; left: -10%; right: -10%; bottom: -1.6rem; height: 3.4rem; z-index: -1; border-radius: 50% 50% 0 0;
+  background: radial-gradient(60% 100% at 30% 100%, rgba(255, 255, 255, 0.22), transparent 70%), radial-gradient(60% 100% at 75% 100%, rgba(255, 255, 255, 0.18), transparent 70%); }
+.cs-art { position: relative; height: 7.5rem; width: auto; filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.45)); animation: cs-bob 3.2s ease-in-out infinite; }
+@keyframes cs-bob { 50% { transform: translateY(-5px) rotate(-1.5deg); } }
+.cs-art::after { content: ""; }
+.cs-text { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; margin-top: 0.6rem; }
+.cs-kicker { font-family: var(--font-anthropic-serif); font-size: 0.8rem; letter-spacing: 0.26em; text-transform: uppercase; color: #f0d48a; }
+.cs-title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.9rem; line-height: 1.08; text-wrap: balance; }
+.cs-line { margin: 0; font-size: 0.95rem; color: color-mix(in srgb, var(--brand-cream) 85%, transparent); text-wrap: balance; }
+.cs-game { margin-top: 0.5rem; width: 100%; padding: 0.75rem 0.8rem; border-radius: 14px; background: rgba(255, 255, 255, 0.09); border: 1px solid rgba(240, 212, 138, 0.45); }
+.cs-vs { display: flex; align-items: baseline; justify-content: center; gap: 0.6rem; flex-wrap: wrap; }
+.cs-name { font-family: var(--font-display); font-weight: 700; font-size: 1.55rem; }
+.cs-v { font-family: var(--font-anthropic-serif); color: #f0d48a; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.9rem; }
+.cs-big { font-family: var(--font-display); font-weight: 700; font-size: 1.4rem; }
+.cs-small { font-size: 0.8rem; color: color-mix(in srgb, var(--brand-cream) 75%, transparent); margin-top: 0.15rem; }
+.cs-extra { margin: 0.3rem 0 0; font-size: 0.85rem; color: color-mix(in srgb, var(--brand-cream) 80%, transparent); }
+.cs-actions { display: flex; flex-direction: column; gap: 0.45rem; width: 100%; margin-top: 0.8rem; }
+.cs-go, .cs-more { appearance: none; font: inherit; font-weight: 700; padding: 0.7rem 1rem; border-radius: 999px; cursor: pointer; }
+.cs-go { border: 0; background: #f0d48a; color: var(--brand-navy); font-size: 1rem; }
+.cs-go:hover { background: #f6e0a8; }
+.cs-more { border: 1px solid rgba(240, 212, 138, 0.6); background: transparent; color: var(--brand-cream); font-weight: 600; }
+.cs-go:focus-visible, .cs-more:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+/* Falling things. */
+.cs-sky { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.cs-bit { position: absolute; top: -12%; width: var(--size); height: var(--size); animation: cs-fall linear infinite; opacity: 0.9; }
+@keyframes cs-fall { from { transform: translate(0, 0) rotate(0deg); } to { transform: translate(var(--drift), 115%) rotate(540deg); top: 105%; } }
+.cs-bit-league { border-radius: 0 70% 0 70%; background: #d9822b; }
+.cs-bit-league.cs-v1 { background: #c8a04a; } .cs-bit-league.cs-v2 { background: #a33a22; } .cs-bit-league.cs-v3 { background: #e0a94c; }
+.cs-bit-festive { border-radius: 50%; background: #fff; opacity: 0.85; box-shadow: 0 0 6px rgba(255, 255, 255, 0.8); }
+.cs-bit-festive.cs-v1 { opacity: 0.55; } .cs-bit-festive.cs-v3 { opacity: 0.7; }
+.cs-bit-fa { width: calc(var(--size) * 0.45); height: var(--size); border-radius: 2px; background: #f1e8d4; }
+.cs-bit-fa.cs-v1 { background: #c8a04a; } .cs-bit-fa.cs-v2 { background: #1c2945; } .cs-bit-fa.cs-v3 { background: #f0d48a; }
+/* Fairy lights. */
+.cs-lights { position: absolute; top: 0.2rem; left: 0; right: 0; height: 1.8rem; display: flex; justify-content: space-around; align-items: flex-start;
+  background: radial-gradient(120% 60% at 50% -10%, transparent 58%, rgba(30, 30, 30, 0.6) 59%, transparent 62%); }
+.cs-light { width: 0.55rem; height: 0.8rem; margin-top: 0.55rem; border-radius: 50% 50% 45% 45%; animation: cs-twinkle 1.8s ease-in-out infinite; }
+.cs-light:nth-child(odd) { margin-top: 0.9rem; }
+.cs-l0 { background: #ff5a5a; box-shadow: 0 0 10px 2px rgba(255, 90, 90, 0.7); }
+.cs-l1 { background: #ffd56a; box-shadow: 0 0 10px 2px rgba(255, 213, 106, 0.7); animation-delay: 0.45s; }
+.cs-l2 { background: #7be495; box-shadow: 0 0 10px 2px rgba(123, 228, 149, 0.7); animation-delay: 0.9s; }
+.cs-l3 { background: #8ec5ff; box-shadow: 0 0 10px 2px rgba(142, 197, 255, 0.7); animation-delay: 1.35s; }
+@keyframes cs-twinkle { 50% { opacity: 0.35; box-shadow: none; } }
+.cs-festive .cs-art { margin-top: 0.8rem; }
+@media (prefers-reduced-motion: reduce) { .cs-bit, .cs-art, .cs-light { animation: none; } .cs-bit { display: none; } .cs-pop[open] { animation: none; } }
+@media (max-width: 640px) { .cs-title { font-size: 1.6rem; } .cs-art { height: 6.2rem; } }
