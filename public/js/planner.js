@@ -108,6 +108,7 @@
     }
     let cup = null;
     for (const cupDoc of season.cups || []) {
+      if (cupDoc.provisional) continue;
       const st = C.state(season, cupDoc);
       if (st.status === 'done') { if (st.champion && st.champion.id === id) cup = st.name + ' winner'; continue; }
       if (st.format === 'league') { const r = st.mini.rows.findIndex((x) => x.id === id); if (r >= 0 && st.status === 'live') cup = st.name + ': ' + (r + 1) + (['th', 'st', 'nd', 'rd'][((r + 1) % 100 >> 3 ^ 1) && (r + 1) % 10] || 'th'); continue; }

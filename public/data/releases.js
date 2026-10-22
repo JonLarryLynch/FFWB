@@ -33,7 +33,7 @@ window.FFWB_RELEASES = [
       {
         name: 'Cups',
         items: [
-          ['Three new trophies', 'The League Cup in the autumn and the FA Cup in the spring are knockouts seeded from the table, with a bye for the top seed. Festive Fixtures is a mini-league over the Christmas weeks.'],
+          ['Three new trophies', 'The League Cup in the autumn and the FA Cup in the spring are knockouts, drawn by themselves from the table the week they start, with a bye for the top seed. Until then you can see how the draw would look right now. Festive Fixtures is a mini-league over the Christmas weeks.'],
           ['No extra picks', 'Every cup game is decided by your normal league points that week. A tie goes to the better lock, then more winning picks, then a penalty shootout in FIFA.'],
           ['Cup weeks', 'Cup weeks are badged on the Picks tab, you get a heads-up the first time you open a cup week, and phone alerts go to anyone still in.'],
         ],

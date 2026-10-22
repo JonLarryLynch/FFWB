@@ -18,6 +18,7 @@
     return list.find((s) => s.status === 'live') || list.find((s) => s.status === 'upcoming') || [...list].reverse().find((s) => s.status === 'done') || null;
   }
   function stage(s) {
+    if (s.cup.provisional) return s.format === 'league' ? 'Weeks ' + s.cup.weeks.join(', ') + ' · starts week ' + s.cup.weeks[0] : 'Draws itself when week ' + s.cup.weeks[0] + ' starts';
     if (s.status === 'done') return 'Winner: ' + s.champion.name;
     if (s.format === 'league') {
       const next = s.cup.weeks.find((w) => !C.weekFinal(season, w));
@@ -57,7 +58,7 @@
     const mine = me();
     if (mine && s.status !== 'done') {
       const g = C.gameFor(season, [s.cup], mine, s.format === 'league' ? (s.cup.weeks.find((w) => !C.weekFinal(season, w)) || s.cup.weeks[0]) : (s.current && s.current.week));
-      if (g && g.kind === 'knockout') text.append(el('div', 'cup-banner-me', g.them ? 'Your game: you v ' + g.them.name : 'You have a bye this round'));
+      if (g && g.kind === 'knockout') text.append(el('div', 'cup-banner-me', s.cup.provisional ? (g.them ? 'If it started now: you v ' + g.them.name : 'If it started now: you would have a bye') : g.them ? 'Your game: you v ' + g.them.name : 'You have a bye this round'));
       else if (g && g.kind === 'league') text.append(el('div', 'cup-banner-me', g.pos ? "You're " + ordinal(g.pos) + ' so far' : ''));
       else if (s.format === 'knockout' && s.current && s.current.index > 0) text.append(el('div', 'cup-banner-me', "You're out. Somebody has to be."));
     }
@@ -190,7 +191,8 @@
       const txt = el('div');
       txt.append(el('div', 'cb-head-name', s.name), el('div', 'cb-head-stage', stage(s)));
       head.append(art, txt);
-      parts.push(head, s.format === 'league' ? leagueView(s) : knockoutView(s));
+      if (s.cup.provisional && s.format === 'knockout') parts.push(head, el('p', 'cb-provisional', 'Not drawn yet. This is how it looks with the table as it stands. The draw is fixed from the table when week ' + s.cup.weeks[0] + ' starts.'), knockoutView(s));
+      else parts.push(head, s.format === 'league' ? leagueView(s) : knockoutView(s));
     }
     body.replaceChildren(...parts);
   }

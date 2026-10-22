@@ -713,7 +713,6 @@
   const cupMsg = document.getElementById('cup-message');
   const cupType = document.getElementById('cup-type');
   const cupFirst = document.getElementById('cup-first');
-  const cupMake = document.getElementById('cup-make');
   const cupPlan = document.getElementById('cup-plan');
   const cupPick = document.getElementById('cup-pick');
   const cupGrid = document.getElementById('cup-grid');
@@ -724,12 +723,18 @@
   const isKO = () => Cups.TYPES[cupType.value].format === 'knockout';
   const cupId = (type) => type + '-' + season.config.season;
   const roundsNeeded = () => Cups.roundsFor(season.config.players.length);
+  const drawnCup = (type) => (season.cups || []).find((c) => c.id === cupId(type) && !c.provisional);
+  const savedFor = (type) => (drawnCup(type) ? drawnCup(type).weeks : (season.cupSchedule || {})[type] || null);
+  const started = (cup) => !!cup && cup.weeks.some(played);
   function takenWeeks(exceptType) {
     const out = {};
-    for (const c of season.cups || []) {
-      if (c.type === exceptType) continue;
-      const t = Cups.TYPES[c.type];
-      c.weeks.forEach((w, i) => { out[w] = { type: c.type, name: t.name, what: t.format === 'knockout' ? Cups.roundName(i, c.weeks.length) : 'week ' + (i + 1) + ' of ' + c.weeks.length }; });
+    for (const type of Object.keys(Cups.TYPES)) {
+      if (type === exceptType) continue;
+      const weeks = savedFor(type);
+      if (!weeks) continue;
+      const t = Cups.TYPES[type];
+      const drawn = !!drawnCup(type);
+      weeks.forEach((w, i) => { out[w] = { type, name: t.name, drawn, what: (t.format === 'knockout' ? Cups.roundName(i, weeks.length) : 'week ' + (i + 1) + ' of ' + weeks.length) + (drawn ? '' : ', saved, not drawn yet') }; });
     }
     return out;
   }
@@ -762,31 +767,39 @@
     }
     return { weeks: xmas.length >= 2 ? xmas.slice(0, 4) : [17, 18, 19].filter(free) };
   }
+  // Open a cup on its saved weeks if it has them (drawn or not), otherwise on a suggestion.
   function startCup(type) {
-    const sug = suggest(type);
+    const saved = savedFor(type);
+    const sug = saved ? (Cups.TYPES[type].format === 'knockout' ? { first: saved[0] } : { weeks: saved }) : suggest(type);
     festive.clear();
     if (sug.weeks) sug.weeks.forEach((w) => festive.add(w));
     if (sug.first) cupFirst.value = sug.first;
     cupReady = true;
   }
-  const changed = () => { cupMake.disabled = true; cupPlan.replaceChildren(); drawCupGrid(); };
+  const changed = () => drawCupGrid();
   function drawCupGrid() {
     if (!season || !Cups) return;
     if (!cupReady) startCup(cupType.value);
     const type = cupType.value;
     const T = Cups.TYPES[type];
     const ko = isKO();
-    const drawn = (season.cups || []).find((c) => c.id === cupId(type));
+    const drawn = drawnCup(type);
+    const locked = started(drawn);
     document.getElementById('cup-first-wrap').hidden = !ko;
-    document.getElementById('cup-how').textContent = drawn ? ''
+    cupFirst.disabled = locked;
+    document.getElementById('cup-how').textContent = locked ? 'The ' + T.name + ' has started, so its weeks are fixed. Use Push back a week on a round still to come.'
+      : drawn ? 'The ' + T.name + ' is drawn. You can still change its weeks until it starts: change them and save.'
       : ko ? 'The ' + T.name + ' needs ' + roundsNeeded() + ' weeks in a row, one round a week. Choose the first week, or tap a week on the calendar to start there.'
         : 'Tap the weeks to include. They do not need to be in a row: weeks 17 and 19 is fine. Most points over those weeks wins.';
     for (const o of cupType.options) {
-      const d = (season.cups || []).find((c) => c.id === cupId(o.value));
-      o.textContent = Cups.TYPES[o.value].name + (d ? ' (drawn, weeks ' + d.weeks.join(', ') + ')' : '');
+      const d = drawnCup(o.value);
+      const sv = savedFor(o.value);
+      o.textContent = Cups.TYPES[o.value].name + (d ? ' (drawn, weeks ' + d.weeks.join(', ') + ')' : sv ? ' (weeks ' + sv.join(', ') + ' saved)' : '');
     }
     const taken = takenWeeks(type);
-    const mine = drawn ? drawn.weeks : chosenWeeks();
+    const mine = locked ? drawn.weeks : chosenWeeks();
+    const saved = savedFor(type);
+    const dirty = !saved || saved.join(',') !== mine.join(',');
     const clashes = mine.filter((w) => taken[w]);
     cupGrid.replaceChildren(...Array.from({ length: R.WEEKS }, (_, k) => {
       const w = k + 1;
@@ -795,7 +808,7 @@
       const b = el('button', 'adm-wk' + (played(w) ? ' adm-wk-played' : '') + (t ? ' adm-wk-taken cup-' + t.type : '') + (on ? ' adm-wk-on cup-' + type : '') + (on && t ? ' adm-wk-clash' : '') + (w === season.config.currentWeek ? ' adm-wk-now' : '') + (w === R.HALF_END ? ' adm-wk-half' : ''));
       b.type = 'button';
       b.textContent = String(w);
-      b.disabled = !!drawn;
+      b.disabled = locked;
       b.title = 'Week ' + w + (t ? ': ' + t.name + ', ' + t.what : '') + (played(w) ? ' (results in)' : '') + (w === season.config.currentWeek ? ' (this week)' : '');
       b.setAttribute('aria-pressed', String(on));
       b.addEventListener('click', () => {
@@ -807,12 +820,12 @@
     }));
     const legend = document.getElementById('cup-legend');
     const present = [...new Set(Object.values(taken).map((t) => t.type))];
-    legend.replaceChildren(el('span', 'adm-lg adm-lg-on cup-' + type, drawn ? T.name + ' (drawn)' : 'This ' + T.name), ...present.map((p) => el('span', 'adm-lg cup-' + p, Cups.TYPES[p].name)), el('span', 'adm-lg adm-lg-played', 'Results in'));
+    legend.replaceChildren(el('span', 'adm-lg adm-lg-on cup-' + type, 'This ' + T.name), ...present.map((p) => el('span', 'adm-lg cup-' + p, Cups.TYPES[p].name + (drawnCup(p) ? '' : ' (saved)'))), el('span', 'adm-lg adm-lg-played', 'Results in'));
     // What the choice adds up to, and whether it can be drawn.
     let ok = false;
-    if (drawn) {
+    if (locked) {
       cupPick.className = 'adm-cup-pick';
-      cupPick.textContent = 'The ' + T.name + ' is already drawn for weeks ' + drawn.weeks.join(', ') + '. Delete it below to draw it again.';
+      cupPick.textContent = 'Weeks ' + drawn.weeks.join(', ') + ', drawn and under way.';
     } else if (clashes.length) {
       cupPick.className = 'adm-cup-pick adm-cup-bad';
       cupPick.textContent = 'Week ' + clashes.join(' and ') + ' already belong' + (clashes.length === 1 ? 's' : '') + ' to the ' + listNames([...new Set(clashes.map((w) => taken[w].name))]) + '. Choose other weeks.';
@@ -832,42 +845,46 @@
         : 'Weeks ' + listNames(mine.map(String)) + ' (' + mine.length + ' weeks' + (mine.some((w, k) => k && w !== mine[k - 1] + 1) ? ', not in a row' : '') + ').';
       if (mine.some(played)) cupPick.textContent += ' Some of these weeks already have results, and they will count.';
     }
-    document.getElementById('cup-preview').disabled = !ok;
+    // Saved or not, so it is always clear whether a change will stick.
+    const status = el('span', 'adm-cup-saved' + (dirty ? ' adm-cup-unsaved' : ''), locked ? '' : dirty ? (saved ? 'Changed, not saved yet. Saved weeks: ' + saved.join(', ') + '.' : 'Not saved yet.') : '\u2713 Saved' + (drawn ? ' and drawn.' : '. ' + (T.format === 'knockout' ? 'Draws itself' : 'Starts') + ' when week ' + mine[0] + ' starts.'));
+    if (!locked) cupPick.append(document.createElement('br'), status);
+    const saveB = document.getElementById('cup-save');
+    saveB.hidden = locked;
+    saveB.textContent = drawn ? 'Save new weeks' : 'Save weeks';
+    saveB.disabled = !ok || !dirty;
+    // How the draw would look if the cup started now. It is fixed from the table when its first week starts.
+    cupPlan.replaceChildren();
+    if (ok && !drawn) {
+      const box = el('div', 'adm-cupplan');
+      const seeds = Cups.table(season).map((r) => r.name);
+      if (ko) {
+        const order = Cups.seedOrder(2 ** Cups.roundsFor(seeds.length));
+        const list = el('ol', 'adm-pairs');
+        for (let k = 0; k < order.length; k += 2) {
+          const a = seeds[order[k] - 1];
+          const b = seeds[order[k + 1] - 1];
+          list.append(el('li', null, a && b ? '(' + order[k] + ') ' + a + ' v ' + b + ' (' + order[k + 1] + ')' : '(' + (a ? order[k] : order[k + 1]) + ') ' + (a || b) + ', bye'));
+        }
+        box.append(el('p', 'ffwb-note', 'It draws itself when week ' + mine[0] + ' starts, from the table then. If it started now, the first round would be:'), list);
+      } else {
+        box.append(el('p', 'ffwb-note', 'It starts by itself in week ' + mine[0] + '. Everyone is in, nothing to draw. Most points over weeks ' + listNames(mine.map(String)) + ' wins, then the lock, winning picks and a FIFA shootout.'));
+      }
+      cupPlan.append(box);
+    }
   }
   const cupBody = () => ({ type: cupType.value, firstWeek: Number(cupFirst.value), weeks: isKO() ? undefined : [...festive].sort((a, b) => a - b) });
   cupType.addEventListener('change', () => { startCup(cupType.value); changed(); });
-  cupFirst.addEventListener('input', changed);
-  document.getElementById('cup-preview').addEventListener('click', async () => {
-    const out = await adminPost('cups', { action: 'preview', ...cupBody() });
-    if (!out.ok) { say(cupMsg, 'bad', out.error); cupMake.disabled = true; return; }
-    const t = Cups.TYPES[cupType.value];
-    const box = el('div', 'adm-cupplan');
-    box.append(el('p', 'ffwb-strong', t.name + ': weeks ' + out.weeks.join(', ')));
-    if (t.format === 'knockout') {
-      const order = Cups.seedOrder(2 ** Cups.roundsFor(out.seeds.length));
-      const list = el('ol', 'adm-pairs');
-      for (let i = 0; i < order.length; i += 2) {
-        const a = out.seeds[order[i] - 1];
-        const b = out.seeds[order[i + 1] - 1];
-        list.append(el('li', null, a && b ? '(' + order[i] + ') ' + a + ' v ' + b + ' (' + order[i + 1] + ')' : '(' + (a ? order[i] : order[i + 1]) + ') ' + (a || b) + ', bye'));
-      }
-      box.append(el('p', 'ffwb-note', 'First round, week ' + out.weeks[0] + ', seeded from the table as it stands before then:'), list);
-    } else {
-      box.append(el('p', 'ffwb-note', 'All ' + out.seeds.length + ' players. Most points over weeks ' + listNames(out.weeks.map(String)) + ' wins, with the same tiebreaks as the cups: the lock, then winning picks, then a penalty shootout in FIFA.'));
-    }
-    cupPlan.replaceChildren(box);
-    cupMake.disabled = false;
-    say(cupMsg, 'info', 'Happy with that? Make the draw to lock it in and tell everyone.');
-  });
-  cupMake.addEventListener('click', async () => {
-    cupMake.disabled = true;
-    const out = await adminPost('cups', { action: 'create', ...cupBody() });
+  document.getElementById('cup-save').addEventListener('click', async () => {
+    const T = Cups.TYPES[cupType.value];
+    const drawn = drawnCup(cupType.value);
+    const out = await adminPost('cups', { action: 'save-weeks', ...cupBody() });
     if (!out.ok) { say(cupMsg, 'bad', out.error); return; }
-    cupPlan.replaceChildren();
-    cupReady = false;
-    say(cupMsg, 'ok', 'The draw is made. Everyone with alerts on has been told who they play.');
+    say(cupMsg, 'ok', T.name + (drawn ? ' moved to' : ' saved for') + ' weeks ' + out.weeks.join(', ') + '.' + (drawn ? '' : ' It ' + (T.format === 'knockout' ? 'draws itself' : 'starts') + ' when week ' + out.weeks[0] + ' starts.'));
+    season.cupSchedule = out.schedule;
+    drawCupGrid();
     window.FFWB.reload();
   });
+  cupFirst.addEventListener('input', changed);
   async function cupAction(body, done) {
     const out = await adminPost('cups', body);
     if (out.ok) { say(cupMsg, 'ok', done); window.FFWB.reload(); } else say(cupMsg, 'bad', out.error);
@@ -881,8 +898,16 @@
     box.replaceChildren(...list.map((s) => {
       const card = el('div', 'adm-cup');
       const head = el('div', 'adm-cup-head');
-      head.append(el('b', null, s.name), el('span', 'ffwb-muted', s.status === 'done' ? 'Won by ' + s.champion.name : s.status === 'live' ? 'Being played' : 'Drawn, starts week ' + s.cup.weeks[0]));
+      head.append(el('b', null, s.name), el('span', 'ffwb-muted', s.cup.provisional ? 'Weeks ' + s.cup.weeks.join(', ') + ' saved' : s.status === 'done' ? 'Won by ' + s.champion.name : s.status === 'live' ? 'Being played' : 'Drawn, starts week ' + s.cup.weeks[0]));
       card.append(head);
+      if (s.cup.provisional) {
+        card.append(el('p', 'ffwb-note', s.format === 'knockout' ? 'Draws itself when week ' + s.cup.weeks[0] + ' starts, seeded from the table then. Change its weeks above.' : 'Starts by itself in week ' + s.cup.weeks[0] + '. Change its weeks above.'));
+        const rm = el('button', 'pk-clear adm-small adm-danger', 'Remove these weeks');
+        rm.type = 'button';
+        rm.addEventListener('click', () => { if (confirm('Remove the ' + s.name + ' weeks? It will not be played unless you save new weeks.')) { cupReady = false; cupAction({ action: 'delete', id: s.cup.id }, s.name + ' weeks removed.'); } });
+        card.append(rm);
+        return card;
+      }
       if (s.format === 'knockout') {
         for (const r of s.bracket.rounds) {
           const rr = el('div', 'adm-cup-round');
@@ -927,7 +952,7 @@
       }
       const del = el('button', 'pk-clear adm-small adm-danger', 'Delete this cup');
       del.type = 'button';
-      del.addEventListener('click', () => { if (confirm('Delete the ' + s.name + '? The draw and any overrides go with it.')) cupAction({ action: 'delete', id: s.cup.id }, s.name + ' deleted.'); });
+      del.addEventListener('click', () => { if (confirm('Delete the ' + s.name + '? The draw, its weeks and any overrides go with it. Save weeks again to bring it back.')) cupAction({ action: 'delete', id: s.cup.id }, s.name + ' deleted.'); });
       card.append(del);
       return card;
     }));

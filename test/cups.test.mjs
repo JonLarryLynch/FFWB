@@ -155,4 +155,48 @@ await t('each cup keeps its own weeks', async () => {
   assert.match(r.body.error, /week 13 is already part of the Festive Fixtures/);
 });
 
+await t('cup weeks can be saved before the draw, and a drawn cup can move until it starts', async () => {
+  const { post, get } = setup();
+  // Save Festive weeks without drawing: they stick, and they block other cups.
+  let r = await post('admin/cups', { passcode: 'p', action: 'save-weeks', type: 'festive', weeks: [17, 19] });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  let s = await get();
+  assert.deepEqual(s.cupSchedule.festive, [17, 19]);
+  assert.equal(s.cups.length, 1);
+  assert.ok(s.cups[0].provisional, 'shown as provisional until it starts');
+  r = await post('admin/cups', { passcode: 'p', action: 'save-weeks', type: 'fa', firstWeek: 16 });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /Festive Fixtures, saved but not drawn yet/);
+  // Save the League Cup, then change its weeks again before the draw.
+  assert.equal((await post('admin/cups', { passcode: 'p', action: 'save-weeks', type: 'league', firstWeek: 9 })).status, 200);
+  assert.equal((await post('admin/cups', { passcode: 'p', action: 'save-weeks', type: 'league', firstWeek: 10 })).status, 200);
+  s = await get();
+  assert.deepEqual(s.cupSchedule.league, [10, 11, 12, 13]);
+  // It draws itself once week 10 is the current week, from the table going into week 10.
+  s = await get();
+  const lp = s.cups.find((c) => c.type === 'league');
+  assert.ok(lp.provisional, 'not drawn while week 10 is still to come');
+  assert.equal((await post('admin/config', { passcode: 'p', currentWeek: 10 })).status, 200);
+  s = await get();
+  const lc = s.cups.find((c) => c.type === 'league');
+  assert.ok(!lc.provisional && lc.auto, 'drawn by itself');
+  assert.deepEqual(lc.weeks, [10, 11, 12, 13]);
+  assert.deepEqual(lc.seeds, cups.table(s, 10).map((r) => r.id), 'seeded from the table going into week 10');
+  assert.equal(s.cupSchedule.league, undefined);
+  assert.ok(s.cups.find((c) => c.type === 'festive').provisional, 'Festive Fixtures waits for week 17');
+  // A drawn cup that has not started can still move.
+  assert.equal((await post('admin/config', { passcode: 'p', currentWeek: 8 })).status, 200);
+  // Move the drawn cup before it starts.
+  r = await post('admin/cups', { passcode: 'p', action: 'save-weeks', type: 'league', firstWeek: 12 });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  s = await get();
+  assert.deepEqual(s.cups.find((c) => c.type === 'league').weeks, [12, 13, 14, 15]);
+  // Deleting removes it completely, and a saved cup can be removed too.
+  await post('admin/cups', { passcode: 'p', action: 'delete', id: s.cups.find((c) => c.type === 'league').id });
+  await post('admin/cups', { passcode: 'p', action: 'delete', id: 'festive-' + s.config.season });
+  s = await get();
+  assert.equal(s.cups.length, 0);
+  assert.deepEqual(s.cupSchedule, {});
+});
+
 console.log(passed + ' tests passed');

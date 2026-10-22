@@ -121,7 +121,9 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     ]);
     const picks = {};
     config.players.forEach((p, i) => { picks[p.id] = docs[i] || { player: p.id, weeks: {}, history: [] }; });
-    return { config, results: results || { weeks: {}, history: [] }, picks, fixtures: fixtures || null, cups: (cups && cups.cups) || [], reactions: reactions || {}, archives };
+    // Cup weeks the commissioner has saved but not drawn yet, by cup type.
+    const cupSchedule = (cups && cups.schedule && cups.schedule[config.season]) || {};
+    return { config, results: results || { weeks: {}, history: [] }, picks, fixtures: fixtures || null, cups: (cups && cups.cups) || [], cupSchedule, reactions: reactions || {}, archives };
   }
 
   async function loadArchives(store) {
@@ -189,11 +191,19 @@ export function createHandler(getStore, getPasscode, extras = {}) {
   // Is this phone allowed to act as this player?
   const actsAs = (keys, id, given) => !keyNeeded(keys, id) || keyOk(given, keys.players[id]);
 
-  const publicView = ({ config, results, picks, fixtures, cups, reactions, archives }, me = null, full = false, linked = []) => ({
+  const publicView = ({ config, results, picks, fixtures, cups, cupSchedule, reactions, archives }, me = null, full = false, linked = []) => ({
     linked,
+    cupSchedule: cupSchedule || {},
     archives: archives || [],
     reactions: reactions || {},
-    cups: (cups || []).filter((c) => c.season === config.season),
+    cups: [
+      ...(cups || []).filter((c) => c.season === config.season),
+      // Saved weeks, not drawn yet: shown as they would be drawn if the cup started now. Fixed when it starts.
+      ...Object.entries(cupSchedule || {}).filter(([type, weeks]) => cupsLib.TYPES[type] && weeks && weeks.length && !(cups || []).some((c) => c.season === config.season && c.type === type)).map(([type, weeks]) => ({
+        id: type + '-' + config.season, type, season: config.season, weeks, overrides: {}, provisional: true,
+        seeds: cupsLib.table(seasonOf({ config, results, picks }), Math.min(weeks[0], config.currentWeek + 1)).map((r) => r.id),
+      })),
+    ],
     ok: true,
     config: { eflWeeks: [], eflClubs: [], reopenedWeeks: [], autoClose: false, shameClub: SHAME_CLUB, ...config },
     openWeeks: openWeeks(config, results, fixtures),
@@ -206,6 +216,54 @@ export function createHandler(getStore, getPasscode, extras = {}) {
     hiddenPicked: hidePicks({ config, results, picks, fixtures }, me, full).pickedIn,
     serverTime: new Date().toISOString(),
   });
+
+  // Tell everyone a cup has been drawn, with their own first game. Once per cup.
+  async function announceDraw(store, season, cup) {
+    await push.once(store, 'draw-' + cup.id, async () => {
+      const st = cupsLib.state(season, cup);
+      if (st.format === 'knockout') {
+        const r0 = st.bracket.rounds[0];
+        for (const m of r0.matches) {
+          for (const [me, them] of [[m.a, m.b], [m.b, m.a]]) {
+            if (!me) continue;
+            await push.send(store, { title: 'The ' + st.name + ' draw is out', body: them ? 'You play ' + them.name + ' in week ' + r0.week + '.' : 'You have a bye into round 2 as top of the table.', tag: 'cup' }, { players: [me.id], sender: extras.pushSender });
+          }
+        }
+      } else {
+        await push.send(store, { title: st.name + ' starts this week', body: 'Most points over weeks ' + cup.weeks.join(', ') + ' wins it. Everyone is in.', tag: 'cup' }, { sender: extras.pushSender });
+      }
+      return { sent: true };
+    });
+  }
+
+  // Cups draw themselves: once a cup's first week is the current week, it is seeded from the table as it stands
+  // going into that week (every earlier week counted) and fixed. The commissioner only sets the weeks.
+  async function autoDraw(store, all) {
+    const { config } = all;
+    const due = Object.entries(all.cupSchedule || {}).filter(([type, weeks]) => cupsLib.TYPES[type] && weeks && weeks.length && weeks[0] <= config.currentWeek && !all.cups.some((c) => c.season === config.season && c.type === type));
+    if (!due.length) return all;
+    const season = seasonOf(all);
+    const made = [];
+    const doc = await update(store, 'cups', (d) => {
+      d.cups = d.cups || [];
+      const sched = ((d.schedule = d.schedule || {})[config.season] = (d.schedule[config.season] || {}));
+      for (const [type, saved] of due) {
+        const id = type + '-' + config.season;
+        if (d.cups.some((c) => c.id === id) || !sched[type]) continue;
+        const seeds = cupsLib.table(season, saved[0]).map((r) => r.id);
+        let weeks = sched[type];
+        // A knockout needs one week per round; if players came or went since the weeks were saved, adjust.
+        if (cupsLib.TYPES[type].format === 'knockout') weeks = Array.from({ length: cupsLib.roundsFor(seeds.length) }, (_, i) => weeks[0] + i).filter((w) => w <= rules.WEEKS);
+        const cup = { id, type, season: config.season, weeks, seeds, overrides: {}, drawnAt: new Date().toISOString(), auto: true };
+        d.cups.push(cup);
+        delete sched[type];
+        made.push(cup);
+      }
+      return d;
+    }, () => ({ cups: [] }));
+    for (const cup of made) { try { await announceDraw(store, season, cup); } catch (err) { console.error('Could not send the draw alert: ' + err.message); } }
+    return { ...all, cups: doc.cups || [], cupSchedule: ((doc.schedule || {})[config.season]) || {} };
+  }
 
   // A save that did not come from the player's own linked phone gets a heads-up on their phone, so anything
   // sneaky is spotted (and undone from the change log) before kickoff. Saves from a phone the player has alerts
@@ -324,7 +382,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         // Your own picks before kickoff need your key once your link has been opened.
         const me = asked && actsAs(keys, asked, req.headers.get('x-ffwb-key')) ? asked : null;
         const linked = Object.entries(keys.players).filter(([, k]) => k.locked).map(([id]) => id);
-        return json(200, publicView(await freshFixtures(store, await loadAll(store)), me, full, linked));
+        return json(200, publicView(await autoDraw(store, await freshFixtures(store, await loadAll(store))), me, full, linked));
       }
 
       // An error from someone's phone. The same problem is counted, not stored twice, and the list stays short.
@@ -644,7 +702,13 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         const T = cupsLib.TYPES[type];
         // The seeds and weeks a new cup would get, from the table before its first week.
         // Each cup has its own weeks: a week can only belong to one cup, so two cups never get in each other's way.
-        const others = (d, exceptId) => ((d && d.cups) || all.cups || []).filter((c) => c.season === config.season && c.id !== exceptId);
+        // Every other cup's weeks: the drawn ones, and the ones saved but not drawn yet.
+        const others = (d, exceptId) => {
+          const drawn = ((d && d.cups) || all.cups || []).filter((c) => c.season === config.season && c.id !== exceptId);
+          const sched = d ? ((d.schedule || {})[config.season] || {}) : all.cupSchedule;
+          const saved = Object.entries(sched).filter(([t]) => t + '-' + config.season !== exceptId && !drawn.some((c) => c.type === t)).map(([t, weeks]) => ({ type: t, weeks, saved: true }));
+          return [...drawn, ...saved];
+        };
         const clash = (weeks, list) => {
           for (const c of list) {
             const hit = weeks.find((w) => c.weeks.includes(w));
@@ -652,7 +716,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
               const ct = cupsLib.TYPES[c.type];
               const i = c.weeks.indexOf(hit);
               const what = ct.format === 'knockout' ? ' (' + cupsLib.roundName(i, c.weeks.length).toLowerCase() + ')' : '';
-              return 'Week ' + hit + ' is already part of the ' + ct.name + what + '. Each week can only belong to one cup.';
+              return 'Week ' + hit + ' is already part of the ' + ct.name + what + (c.saved ? ', saved but not drawn yet' : '') + '. Each week can only belong to one cup.';
             }
           }
           return null;
@@ -672,7 +736,7 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           } else {
             const first = Number(body.firstWeek);
             if (!Number.isInteger(first) || first < 1 || first > rules.WEEKS) return { error: 'Choose a first week from 1 to 38.' };
-            const n = cupsLib.roundsFor(config.players.length);
+            const n = cupsLib.roundsFor(body.seedCount || config.players.length);
             weeks = Array.from({ length: n }, (_, i) => first + i);
             if (weeks[weeks.length - 1] > rules.WEEKS) return { error: 'The ' + T.name + ' needs ' + n + ' weeks in a row, so it cannot start after week ' + (rules.WEEKS - n + 1) + '.' };
             seedWeek = first;
@@ -689,9 +753,35 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         }
         let made = null;
         let overridden = null;
+        let savedWeeks = null;
         const doc = await update(store, 'cups', (d) => {
           d.cups = d.cups || [];
+          d.schedule = d.schedule || {};
+          const sched = d.schedule[config.season] || (d.schedule[config.season] = {});
           const find = (id) => d.cups.find((c) => c.id === id);
+          // Save a cup's weeks: before the draw they are kept for it; a drawn cup moves, until it has started.
+          if (body.action === 'save-weeks') {
+            const id = type + '-' + config.season;
+            const cup = find(id);
+            if (cup) {
+              if (cup.weeks.some((w) => cupsLib.weekStarted(season, w))) throw Object.assign(new Error('The ' + T.name + ' has started, so its weeks cannot move now. Use Push back a week on a round still to come.'), { status: 400 });
+              body.seedCount = cup.seeds.length;
+              const p = plan(others(d, id));
+              if (p.error) throw Object.assign(new Error(p.error), { status: 400 });
+              cup.weeks = p.weeks;
+              savedWeeks = p.weeks;
+            } else {
+              const p = plan(others(d, id));
+              if (p.error) throw Object.assign(new Error(p.error), { status: 400 });
+              sched[type] = p.weeks;
+              savedWeeks = p.weeks;
+            }
+            return d;
+          }
+          if (body.action === 'unschedule') {
+            delete sched[type];
+            return d;
+          }
           if (body.action === 'create') {
             const id = type + '-' + config.season;
             const p = plan(others(d, id));
@@ -699,10 +789,14 @@ export function createHandler(getStore, getPasscode, extras = {}) {
             if (find(id)) throw Object.assign(new Error('There is already a ' + T.name + ' this season. Delete it first to draw again.'), { status: 400 });
             made = { id, type, season: config.season, weeks: p.weeks, seeds: p.seeds, overrides: {}, drawnAt: new Date().toISOString() };
             d.cups.push(made);
+            delete sched[type];
           } else {
             const cup = find(String(body.id));
+            // A cup that is only saved (not drawn yet) can be deleted too: that just removes its weeks.
+            if (!cup && body.action === 'delete') { for (const t of Object.keys(sched)) if (t + '-' + config.season === String(body.id)) delete sched[t]; return d; }
             if (!cup) throw Object.assign(new Error('That cup is gone.'), { status: 404 });
-            if (body.action === 'delete') d.cups = d.cups.filter((c) => c !== cup);
+            // Deleting a draw keeps its weeks saved, so drawing it again starts from the same dates.
+            if (body.action === 'delete') { d.cups = d.cups.filter((c) => c !== cup); delete sched[cup.type]; }
             if (body.action === 'push-back') {
               const from = Math.max(0, Number(body.round) || 0);
               if (cup.weeks[cup.weeks.length - 1] >= rules.WEEKS) throw Object.assign(new Error('The cup already ends in week 38.'), { status: 400 });
@@ -721,28 +815,12 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           }
           return d;
         }, () => ({ cups: [] }));
-        if (made) {
-          // Tell everyone the draw is out, with their own first game.
-          try {
-            const st = cupsLib.state(season, made);
-            if (st.format === 'knockout') {
-              const r0 = st.bracket.rounds[0];
-              for (const m of r0.matches) {
-                for (const [me, them] of [[m.a, m.b], [m.b, m.a]]) {
-                  if (!me) continue;
-                  await push.send(store, { title: 'The ' + st.name + ' draw is out', body: them ? 'You play ' + them.name + ' in week ' + r0.week + '.' : 'You have a bye into round 2 as top of the table.', tag: 'cup' }, { players: [me.id], sender: extras.pushSender });
-                }
-              }
-            } else {
-              await push.send(store, { title: st.name + ' starts week ' + made.weeks[0], body: 'Most points over weeks ' + made.weeks.join(', ') + ' wins it.', tag: 'cup' }, { sender: extras.pushSender });
-            }
-          } catch (err) { console.error('Could not send the draw alert: ' + err.message); }
-        }
+        if (made) { try { await announceDraw(store, season, made); } catch (err) { console.error('Could not send the draw alert: ' + err.message); } }
         // A shootout result can complete a round, so send the next-round alerts now.
         if (overridden && overridden.cup.weeks[overridden.round]) {
           try { await cupAlerts(store, overridden.cup.weeks[overridden.round]); } catch (err) { console.error('Could not send cup alerts: ' + err.message); }
         }
-        return json(200, { ok: true, cups: doc.cups.filter((c) => c.season === config.season) });
+        return json(200, { ok: true, cups: doc.cups.filter((c) => c.season === config.season), schedule: (doc.schedule || {})[config.season] || {}, weeks: savedWeeks });
       }
 
       if (route === 'admin/players' && req.method === 'POST') {

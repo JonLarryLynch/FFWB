@@ -695,6 +695,7 @@
         } else {
           line = game.detail + (game.pos ? ". You're " + game.pos + (['th', 'st', 'nd', 'rd'][(game.pos % 100 >> 3 ^ 1) && game.pos % 10] || 'th') + ' so far' : '');
         }
+        if (game.cup.cup.provisional) line = 'Not drawn yet. If it started now: ' + line.charAt(0).toLowerCase() + line.slice(1);
         cupStrip.replaceChildren(el('span', 'pk-cup-name', game.label + (game.round ? ' · ' + game.round : '')), el('span', 'pk-cup-line', line), el('span', 'pk-cup-go', '›'));
         cupStrip.onclick = () => window.FFWBCupsUI && window.FFWBCupsUI.open(game.cup.cup.type);
         cupStrip.hidden = false;
