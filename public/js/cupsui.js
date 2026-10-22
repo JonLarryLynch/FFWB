@@ -44,11 +44,12 @@
   function banner() {
     const box = document.getElementById('cup-banner');
     if (!box) return;
-    const list = states();
-    const s = lead(list);
-    // Show while a cup is drawn or being played, and for a while after it is won (until the next week starts).
-    const recent = s && s.status === 'done' && Math.max(...s.cup.weeks) >= season.config.currentWeek - 2;
-    if (!s || (s.status === 'done' && !recent)) { box.hidden = true; return; }
+    // Only while a cup is actually on: from its first week to its last, and the week after a final to show
+    // the winner. A cup still to come (drawn or not) has no banner yet.
+    const w = season.config.currentWeek;
+    const on = (x) => !x.cup.provisional && w >= x.cup.weeks[0] && (w <= x.cup.weeks[x.cup.weeks.length - 1] || (x.status === 'done' && w <= x.cup.weeks[x.cup.weeks.length - 1] + 1));
+    const s = lead(states().filter(on));
+    if (!s) { box.hidden = true; return; }
     box.hidden = false;
     box.className = 'cup-banner cup-' + s.cup.type;
     const art = el('img', 'cup-banner-art');
