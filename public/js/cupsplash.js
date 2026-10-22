@@ -146,26 +146,39 @@
     pop.showModal();
   }
 
-  function maybeShow() {
-    if (!season || pop.open) return;
-    const picksTab = document.getElementById('picks');
-    const homeTab = document.getElementById('home');
-    if (picksTab && picksTab.hidden && !(homeTab && !homeTab.hidden)) return;
-    if (document.querySelector('dialog[open]')) return;
+  // Once per cup week on each phone, on This week or the Picks tab. If another pop-up is up (the intro, say),
+  // wait for it to close rather than missing the week.
+  let waiting = false;
+  function due() {
+    if (!season) return null;
     const week = season.config.currentWeek;
     for (const cup of season.cups || []) {
-      if (!cup.weeks.includes(week)) continue;
+      if (cup.provisional || !cup.weeks.includes(week)) continue;
       const key = 'ffwb-cupweek-' + cup.id + '-' + week;
-      if (store.get(key)) continue;
-      const st = C.state(season, cup);
-      store.set(key, '1');
-      setTimeout(() => show(st, week), 450);
-      return;
+      if (!store.get(key)) return { cup, key, week };
     }
+    return null;
+  }
+  function maybeShow() {
+    if (!season || pop.open || waiting || !due()) return;
+    waiting = true;
+    let tries = 0;
+    (function go() {
+      const picksTab = document.getElementById('picks');
+      const homeTab = document.getElementById('home');
+      const onTab = !(picksTab && picksTab.hidden) || (homeTab && !homeTab.hidden);
+      const d = due();
+      if (!d) { waiting = false; return; }
+      if ((document.querySelector('dialog[open]') || !onTab) && tries < 120) { tries += 1; setTimeout(go, 1000); return; }
+      waiting = false;
+      if (document.querySelector('dialog[open]') || !onTab) return;
+      store.set(d.key, '1');
+      show(C.state(season, d.cup), d.week);
+    })();
   }
 
   pop.addEventListener('click', (e) => { if (e.target === pop) pop.close(); });
   if (window.FFWB) window.FFWB.onSeason((s) => { season = s; if (s) maybeShow(); });
-  document.getElementById('tab-picks') && document.getElementById('tab-picks').addEventListener('click', () => setTimeout(maybeShow, 50));
+  for (const id of ['tab-picks', 'tab-home']) { const t = document.getElementById(id); if (t) t.addEventListener('click', () => setTimeout(maybeShow, 50)); }
   window.FFWBCupSplash = { preview: (type, week) => { const cup = (season.cups || []).find((c) => c.type === type); if (cup) show(C.state(season, cup), week || cup.weeks[0]); } };
 })();

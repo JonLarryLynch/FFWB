@@ -64,11 +64,12 @@
   if (forced) history.replaceState(null, '', location.pathname + location.hash);
   // Wait for the page to settle, and step aside if another pop-up (a cup week, say) got there first.
   let tries = 0;
-  (function wait() {
+  // Start a moment later than the intro, so a new or newly linked player sees the intro first.
+  setTimeout(function wait() {
     if (!forced && store.get() === list[0].id) return;
     if (document.querySelector('dialog[open]') && tries < 20) { tries += 1; setTimeout(wait, 1500); return; }
     if (document.querySelector('dialog[open]')) return;
     open();
-  })();
+  }, 1200);
   window.FFWBWhatsNew = { open };
 })();
