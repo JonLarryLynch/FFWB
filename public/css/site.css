@@ -1258,3 +1258,10 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 :root[data-theme="dark"] .pk-day.cup-league, :root[data-theme="dark"] .pk-key-sw.cup-league, :root[data-theme="dark"] .adm-lg.cup-league, :root[data-theme="dark"] .adm-wk-taken.cup-league { --cup: #8fa8dc; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pk-day.cup-league, :root:not([data-theme="light"]) .pk-key-sw.cup-league, :root:not([data-theme="light"]) .adm-lg.cup-league, :root:not([data-theme="light"]) .adm-wk-taken.cup-league { --cup: #8fa8dc; } }
 @media (prefers-reduced-motion: reduce) { .ff-tip { transition: none; } }
+
+/* Season awards, styled like the weekly report. */
+.ffwb-award-item { grid-template-rows: auto auto 1fr; }
+.ffwb-award-item .ffwb-recap-icon { grid-row: span 3; }
+.ffwb-award-list .ffwb-award-name { font-family: inherit; font-size: 0.95rem; font-weight: 600; line-height: 1.35; letter-spacing: 0; }
+.ffwb-award-sub { font-size: 0.82rem; color: var(--color-fg-muted); line-height: 1.35; }
+#awards-box .ffwb-plot { padding: 0; }

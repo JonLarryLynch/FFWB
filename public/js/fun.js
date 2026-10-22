@@ -420,6 +420,30 @@ function cards(plot, source, key, nameField, rows) {
   plot.replaceChildren(wall);
 }
 
+// Season awards in the same style as the weekly report: an icon, the award, the winner and the detail.
+const AWARD_ICONS = {
+  'Hot streak': '\u{1F525}', 'Gone cold': '\u{1F976}', 'Most weeks on top': '\u{1F947}', 'Serial bottler': '\u{1F648}',
+  'Best single week': '\u{1F680}', 'The sheep': '\u{1F411}', 'The maverick': '\u{1F3B2}', 'Lone wolf of the season': '\u{1F43E}',
+};
+function awardList(plot, rows) {
+  const race = window.dash ? window.dash.data('race') : null;
+  const through = race && race.status === 'ok' && race.data.length ? Math.max(...race.data.map((r) => r.week)) : null;
+  const head = el('div', 'ffwb-recap-week', through ? 'Through week ' + through : 'This season');
+  const list = el('ul', 'ffwb-recap-list ffwb-award-list');
+  for (const r of rows) {
+    const where = 'award=' + String(r.award).replace(/[%&=]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+    const li = el('li', 'ffwb-recap-item ffwb-award-item');
+    const name = el('span', 'ffwb-recap-text ffwb-award-name', r.winner);
+    name.dataset.source = 'awards'; name.dataset.field = 'winner'; name.dataset.where = where;
+    const detail = el('span', 'ffwb-award-sub', r.detail);
+    detail.dataset.source = 'awards'; detail.dataset.field = 'detail'; detail.dataset.where = where;
+    li.append(el('span', 'ffwb-recap-icon', AWARD_ICONS[r.award] || '\u{1F3C5}'), el('span', 'ffwb-recap-label', r.award), name, detail);
+    list.append(li);
+  }
+  plot.classList.remove('ffwb-plain');
+  plot.replaceChildren(head, list);
+}
+
 // A bump chart: one line per player, league position by week.
 function bump(plot, race) {
     const weeks = [...new Set(race.map((r) => r.week))].sort((a, b) => a - b);
@@ -487,7 +511,7 @@ function drawRace() {
 function drawAwards() {
   block('awards-box', ['awards'], (plot, awards) => {
     if (!awards.length) return plot.replaceChildren(el('div', 'ffwb-note', 'Awards appear once a week is scored.'));
-    cards(plot, 'awards', 'award', 'winner', awards);
+    awardList(plot, awards);
   });
 
   block('herd-box', ['herd'], (plot, herd) => {
