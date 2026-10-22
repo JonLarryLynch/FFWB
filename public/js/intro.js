@@ -104,7 +104,12 @@
   const linking = new URLSearchParams(location.search).has('key');
   if (!store.get('ffwb-intro-done') && (isNew || pending) && !linking) {
     if (isNew) { const latest = (window.FFWB_RELEASES || [])[0]; if (latest) store.set('ffwb-seen-release', latest.id); }
-    setTimeout(() => { if (!document.querySelector('dialog[open]')) open(); }, 500);
+    let tries = 0;
+    (function go() {
+      if (store.get('ffwb-intro-done')) return;
+      if (document.querySelector('dialog[open]') && tries < 60) { tries += 1; setTimeout(go, 1000); return; }
+      if (!document.querySelector('dialog[open]')) open();
+    })();
   }
   window.FFWBIntro = { open };
 })();
