@@ -365,11 +365,17 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           if (!/^\d{1,2}\|[^|]{1,40}$/.test(k) || !v || typeof v.at !== 'number') continue;
           incoming[k] = { on: !!v.on, at: Math.min(v.at, Date.now() + 60e3) };
         }
+        const device = String(body.device || '').slice(0, 40);
         const doc = await update(store, 'plans/' + season + '/' + id, (d) => {
-          for (const [k, v] of Object.entries(incoming)) if (!d.cells[k] || v.at > d.cells[k].at) d.cells[k] = v;
+          for (const [k, v] of Object.entries(incoming)) {
+            if (d.cells[k] && v.at <= d.cells[k].at) continue;
+            d.cells[k] = v;
+            // Where and when the newest change came from, so each device can show the sync really happened.
+            if (!d.lastAt || v.at >= d.lastAt) { d.lastAt = v.at; d.lastDevice = device || d.lastDevice || null; }
+          }
           return d;
         }, () => ({ cells: {} }));
-        return json(200, { ok: true, cells: doc.cells });
+        return json(200, { ok: true, cells: doc.cells, lastAt: doc.lastAt || null, lastDevice: doc.lastDevice || null });
       }
 
       // A phone opening a personal link: tie it to that player from now on.
@@ -637,24 +643,47 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         const type = String(body.type || '');
         const T = cupsLib.TYPES[type];
         // The seeds and weeks a new cup would get, from the table before its first week.
-        const plan = () => {
-          const first = Number(body.firstWeek);
-          if (!T) return { error: 'Choose a cup.' };
-          if (!Number.isInteger(first) || first < 1 || first > rules.WEEKS) return { error: 'Choose a first week from 1 to 38.' };
-          const seeds = cupsLib.table(season, first).map((r) => r.id);
-          let weeks;
-          if (T.format === 'league') {
-            const n = Math.max(1, Math.min(8, Number(body.length) || 3));
-            weeks = Array.from({ length: n }, (_, i) => first + i);
-          } else {
-            weeks = Array.from({ length: cupsLib.roundsFor(seeds.length) }, (_, i) => first + i);
+        // Each cup has its own weeks: a week can only belong to one cup, so two cups never get in each other's way.
+        const others = (d, exceptId) => ((d && d.cups) || all.cups || []).filter((c) => c.season === config.season && c.id !== exceptId);
+        const clash = (weeks, list) => {
+          for (const c of list) {
+            const hit = weeks.find((w) => c.weeks.includes(w));
+            if (hit) {
+              const ct = cupsLib.TYPES[c.type];
+              const i = c.weeks.indexOf(hit);
+              const what = ct.format === 'knockout' ? ' (' + cupsLib.roundName(i, c.weeks.length).toLowerCase() + ')' : '';
+              return 'Week ' + hit + ' is already part of the ' + ct.name + what + '. Each week can only belong to one cup.';
+            }
           }
-          if (weeks[weeks.length - 1] > rules.WEEKS) return { error: 'That cup would run past week 38. Start it earlier.' };
-          return { seeds, weeks };
+          return null;
+        };
+        // Knockouts run one round a week, in a row, from the first week. Festive Fixtures can be any weeks you
+        // choose, in a row or not (say 17 and 19).
+        const plan = (list) => {
+          if (!T) return { error: 'Choose a cup.' };
+          let weeks;
+          let seedWeek;
+          if (T.format === 'league') {
+            const raw = Array.isArray(body.weeks) ? body.weeks.map(Number) : [];
+            weeks = [...new Set(raw)].filter((w) => Number.isInteger(w)).sort((a, b) => a - b);
+            if (weeks.length !== raw.length || weeks.some((w) => w < 1 || w > rules.WEEKS)) return { error: 'Choose weeks from 1 to 38.' };
+            if (weeks.length < 2 || weeks.length > 8) return { error: 'Choose between 2 and 8 weeks for Festive Fixtures.' };
+            seedWeek = weeks[0];
+          } else {
+            const first = Number(body.firstWeek);
+            if (!Number.isInteger(first) || first < 1 || first > rules.WEEKS) return { error: 'Choose a first week from 1 to 38.' };
+            const n = cupsLib.roundsFor(config.players.length);
+            weeks = Array.from({ length: n }, (_, i) => first + i);
+            if (weeks[weeks.length - 1] > rules.WEEKS) return { error: 'The ' + T.name + ' needs ' + n + ' weeks in a row, so it cannot start after week ' + (rules.WEEKS - n + 1) + '.' };
+            seedWeek = first;
+          }
+          const c = clash(weeks, list);
+          if (c) return { error: c };
+          return { seeds: cupsLib.table(season, seedWeek).map((r) => r.id), weeks };
         };
         const names = Object.fromEntries(config.players.map((p) => [p.id, p.name]));
         if (body.action === 'preview') {
-          const p = plan();
+          const p = plan(others(null, type + '-' + config.season));
           if (p.error) return fail(400, p.error);
           return json(200, { ok: true, weeks: p.weeks, seeds: p.seeds.map((id) => names[id]) });
         }
@@ -664,9 +693,9 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           d.cups = d.cups || [];
           const find = (id) => d.cups.find((c) => c.id === id);
           if (body.action === 'create') {
-            const p = plan();
-            if (p.error) throw Object.assign(new Error(p.error), { status: 400 });
             const id = type + '-' + config.season;
+            const p = plan(others(d, id));
+            if (p.error) throw Object.assign(new Error(p.error), { status: 400 });
             if (find(id)) throw Object.assign(new Error('There is already a ' + T.name + ' this season. Delete it first to draw again.'), { status: 400 });
             made = { id, type, season: config.season, weeks: p.weeks, seeds: p.seeds, overrides: {}, drawnAt: new Date().toISOString() };
             d.cups.push(made);
@@ -677,7 +706,10 @@ export function createHandler(getStore, getPasscode, extras = {}) {
             if (body.action === 'push-back') {
               const from = Math.max(0, Number(body.round) || 0);
               if (cup.weeks[cup.weeks.length - 1] >= rules.WEEKS) throw Object.assign(new Error('The cup already ends in week 38.'), { status: 400 });
-              cup.weeks = cup.weeks.map((w, i) => (i >= from ? w + 1 : w));
+              const moved = cup.weeks.map((w, i) => (i >= from ? w + 1 : w));
+              const c = clash(moved.filter((w, i) => i >= from), others(d, cup.id));
+              if (c) throw Object.assign(new Error('Cannot push back: ' + c.charAt(0).toLowerCase() + c.slice(1)), { status: 400 });
+              cup.weeks = moved;
             }
             if (body.action === 'override') {
               cup.overrides = cup.overrides || {};

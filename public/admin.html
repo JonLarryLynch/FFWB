@@ -116,12 +116,15 @@
       <div class="adm-cols adm-cols-cups">
   <section class="ffwb-card" id="cups-card">
     <h2 class="ffwb-h">Draw a cup</h2>
-    <p class="ffwb-note">League Cup in the autumn, Festive Fixtures at Christmas, FA Cup in the spring. Knockouts are seeded from the table before their first week, with the top of the table getting a bye, and run one round a week. Festive Fixtures is the most points over the weeks you choose.</p>
+    <p class="ffwb-note">League Cup in the autumn, Festive Fixtures at Christmas, FA Cup in the spring. Knockouts are seeded from the table before their first week, with the top of the table getting a bye, and run one round a week. Festive Fixtures is the most points over any weeks you choose, in a row or not. Each week can only belong to one cup.</p>
     <div class="adm-cupform">
       <label>Cup <select class="ffwb-select" id="cup-type"><option value="league">League Cup</option><option value="festive">Festive Fixtures</option><option value="fa">FA Cup</option></select></label>
-      <label>First week <input class="adm-input adm-num" id="cup-first" type="number" min="1" max="38"></label>
-      <label id="cup-length-wrap" hidden>Weeks <input class="adm-input adm-num" id="cup-length" type="number" min="1" max="8" value="3"></label>
+      <label id="cup-first-wrap">First week <input class="adm-input adm-num" id="cup-first" type="number" min="1" max="38"></label>
     </div>
+    <p class="ffwb-note adm-cup-how" id="cup-how"></p>
+    <div class="adm-weekgrid" id="cup-grid" role="group" aria-label="Season weeks"></div>
+    <div class="adm-weeklegend" id="cup-legend"></div>
+    <p class="adm-cup-pick" id="cup-pick" aria-live="polite"></p>
     <div class="adm-row">
       <button class="pk-clear" type="button" id="cup-preview">Preview the draw</button>
       <button class="pk-save" type="button" id="cup-make" disabled>Make the draw</button>

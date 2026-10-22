@@ -46,13 +46,58 @@
   const mapShowing = () => { const d = document.getElementById('xp-sheet'); const t = document.getElementById('xp-title'); return !!(d && d.open && t && t.textContent === 'The Map'); };
   // Keep an open Map up to date when a sync brings in changes from another device, or its status changes.
   document.addEventListener('ffwb:map-changed', (e) => { if (e.detail && e.detail.synced && mapOpen && mapShowing()) openPlanner(mapOpen.pl, mapOpen.id); });
-  if (window.FFWBPlanner && window.FFWBPlanner.onSync) window.FFWBPlanner.onSync((id) => { if (mapOpen && mapOpen.id === id && mapShowing()) openPlanner(mapOpen.pl, mapOpen.id); });
+  // A change of sync status only redraws the status line, so the Map does not jump about.
+  if (window.FFWBPlanner && window.FFWBPlanner.onSync) window.FFWBPlanner.onSync((id) => {
+    if (!mapOpen || mapOpen.id !== id || !mapShowing()) return;
+    const old = document.querySelector('#xp-body .pl-syncbox');
+    if (old) old.replaceWith(syncBox(id));
+  });
+  // While the Map is open, check for changes from the player's other devices every 20 seconds.
+  setInterval(() => {
+    const P = window.FFWBPlanner;
+    const season = window.FFWB && window.FFWB.season;
+    if (P && season && mapOpen && mapOpen.id && mapShowing() && !document.hidden) P.syncNow(season, mapOpen.id, { quiet: true });
+  }, 20000);
+  const clock = (t) => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  // The sync status: what happened, when, and proof it reached the server.
+  function syncBox(id) {
+    const P = window.FFWBPlanner;
+    const season = window.FFWB && window.FFWB.season;
+    const st = P.syncState(id);
+    const info = P.syncInfo(id);
+    const box = el('div', 'pl-syncbox');
+    const sy = el('div', 'pl-sync pl-sync-' + st);
+    const text = el('div', 'pl-sync-text');
+    if (st === 'local') text.append(el('strong', null, 'Saved on this device only.'), el('span', null, ' Open your personal link here to keep your plan in step on your phone, laptop and home screen app.'));
+    else if (st === 'syncing') text.append(el('strong', null, 'Syncing with your other devices...'));
+    else if (st === 'needslink') text.append(el('strong', null, 'This device\u2019s link is out of date.'), el('span', null, ' Paste your latest personal link below. Your plan is still saved here.'));
+    else if (st === 'error') text.append(el('strong', null, 'Not synced. '), el('span', null, (info.error || 'Something went wrong.') + ' Your plan is still saved on this device.'));
+    else if (st === 'synced') {
+      text.append(el('strong', null, '\u2713 Synced at ' + clock(info.at) + '.'));
+      const bits = [' ' + info.squares + ' square' + (info.squares === 1 ? '' : 's') + ' planned.'];
+      if (info.brought) bits.push(' Brought in ' + info.brought + ' change' + (info.brought === 1 ? '' : 's') + ' from your other devices.');
+      if (info.lastAt) bits.push(' Last change: ' + (info.lastDevice === info.here ? 'this device' : info.lastDevice || 'another device') + ', ' + new Date(info.lastAt).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) + '.');
+      text.append(el('span', null, bits.join('')));
+    } else text.append(el('span', null, 'Checking your other devices...'));
+    sy.append(el('span', 'pl-sync-dot'), text);
+    if (st !== 'local' && st !== 'needslink') {
+      const now = el('button', 'pk-clear adm-small pl-sync-now', st === 'syncing' ? 'Syncing...' : st === 'error' ? 'Try again' : 'Sync now');
+      now.type = 'button';
+      now.disabled = st === 'syncing';
+      now.addEventListener('click', () => P.syncNow(season, id));
+      sy.append(now);
+    }
+    box.append(sy);
+    if ((st === 'local' || st === 'needslink') && window.FFWBLink) box.append(window.FFWBLink.form());
+    return box;
+  }
   function openPlanner(pl, id) {
     const P = window.FFWBPlanner;
     mapOpen = { pl, id };
     const season = window.FFWB && window.FFWB.season;
     if (!P || !season) return;
     const scrollWas = document.querySelector('.pl-scroll') ? document.querySelector('.pl-scroll').scrollLeft : 0;
+    const bodyWas = mapShowing() ? (document.getElementById('xp-body') || {}).scrollTop || 0 : 0;
     const marks = id ? P.marks(season, id) : new Set();
     const fx = (w) => (((season.fixtures || {})[String(w)] || {}).games) || {};
     const planned = (w, c) => marks.has(w + '|' + c);
@@ -88,25 +133,9 @@
     if (over.length) warn.push('Too many planned for week ' + over.join(', ') + ': ' + over.map((w) => (perWeek[w] || 0) + ' of ' + cap(w)).join(', ') + '.');
     if (!warn.length && pl.clashes.length) warn.push('Watch out: ' + pl.clashes.slice(0, 3).map((x) => x.a + ' v ' + x.b + ' (week ' + x.week + ')').join(', ') + (pl.clashes.length > 3 ? ' and ' + (pl.clashes.length - 3) + ' more' : '') + '. You still owe both sides, so plan them for different weeks.');
     for (const w of warn) wrap.append(el('p', 'pl-clash-note', w));
-    const st = id ? P.syncState(id) : 'local';
     const tip = el('p', 'pl-tip', id ? 'Tap a square to plan that club for that week, and again to clear it. Plans are just for you and never make a pick.' : 'Choose your name on the Picks tab to plan ahead.');
     wrap.append(tip);
-    if (id) {
-      const sy = el('div', 'pl-sync pl-sync-' + st);
-      sy.append(el('span', 'pl-sync-dot'), el('span', null, st === 'local' ? 'Saved on this device only. Open your personal link here to keep your plan in step on your phone, laptop and home screen app.'
-        : st === 'offline' ? 'Saved on this device. It will sync with your other devices when you are back online.'
-          : st === 'syncing' ? 'Syncing with your other devices...'
-            : '\u2713 Synced with your other devices' + (P.syncedAt(id) ? ' at ' + new Date(P.syncedAt(id)).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '') + '.'));
-      if (st !== 'local') {
-        const now = el('button', 'pk-clear adm-small pl-sync-now', st === 'syncing' ? 'Syncing...' : 'Sync now');
-        now.type = 'button';
-        now.disabled = st === 'syncing';
-        now.addEventListener('click', () => P.syncNow(season, id));
-        sy.append(now);
-      }
-      wrap.append(sy);
-      if (st === 'local' && window.FFWBLink) wrap.append(window.FFWBLink.form());
-    }
+    if (id) wrap.append(syncBox(id));
 
     const t = el('table', 'pl-table');
     const hr = el('tr');
@@ -158,6 +187,8 @@
     if (window.FFWBExplore && window.FFWBExplore.openCustom) window.FFWBExplore.openCustom('The Map', (pl.half === 1 ? 'First' : 'Second') + ' half, your picks', wrap);
     const sc = document.querySelector('.pl-scroll');
     if (sc) sc.scrollLeft = scrollWas;
+    const xb = document.getElementById('xp-body');
+    if (xb && bodyWas) xb.scrollTop = bodyWas;
   }
 
   function PicksEditor(root, opts) {

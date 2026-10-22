@@ -118,11 +118,11 @@ await t('results move winners on, a round can be pushed back, and the commission
 
 await t('Festive Fixtures is a points table over the chosen weeks', async () => {
   const { post, get } = setup();
-  const r = await post('admin/cups', { passcode: 'p', action: 'create', type: 'festive', firstWeek: 8, length: 2 });
+  const r = await post('admin/cups', { passcode: 'p', action: 'create', type: 'festive', weeks: [10, 8] });
   assert.equal(r.status, 200, JSON.stringify(r.body));
   let s = await get();
-  assert.deepEqual(s.cups[0].weeks, [8, 9]);
-  for (const w of [8, 9]) {
+  assert.deepEqual(s.cups[0].weeks, [8, 10], 'weeks do not need to be in a row, and are kept in order');
+  for (const w of [8, 9, 10]) {
     for (const p of s.config.players) await post('picks', { passcode: 'p', override: true, player: p.id, week: w, standard: s.config.clubs.slice(p.id === 'greg' ? 0 : 10, p.id === 'greg' ? 4 : 14), lock: s.config.clubs[p.id === 'greg' ? 4 : 14] });
     await post('admin/results', { passcode: 'p', week: w, results: Object.fromEntries(s.config.clubs.map((c, i) => [c, i < 5 ? 1 : 0])) });
   }
@@ -130,7 +130,29 @@ await t('Festive Fixtures is a points table over the chosen weeks', async () => 
   const st = cups.state(s, s.cups[0]);
   assert.equal(st.status, 'done');
   assert.equal(st.champion.name, 'Greg');
-  assert.equal(st.mini.rows[0].points, 12);
+  assert.equal(st.mini.rows[0].points, 12, 'only weeks 8 and 10 count, not week 9 in between');
+});
+
+await t('each cup keeps its own weeks', async () => {
+  const { post, get } = setup();
+  const league = await post('admin/cups', { passcode: 'p', action: 'create', type: 'league', firstWeek: 9 });
+  assert.equal(league.status, 200, JSON.stringify(league.body));
+  const lw = (await get()).cups[0].weeks;
+  assert.deepEqual(lw, [9, 10, 11, 12]);
+  let r = await post('admin/cups', { passcode: 'p', action: 'preview', type: 'festive', weeks: [12, 14] });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /Week 12 is already part of the League Cup \(final\)/);
+  r = await post('admin/cups', { passcode: 'p', action: 'create', type: 'fa', firstWeek: 11 });
+  assert.equal(r.status, 400, 'a knockout cannot overlap another cup either');
+  assert.equal((await post('admin/cups', { passcode: 'p', action: 'create', type: 'festive', weeks: [13, 15] })).status, 200, 'the week straight after is fine');
+  assert.equal((await post('admin/cups', { passcode: 'p', action: 'create', type: 'fa', firstWeek: 36 })).status, 400, 'a knockout cannot run past week 38');
+  assert.equal((await post('admin/cups', { passcode: 'p', action: 'create', type: 'festive', weeks: [20] })).status, 400, 'Festive needs at least 2 weeks');
+  // Pushing the League Cup final back into a Festive week is refused.
+  const s = await get();
+  const lc = s.cups.find((c) => c.type === 'league');
+  r = await post('admin/cups', { passcode: 'p', action: 'push-back', id: lc.id, round: 3 });
+  assert.equal(r.status, 400);
+  assert.match(r.body.error, /week 13 is already part of the Festive Fixtures/);
 });
 
 console.log(passed + ' tests passed');

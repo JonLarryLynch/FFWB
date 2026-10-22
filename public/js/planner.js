@@ -158,32 +158,66 @@
     return out;
   };
   const keyOf = (id) => { try { return localStorage.getItem('ffwb-key-' + id); } catch (err) { return null; } };
-  const sync = { state: {}, at: {}, timer: null, listeners: [] };
+  // What this device is, so the plan can say where the last change came from.
+  const device = () => {
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    const kind = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android phone' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows PC' : 'computer';
+    let app = false;
+    try { app = (typeof matchMedia !== 'undefined' && matchMedia('(display-mode: standalone)').matches) || (typeof navigator !== 'undefined' && navigator.standalone === true); } catch (err) { app = false; }
+    return kind + (app ? ' (home screen app)' : ' (browser)');
+  };
+  const sync = { state: {}, info: {}, timer: null, listeners: [], busy: {} };
   const syncState = (id) => (keyOf(id) ? sync.state[id] || 'idle' : 'local');
-  const told = (id) => sync.listeners.forEach((fn) => fn(id, syncState(id)));
-  // Send this device's squares and take back the merged plan.
-  async function syncNow(season, id) {
-    const key = keyOf(id);
-    if (!key) return false;
-    sync.state[id] = 'syncing';
-    told(id);
-    try {
-      const res = await fetch('/api/plan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ player: id, key, season: season.config.season, cells: cells(season, id) }) });
-      const out = await res.json();
-      if (!out.ok) throw new Error(out.error || 'Could not sync');
-      const before = JSON.stringify(cells(season, id));
-      const merged = merge(cells(season, id), out.cells);
-      saveCells(season, id, merged);
-      sync.state[id] = 'synced';
-      sync.at[id] = Date.now();
-      told(id);
-      if (JSON.stringify(merged) !== before) document.dispatchEvent(new CustomEvent('ffwb:map-changed', { detail: { synced: true } }));
-      return true;
-    } catch (err) {
-      sync.state[id] = 'offline';
-      told(id);
-      return false;
+  const syncInfo = (id) => sync.info[id] || {};
+  const told = (id) => {
+    for (const fn of sync.listeners) {
+      try { fn(id, syncState(id)); } catch (err) { if (window.FFWBErrors) window.FFWBErrors.report('Map sync display: ' + err.message, 'planner.js', err.stack); }
     }
+  };
+  // Send this device's squares and take back the merged plan. A sync that takes longer than ten seconds gives
+  // up with a reason, so it can never sit on "Syncing..." for ever. quiet: a background check, shown only if
+  // it brings in changes or fails.
+  async function syncNow(season, id, { quiet = false } = {}) {
+    const key = keyOf(id);
+    if (!key || !season) return false;
+    if (sync.busy[id]) return sync.busy[id];
+    const run = (async () => {
+      if (!quiet) { sync.state[id] = 'syncing'; told(id); }
+      const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const stop = setTimeout(() => ctl && ctl.abort(), 10000);
+      try {
+        const res = await fetch('/api/plan', { method: 'POST', headers: { 'content-type': 'application/json' }, signal: ctl ? ctl.signal : undefined, body: JSON.stringify({ player: id, key, season: season.config.season, device: device(), cells: cells(season, id) }) });
+        let out = null;
+        try { out = await res.json(); } catch (err) { out = { ok: false, error: 'The league server sent back something unexpected (' + res.status + ').' }; }
+        if (!out.ok) {
+          sync.state[id] = out.needsLink ? 'needslink' : 'error';
+          sync.info[id] = { ...syncInfo(id), error: out.error || 'The league server answered ' + res.status + '.' };
+          if (window.FFWBErrors && !out.needsLink) window.FFWBErrors.report('Map sync failed: ' + sync.info[id].error, 'planner.js');
+          told(id);
+          return false;
+        }
+        const mine = cells(season, id);
+        const merged = merge(mine, out.cells);
+        const brought = Object.keys(merged).filter((k) => JSON.stringify(merged[k]) !== JSON.stringify(mine[k])).length;
+        saveCells(season, id, merged);
+        sync.state[id] = 'synced';
+        sync.info[id] = { at: Date.now(), brought, squares: Object.values(merged).filter((v) => v.on).length, lastAt: out.lastAt || null, lastDevice: out.lastDevice || null, here: device() };
+        if (!quiet || brought) told(id);
+        if (brought) document.dispatchEvent(new CustomEvent('ffwb:map-changed', { detail: { synced: true } }));
+        return true;
+      } catch (err) {
+        const why = err && err.name === 'AbortError' ? 'The league server took too long to answer.' : 'No connection to the league server.';
+        sync.state[id] = 'error';
+        sync.info[id] = { ...syncInfo(id), error: why };
+        told(id);
+        return false;
+      } finally {
+        clearTimeout(stop);
+        sync.busy[id] = null;
+      }
+    })();
+    sync.busy[id] = run;
+    return run;
   }
   function later(season, id) {
     clearTimeout(sync.timer);
@@ -208,13 +242,12 @@
     later(season, id);
   }
   const onSync = (fn) => sync.listeners.push(fn);
-  const syncedAt = (id) => sync.at[id] || null;
 
-  window.FFWBPlanner = { plan, form, pickedLastWeek, glance, calendar, abbr, marks, toggleMark, clearMarks, syncNow, syncState, onSync, syncedAt };
+  window.FFWBPlanner = { plan, form, pickedLastWeek, glance, calendar, abbr, marks, toggleMark, clearMarks, syncNow, syncState, syncInfo, onSync, device };
 
   // Pull the plan from the other devices whenever the league loads, and again when this tab comes back.
   let lastSeason = null;
   const me = () => { try { return localStorage.getItem('ffwb-player'); } catch (err) { return null; } };
-  if (window.FFWB && window.FFWB.onSeason) window.FFWB.onSeason((s) => { lastSeason = s; if (s && me()) syncNow(s, me()); });
-  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { if (!document.hidden && lastSeason && me()) syncNow(lastSeason, me()); });
+  if (window.FFWB && window.FFWB.onSeason) window.FFWB.onSeason((s) => { lastSeason = s; if (s && me()) syncNow(s, me(), { quiet: true }); });
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { if (!document.hidden && lastSeason && me()) syncNow(lastSeason, me(), { quiet: true }); });
 })();
