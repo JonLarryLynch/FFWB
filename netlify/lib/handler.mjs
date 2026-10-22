@@ -643,6 +643,28 @@ export function createHandler(getStore, getPasscode, extras = {}) {
           }
           if (Array.isArray(body.lockedWeeks)) c.lockedWeeks = [...new Set(body.lockedWeeks.map(Number).filter((w) => w >= 1 && w <= rules.WEEKS))].sort((a, b) => a - b);
           if (typeof body.autoClose === 'boolean') c.autoClose = body.autoClose;
+          // The league money: the fund, what a greenout and a full season of picks pay, and the prize split.
+          if (body.money && typeof body.money === 'object') {
+            const n = (v, max) => { const x = Number(v); return Number.isFinite(x) && x >= 0 && x <= max ? Math.round(x * 100) / 100 : null; };
+            const m = { ...(c.money || {}) };
+            for (const [k, max] of [['fund', 100000], ['greenout', 1000], ['picks', 1000], ['missed', 1000]]) if (body.money[k] !== undefined) { const v = n(body.money[k], max); if (v === null) throw Object.assign(new Error('Check the ' + k + ' amount.'), { status: 400 }); m[k] = v; }
+            if (body.money.split) {
+              const sp = { first: n(body.money.split.first, 100), second: n(body.money.split.second, 100), runnerUp: n(body.money.split.runnerUp, 100) };
+              if (Object.values(sp).some((v) => v === null) || Math.abs(sp.first + sp.second + sp.runnerUp - 100) > 0.01) throw Object.assign(new Error('The prize split has to add up to 100%.'), { status: 400 });
+              m.split = sp;
+            }
+            c.money = m;
+          }
+          // One-off money adjustments for a player, with a note everyone can see.
+          if (body.moneyAdjust && typeof body.moneyAdjust === 'object') {
+            const ids = new Set(c.players.map((x) => x.id));
+            c.moneyAdjust = {};
+            for (const [id, v] of Object.entries(body.moneyAdjust)) {
+              const amount = Number(v && v.amount);
+              if (!ids.has(id) || !Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 1000) continue;
+              c.moneyAdjust[id] = { amount: Math.round(amount * 100) / 100, note: String((v && v.note) || '').slice(0, 120) };
+            }
+          }
           if (Array.isArray(body.shameClub)) {
             c.shameClub = body.shameClub.slice(0, 60).map((m) => {
               const out = { name: String((m && m.name) || '').trim().slice(0, 40) };

@@ -1158,6 +1158,44 @@
     a.click();
     a.remove();
   };
+  // ---------- The Kitty ----------
+  const mnMsg = document.getElementById('mn-message');
+  let mnDirty = false;
+  function renderMoney() {
+    if (!season || !window.FFWBMoney || mnDirty) return;
+    const st = window.FFWBMoney.settings(season);
+    const set = (id, v) => { const n = document.getElementById(id); if (document.activeElement !== n) n.value = v; };
+    set('mn-fund', st.fund); set('mn-greenout', st.greenout); set('mn-picks', st.picks); set('mn-missed', st.missed);
+    set('mn-first', st.split.first); set('mn-second', st.split.second); set('mn-runner', st.split.runnerUp);
+    const adj = season.config.moneyAdjust || {};
+    const box = document.getElementById('mn-adjust');
+    box.replaceChildren(...season.config.players.map((p) => {
+      const row = el('div', 'adm-adjust-row');
+      const amt = el('input', 'adm-input adm-num'); amt.type = 'number'; amt.step = '1'; amt.placeholder = '$0'; amt.dataset.id = p.id; amt.dataset.k = 'amount'; amt.value = adj[p.id] ? adj[p.id].amount : '';
+      amt.setAttribute('aria-label', 'Adjustment for ' + p.name + ', in dollars, minus to take money off');
+      const note = el('input', 'adm-input'); note.placeholder = 'Why (shown to everyone)'; note.maxLength = 120; note.dataset.id = p.id; note.dataset.k = 'note'; note.value = adj[p.id] ? adj[p.id].note : '';
+      note.setAttribute('aria-label', 'Reason for ' + p.name + "'s adjustment");
+      row.append(el('span', 'ffwb-strong', p.name), amt, note);
+      return row;
+    }));
+  }
+  document.getElementById('money-card').addEventListener('input', () => { mnDirty = true; });
+  document.getElementById('mn-save').addEventListener('click', async () => {
+    const v = (id) => Number(document.getElementById(id).value);
+    const moneyAdjust = {};
+    for (const n of document.querySelectorAll('#mn-adjust input[data-k="amount"]')) {
+      const amount = Number(n.value);
+      if (!n.value || !amount) continue;
+      moneyAdjust[n.dataset.id] = { amount, note: document.querySelector('#mn-adjust input[data-k="note"][data-id="' + n.dataset.id + '"]').value.trim() };
+    }
+    const out = await adminPost('config', { money: { fund: v('mn-fund'), greenout: v('mn-greenout'), picks: v('mn-picks'), missed: v('mn-missed'), split: { first: v('mn-first'), second: v('mn-second'), runnerUp: v('mn-runner') } }, moneyAdjust });
+    if (!out.ok) { say(mnMsg, 'bad', out.error); return; }
+    mnDirty = false;
+    const m = window.FFWBMoney.compute({ ...season, config: out.config });
+    say(mnMsg, 'ok', 'Saved. The prize pot is ' + window.FFWBMoney.dollars(m.pot) + ' as it stands.');
+    window.FFWB.reload();
+  });
+
   // ---------- Site errors ----------
   const errMsg = document.getElementById('errors-message');
   async function loadErrors(body = {}) {
@@ -1301,6 +1339,7 @@
     renderEfl();
     renderShame();
     renderPlayers();
+    renderMoney();
     if (!app.hidden && passcode) loadLinks();
     renderNewSeason();
     renderCups();

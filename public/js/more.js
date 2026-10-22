@@ -461,6 +461,17 @@ function drawPlayers() {
         head.append(row);
       }
     }
+    // Their money this season, from the Kitty.
+    if (me && window.FFWBMoney) {
+      const mm = window.FFWBMoney.compute(live).players.find((p) => p.id === me.id);
+      if (mm) {
+        const $ = window.FFWBMoney.dollars;
+        const bits = [mm.greenouts ? mm.greenouts + ' greenout' + (mm.greenouts === 1 ? '' : 's') + ' (' + $(mm.greenoutMoney) + ')' : null, $(mm.picksMoney) + ' for picks' + (mm.missed.length ? ' (missed week ' + mm.missed.join(', ') + ')' : ''), mm.prize ? $(mm.prize) + ' in line from prizes' : null, mm.adjust ? (mm.adjust > 0 ? '+' : '\u2212') + $(Math.abs(mm.adjust)) + (mm.note ? ' ' + mm.note : '') : null].filter(Boolean);
+        const row = el('div', 'ffwb-pc-money');
+        row.append(el('span', 'ffwb-awards-label', 'The Kitty'), el('strong', null, $(mm.total)), el('span', null, bits.join(' \u00b7 ')));
+        head.append(row);
+      }
+    }
     const grid = el('div', 'ffwb-pc-grid');
     for (const [field, label] of cardStats) {
       const v = c[field];

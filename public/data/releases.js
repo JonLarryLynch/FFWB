@@ -2,7 +2,7 @@
 // can send it to everyone's phone from the Messages tab. Add a new entry at the top for each release.
 window.FFWB_RELEASES = [
   {
-    id: '2026-10-21c',
+    id: '2026-10-22',
     date: '21 October 2026',
     title: 'The big autumn update',
     push: 'The reveal, weekly awards, a new way to pick, The Map, cups and more. Tap to see what is new.',
@@ -41,6 +41,7 @@ window.FFWB_RELEASES = [
       {
         name: 'Around the site',
         items: [
+          ['The Kitty', 'The league money, on the Table tab: the fund, $5 for every greenout, $10 back for making every pick, and the prize pot split 25% first half champion, 50% second half champion and 25% second half runner-up, with who is in line right now and everyone\u2019s running total.'],
           ['The Shame Club', 'Pick both teams from the same game and you are in. Still allowed, still frowned upon. Founding members: Paul, Greg (Platinum Member), Ben, Alex, Shep and Diddler.'],
           ['Player cards', 'Tap anyone’s name to see their season, history and badges.'],
           ['Badges and reactions', 'Earn badges for streaks and big weeks, and react to everyone’s picks once they are in.'],

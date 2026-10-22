@@ -220,6 +220,25 @@
     <div class="adm-row"><button class="pk-clear" type="button" id="shame-save">Save list</button></div>
     <p class="pk-message" id="shame-message" aria-live="polite"></p>
   </section>
+  <section class="ffwb-card" id="money-card">
+    <h2 class="ffwb-h">The Kitty</h2>
+    <p class="ffwb-note">The league money everyone sees on the Table tab. Greenouts and missed weeks are counted from the picks by themselves; change the figures here, or make a one-off adjustment for a player with a note.</p>
+    <div class="adm-money">
+      <label>Fund $ <input class="adm-input adm-num" id="mn-fund" type="number" min="0" step="1"></label>
+      <label>Per greenout $ <input class="adm-input adm-num" id="mn-greenout" type="number" min="0" step="1"></label>
+      <label>Picks payout $ <input class="adm-input adm-num" id="mn-picks" type="number" min="0" step="1"></label>
+      <label>Off per missed week $ <input class="adm-input adm-num" id="mn-missed" type="number" min="0" step="1"></label>
+    </div>
+    <div class="adm-money">
+      <label>First half champ % <input class="adm-input adm-num" id="mn-first" type="number" min="0" max="100"></label>
+      <label>Second half champ % <input class="adm-input adm-num" id="mn-second" type="number" min="0" max="100"></label>
+      <label>Second half runner-up % <input class="adm-input adm-num" id="mn-runner" type="number" min="0" max="100"></label>
+    </div>
+    <h3 class="ffwb-h">Adjustments</h3>
+    <div id="mn-adjust" class="adm-adjust"></div>
+    <div class="adm-row"><button class="pk-save" type="button" id="mn-save">Save the Kitty</button></div>
+    <p class="pk-message" id="mn-message" aria-live="polite"></p>
+  </section>
   <section class="ffwb-card" id="errors-card">
     <h2 class="ffwb-h">Site errors</h2>
     <p class="ffwb-note">If the site breaks on someone's phone, it sends a note here: what went wrong, where, who was using it and on what. The same problem is counted rather than listed twice.</p>
@@ -255,6 +274,7 @@
 <script src="js/rules.js"></script>
 <script src="js/cups.js"></script>
 <script src="js/awards.js"></script>
+<script src="js/money.js"></script>
 <script src="js/shim.js"></script>
 <script src="js/shame.js"></script>
 <script src="js/tip.js"></script>

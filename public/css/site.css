@@ -1265,3 +1265,50 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .ffwb-award-list .ffwb-award-name { font-family: inherit; font-size: 0.95rem; font-weight: 600; line-height: 1.35; letter-spacing: 0; }
 .ffwb-award-sub { font-size: 0.82rem; color: var(--color-fg-muted); line-height: 1.35; }
 #awards-box .ffwb-plot { padding: 0; }
+
+/* ---------- The Kitty ---------- */
+.kt { display: grid; gap: 0.8rem; }
+.kt-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+.kt-head .ffwb-h { margin: 0; }
+.kt-sub { font-size: 0.8rem; color: var(--color-fg-muted); }
+.kt-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 0.5rem 1rem; }
+.kt-fig { display: grid; gap: 0.05rem; padding-left: 0.6rem; border-left: 3px solid var(--color-border-line); }
+.kt-fig.kt-c-green { border-left-color: #2f9e5b; }
+.kt-fig.kt-c-picks { border-left-color: var(--brand-navy); }
+.kt-fig.kt-c-pot { border-left-color: var(--brand-gold); }
+.kt-fig-l { font-family: Oswald, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.7rem; color: var(--color-fg-muted); }
+.kt-fig-v { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.kt-fig-s { font-size: 0.76rem; color: var(--color-fg-muted); }
+.kt-bar { display: flex; height: 0.7rem; border-radius: 99px; overflow: hidden; gap: 2px; background: color-mix(in srgb, var(--color-fg) 6%, transparent); }
+.kt-seg { display: block; min-width: 0; }
+.kt-seg.kt-c-green { background: #2f9e5b; }
+.kt-seg.kt-c-picks { background: var(--brand-navy); }
+.kt-seg.kt-c-pot { background: var(--brand-gold); }
+:root[data-theme="dark"] .kt-seg.kt-c-picks, :root[data-theme="dark"] .kt-fig.kt-c-picks { background-color: #8fa8dc; border-left-color: #8fa8dc; }
+:root[data-theme="dark"] .kt-fig.kt-c-picks { background-color: transparent; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .kt-seg.kt-c-picks { background: #8fa8dc; } :root:not([data-theme="light"]) .kt-fig.kt-c-picks { border-left-color: #8fa8dc; } }
+.kt-prize { grid-template-rows: auto auto 1fr; }
+.kt-prize .ffwb-recap-icon { grid-row: span 3; }
+.kt-prize-amt { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 1.35rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.kt-prize-who { font-size: 0.84rem; font-weight: 600; }
+.kt-more { margin: 0; }
+.kt-scroll { overflow-x: auto; }
+.kt-table td, .kt-table th { white-space: nowrap; }
+.kt-table td:first-child { white-space: normal; }
+.kt-note { display: block; font-weight: 400; font-size: 0.74rem; color: var(--color-fg-muted); }
+.kt-short { color: var(--color-bad); }
+.kt-me td { background: color-mix(in srgb, var(--brand-gold) 12%, transparent); }
+.kt-greenouts { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; margin: 0.6rem 0 0.2rem; }
+.kt-chip { padding: 0.15rem 0.5rem; border-radius: 99px; font-size: 0.76rem; font-weight: 600; background: color-mix(in srgb, #2f9e5b 16%, var(--color-panel)); border: 1px solid color-mix(in srgb, #2f9e5b 45%, transparent); }
+
+.ffwb-pc-money { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.6rem; margin-top: 0.4rem; font-size: 0.85rem; }
+.ffwb-pc-money strong { font-family: 'Playfair Display', serif; font-size: 1.15rem; }
+.ffwb-pc-money span:last-child { color: var(--color-fg-muted); }
+.adm-money { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin: 0.5rem 0; }
+.adm-money label { display: grid; gap: 0.2rem; font-size: 0.8rem; color: var(--color-fg-muted); }
+.adm-adjust { display: grid; gap: 0.35rem; margin: 0.4rem 0 0.6rem; }
+.adm-adjust-row { display: grid; grid-template-columns: 7.5rem 5.5rem 1fr; gap: 0.4rem; align-items: center; }
+@media (max-width: 520px) { .adm-adjust-row { grid-template-columns: 1fr 5rem; } .adm-adjust-row input:last-child { grid-column: 1 / -1; } }
+.kt { grid-template-columns: minmax(0, 1fr); }
+.kt > *, .kt-more > * { min-width: 0; }
+@media (max-width: 520px) { .kt-table th, .kt-table td { padding-left: 0.35rem; padding-right: 0.35rem; font-size: 0.82rem; } }

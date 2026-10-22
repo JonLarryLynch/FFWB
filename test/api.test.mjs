@@ -372,4 +372,14 @@ await t('The Map syncs between a player\'s own devices and stays private', async
   assert.equal(r.body.cells.junk, undefined, 'bad squares are ignored');
 });
 
+await t('the commissioner can set the Kitty figures and adjustments', async () => {
+  let r = await call('POST', 'admin/config', { passcode: 'letmein', money: { fund: 570, greenout: 5, picks: 10, missed: 5, split: { first: 25, second: 50, runnerUp: 25 } }, moneyAdjust: { aronson: { amount: 5, note: 'Paid late' }, nobody: { amount: 3 } } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.deepEqual(r.body.config.money.split, { first: 25, second: 50, runnerUp: 25 });
+  assert.deepEqual(r.body.config.moneyAdjust, { aronson: { amount: 5, note: 'Paid late' } }, 'unknown players are dropped');
+  r = await call('POST', 'admin/config', { passcode: 'letmein', money: { split: { first: 30, second: 50, runnerUp: 25 } } });
+  assert.equal(r.status, 400, 'the split has to add up to 100');
+  assert.equal((await call('POST', 'admin/config', { money: { fund: 1 } })).status, 401);
+});
+
 console.log(passed + ' tests passed');
