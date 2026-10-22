@@ -130,7 +130,7 @@
         const i = cup.weeks.indexOf(w);
         if (i < 0) continue;
         const t = C ? C.TYPES[cup.type] : { name: cup.type, format: 'knockout' };
-        marks.push({ type: cup.type, text: t.name + (t.format === 'knockout' && C ? ', ' + C.roundName(i, cup.weeks.length) : '') });
+        marks.push({ type: cup.type, text: t.name + (t.format === 'knockout' && C ? ', ' + C.roundName(i, cup.weeks.length) : ', week ' + (i + 1) + ' of ' + cup.weeks.length) });
       }
       out.push({ week: w, done: hasResults(season, w), current: w === season.config.currentWeek, efl: (season.config.eflWeeks || []).includes(w), marks, halfEnd: w === R.HALF_END });
     }

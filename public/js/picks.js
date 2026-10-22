@@ -240,6 +240,28 @@
     const cal = el('div', 'pk-cal');
     cal.setAttribute('role', 'group');
     cal.setAttribute('aria-label', 'Season calendar');
+    // A key to the colours under the calendar, and a tooltip on each week saying what is on.
+    const calKey = el('div', 'pk-calkey');
+    let calDays = [];
+    const swatchFor = (type) => { const sw = el('span', 'pk-key-sw cup-' + type); return sw; };
+    if (window.FFWBTip) window.FFWBTip.attach(cal, '.pk-day', (b) => {
+      const d = calDays[Number(b.dataset.w) - 1];
+      if (!d) return null;
+      const box = el('div', 'ff-tip-body');
+      box.append(el('div', 'ff-tip-title', 'Week ' + d.week + (d.current ? ' \u00b7 this week' : '')));
+      for (const m of d.marks) {
+        const cup = ((state.season && state.season.cups) || []).find((c) => c.type === m.type);
+        const row = el('div', 'ff-tip-row');
+        const ko = window.FFWBCups && window.FFWBCups.TYPES[m.type] && window.FFWBCups.TYPES[m.type].format === 'knockout';
+        row.append(swatchFor(m.type), el('span', null, m.text + (cup && cup.provisional && ko ? ' (drawn when week ' + cup.weeks[0] + ' starts)' : '')));
+        box.append(row);
+      }
+      if (d.efl) { const row = el('div', 'ff-tip-row'); row.append(el('span', 'pk-key-dot'), el('span', null, 'EFL pick this week')); box.append(row); }
+      if (d.halfEnd) box.append(el('div', 'ff-tip-row ff-tip-muted', 'Last week of the first half'));
+      if (!d.marks.length && !d.efl && !d.halfEnd) box.append(el('div', 'ff-tip-row ff-tip-muted', d.done ? 'Results in' : d.current ? 'Picks open now' : 'Normal league week'));
+      else if (d.done) box.append(el('div', 'ff-tip-row ff-tip-muted', 'Results in'));
+      return box;
+    });
     const planBar = el('button', 'pk-plan');
     planBar.type = 'button';
     planBar.hidden = true;
@@ -299,7 +321,7 @@
     everyone.append(everyoneTitle, everyoneTable);
 
     const editor = el('div', 'ffwb-card pk-editor');
-    editor.append(who, glance, cal, helpRow, linkBox, cupStrip, planBar, bonus, grid, eflRow, shameNote, errorsBox, overrideWrap, bar);
+    editor.append(who, glance, cal, calKey, helpRow, linkBox, cupStrip, planBar, bonus, grid, eflRow, shameNote, errorsBox, overrideWrap, bar);
     root.replaceChildren(editor, everyone);
 
     const weekPicks = () => (state.season && state.player ? state.season.picks[state.player] || {} : {});
@@ -640,17 +662,24 @@
       // Calendar: every week, with what is on it. Tap a week to go to it.
       if (P) {
         const days = P.calendar(s);
+        calDays = days;
         cal.replaceChildren(...days.map((d) => {
           const b = el('button', 'pk-day' + (d.done ? ' pk-day-done' : '') + (d.current ? ' pk-day-now' : '') + (d.week === state.week ? ' pk-day-on' : '') + (d.halfEnd ? ' pk-day-half' : '') + (d.marks.length ? ' pk-day-cup cup-' + d.marks[0].type : ''));
           b.type = 'button';
           b.textContent = String(d.week);
           if (d.efl) b.append(el('i', 'pk-day-efl'));
-          b.title = 'Week ' + d.week + (d.current ? ', this week' : d.done ? ', results in' : '') + d.marks.map((m) => ', ' + m.text).join('') + (d.efl ? ', EFL pick' : '') + (d.halfEnd ? ', end of the first half' : '');
-          b.setAttribute('aria-label', b.title);
+          b.dataset.w = String(d.week);
+          b.setAttribute('aria-label', 'Week ' + d.week + (d.current ? ', this week' : d.done ? ', results in' : '') + d.marks.map((m) => ', ' + m.text).join('') + (d.efl ? ', EFL pick' : '') + (d.halfEnd ? ', end of the first half' : ''));
           b.setAttribute('aria-pressed', String(d.week === state.week));
           b.addEventListener('click', () => { if (state.week !== d.week) { state.week = d.week; loadWeek(); render(); } });
           return b;
         }));
+        // The key: only what is actually on the calendar this season.
+        const types = ['league', 'festive', 'fa'].filter((t) => days.some((d) => d.marks.some((m) => m.type === t)));
+        const keys = types.map((t) => { const k = el('span', 'pk-key'); k.append(swatchFor(t), document.createTextNode(window.FFWBCups ? window.FFWBCups.TYPES[t].name : t)); return k; });
+        if (days.some((d) => d.efl)) { const k = el('span', 'pk-key'); k.append(el('span', 'pk-key-dot'), document.createTextNode('EFL pick')); keys.push(k); }
+        calKey.replaceChildren(...keys);
+        calKey.hidden = !keys.length;
         requestAnimationFrame(() => { const on = cal.querySelector('.pk-day-on'); if (on && cal.scrollWidth > cal.clientWidth) cal.scrollLeft = on.offsetLeft - cal.clientWidth / 2 + on.offsetWidth / 2; });
       }
       // You at a glance.

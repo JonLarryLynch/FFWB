@@ -1195,9 +1195,7 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .adm-wk-taken { --c: #888; border: 2px dashed var(--c); background: color-mix(in srgb, var(--c) 14%, var(--color-panel)); }
 .adm-wk-on { --c: #888; border: 2px solid var(--c); background: var(--c); color: #fff; }
 .adm-wk-clash { background: var(--color-bad) !important; border-color: var(--color-bad) !important; color: #fff; }
-.adm-wk.cup-league, .adm-lg.cup-league { --c: #b5651d; }
-.adm-wk.cup-festive, .adm-lg.cup-festive { --c: #2f7d4f; }
-.adm-wk.cup-fa, .adm-lg.cup-fa { --c: #3a5ba0; }
+.adm-wk.cup-league, .adm-lg.cup-league, .adm-wk.cup-festive, .adm-lg.cup-festive, .adm-wk.cup-fa, .adm-lg.cup-fa { --c: var(--cup); }
 .adm-weeklegend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.78rem; color: var(--color-fg-muted); }
 .adm-lg { display: inline-flex; align-items: center; gap: 0.35rem; --c: #888; }
 .adm-lg::before { content: ''; width: 0.85rem; height: 0.85rem; border-radius: 3px; border: 2px dashed var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
@@ -1239,3 +1237,24 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .in-note-icon { width: 2.4rem; height: 2.4rem; border-radius: 9px; }
 .in-note div { display: grid; font-size: 0.82rem; line-height: 1.3; }
 
+
+/* The week bar's key and tooltips. */
+.pk-calkey { display: flex; flex-wrap: wrap; gap: 0.2rem 0.9rem; margin: 0.35rem 0 0; font-size: 0.74rem; color: var(--color-fg-muted); }
+.pk-calkey[hidden] { display: none; }
+.pk-key { display: inline-flex; align-items: center; gap: 0.35rem; }
+.pk-key-sw { display: inline-block; width: 0.95rem; height: 0.3rem; border-radius: 2px; background: var(--cup); }
+.pk-key-dot { display: inline-block; width: 0.42rem; height: 0.42rem; border-radius: 50%; background: #2f9e5b; margin: 0 0.25rem; }
+.ff-tip { position: absolute; z-index: 80; max-width: min(17rem, calc(100vw - 16px)); padding: 0.5rem 0.65rem; border-radius: 9px; background: var(--brand-navy); color: var(--brand-cream); font-size: 0.8rem; line-height: 1.35; box-shadow: 0 8px 22px rgba(0,0,0,0.28); pointer-events: none; opacity: 0; transform: translateY(3px); transition: opacity 0.12s ease, transform 0.12s ease; }
+.ff-tip.ff-tip-on { opacity: 1; transform: none; }
+.ff-tip::after { content: ''; position: absolute; left: var(--arrow, 50%); bottom: -5px; width: 10px; height: 10px; margin-left: -5px; background: var(--brand-navy); transform: rotate(45deg); }
+.ff-tip.ff-tip-below::after { bottom: auto; top: -5px; }
+.ff-tip-title { font-weight: 700; margin-bottom: 0.2rem; }
+.ff-tip-row { display: flex; align-items: center; gap: 0.45rem; }
+.ff-tip-muted { opacity: 0.75; }
+.ff-tip .pk-key-sw { box-shadow: 0 0 0 1px rgba(241,232,212,0.5); }
+:root[data-theme="dark"] .ff-tip, :root[data-theme="dark"] .ff-tip::after { background: #2a3658; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ff-tip, :root:not([data-theme="light"]) .ff-tip::after { background: #2a3658; } }
+/* The League Cup's navy needs a lighter shade to show on the dark theme. */
+:root[data-theme="dark"] .pk-day.cup-league, :root[data-theme="dark"] .pk-key-sw.cup-league, :root[data-theme="dark"] .adm-lg.cup-league, :root[data-theme="dark"] .adm-wk-taken.cup-league { --cup: #8fa8dc; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pk-day.cup-league, :root:not([data-theme="light"]) .pk-key-sw.cup-league, :root:not([data-theme="light"]) .adm-lg.cup-league, :root:not([data-theme="light"]) .adm-wk-taken.cup-league { --cup: #8fa8dc; } }
+@media (prefers-reduced-motion: reduce) { .ff-tip { transition: none; } }
