@@ -64,7 +64,7 @@
   if (forced) history.replaceState(null, '', location.pathname + location.hash);
   // Wait for the page to settle, and step aside if another pop-up (a cup week, say) got there first.
   let tries = 0;
-  // Start a moment later than the intro, so a new or newly linked player sees the intro first.
+  // Start once the page has settled, behind any pop-up already up (a cup week, say).
   setTimeout(function wait() {
     if (!forced && store.get() === list[0].id) return;
     if (document.querySelector('dialog[open]') && tries < 20) { tries += 1; setTimeout(wait, 1500); return; }

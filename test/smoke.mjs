@@ -45,7 +45,7 @@ async function page(setup) {
 const closePopups = (pg) => pg.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
 
 try {
-  const pg = await page(() => { localStorage.setItem('ffwb-intro-done', '1'); localStorage.setItem('ffwb-seen-release', 'x'); });
+  const pg = await page(() => { localStorage.setItem('ffwb-seen-release', 'x'); });
   await step('the site opens on This week', async () => {
     await pg.goto(base + '/');
     await pg.waitForSelector('.hm-herocard', { timeout: 15000 });

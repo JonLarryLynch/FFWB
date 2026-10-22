@@ -146,7 +146,7 @@
     pop.showModal();
   }
 
-  // Once per cup week on each phone, on This week or the Picks tab. If another pop-up is up (the intro, say),
+  // Once per cup week on each phone, on This week or the Picks tab. If another pop-up is up (What's new, say),
   // wait for it to close rather than missing the week.
   let waiting = false;
   function due() {

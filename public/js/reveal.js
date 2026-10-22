@@ -131,7 +131,7 @@
   }
   function available(w) { return !!season && isOut(season, w || season.config.currentWeek) && !!A.reveal(season, w || season.config.currentWeek); }
 
-  // Wait for other pop-ups (the intro, a cup week, what's new) to finish first.
+  // Wait for other pop-ups (a cup week, what's new) to finish first.
   let waiting = false;
   function maybe() {
     if (!season || waiting) return;
