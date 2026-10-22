@@ -47,6 +47,7 @@ window.FFWB_RELEASES = [
           ['New Table, Stats and History tabs', 'Tap a tile to dig into anything.'],
           ['2025-26 is complete', 'Every week was rescored from the real results. Paul is champion on 163.5, half a point clear of Tim, with Greg third. Tim won the first half and Greg the second.'],
           ['Phone alerts', 'Tap the bell at the top to get a ping when a week opens and a reminder if you have not picked. Add the site to your home screen and it works like an app.'],
+          ['How to play', 'Three quick cards on how it all works. Find them any time at the bottom of the page.'],
           ['Light and dark', 'Switch the theme at the bottom of the page. The site also opens on bad signal now.'],
         ],
       },

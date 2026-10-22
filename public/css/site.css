@@ -1209,3 +1209,33 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .adm-cup-saved { display: inline-block; margin-top: 0.25rem; font-weight: 600; font-size: 0.85rem; color: #2f7d4f; }
 .adm-cup-unsaved { color: #b07a12; }
 .cb-provisional { margin: 0.2rem 0 0.6rem; padding: 0.55rem 0.75rem; border-radius: 10px; border: 1px dashed var(--brand-gold); font-size: 0.86rem; background: color-mix(in srgb, var(--brand-gold) 10%, transparent); }
+
+/* ---------- How to play ---------- */
+.in-pop { border: 0; padding: 0; width: min(25rem, calc(100vw - 1.6rem)); border-radius: 22px; background: var(--color-panel); color: var(--color-fg); box-shadow: 0 24px 60px rgba(0,0,0,0.4); overflow: hidden; touch-action: pan-y; }
+.in-pop[open] { animation: xp-in 0.22s ease-out; }
+.in-pop::backdrop { background: rgba(10, 15, 30, 0.6); backdrop-filter: blur(3px); }
+.in-card { position: relative; display: grid; }
+.in-x { position: absolute; top: 0.7rem; right: 0.7rem; z-index: 1; color: var(--brand-cream); border-color: rgba(241,232,212,0.5); }
+.in-art { display: grid; place-items: center; min-height: 11rem; padding: 2rem 1.2rem 1.6rem; background: radial-gradient(120% 140% at 30% 0%, #2c3d66 0%, var(--brand-navy) 60%, #121b30 100%); border-bottom: 3px solid var(--brand-gold); }
+.in-body { padding: 1.1rem 1.3rem 0.4rem; display: grid; gap: 0.35rem; }
+.in-kicker { font-family: Oswald, sans-serif; text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.7rem; color: var(--color-fg-muted); }
+.in-title { margin: 0; font-family: 'Playfair Display', serif; font-size: 1.55rem; line-height: 1.1; }
+.in-text { margin: 0.2rem 0 0; font-size: 0.93rem; line-height: 1.5; color: var(--color-fg-muted); }
+.in-bell { justify-self: start; margin-top: 0.5rem; }
+.in-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 1rem 1.3rem 1.2rem; }
+.in-dots { display: flex; gap: 0.4rem; }
+.in-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--color-border-line); transition: width 0.2s; }
+.in-dot-on { width: 1.4rem; border-radius: 99px; background: var(--brand-claret); }
+.in-tray { display: flex; gap: 0.35rem; }
+.in-slot { display: grid; place-items: center; width: 3.1rem; height: 2.7rem; border-radius: 9px; font-family: Oswald, sans-serif; font-weight: 600; font-size: 0.9rem; letter-spacing: 0.04em; color: var(--brand-cream); background: rgba(241,232,212,0.1); border: 1.5px solid rgba(241,232,212,0.45); }
+.in-lock { width: 4.4rem; border: 2px solid var(--brand-gold); background: rgba(200,160,74,0.28); }
+.in-map { display: grid; grid-template-columns: 3.4rem repeat(3, 2.7rem); gap: 0.25rem; }
+.in-cell { display: grid; place-items: center; height: 1.85rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; color: var(--brand-cream); background: rgba(241,232,212,0.07); }
+.in-head { background: none; color: var(--brand-gold); font-family: Oswald, sans-serif; letter-spacing: 0.06em; }
+.in-head:first-child { visibility: hidden; }
+.in-club { justify-items: start; padding-left: 0.4rem; background: none; font-family: Oswald, sans-serif; letter-spacing: 0.04em; }
+.in-on { background: rgba(47,158,91,0.45); }
+.in-note { display: flex; gap: 0.7rem; align-items: center; width: min(19rem, 100%); padding: 0.7rem 0.8rem; border-radius: 16px; background: rgba(241,232,212,0.94); color: #1c2945; box-shadow: 0 10px 26px rgba(0,0,0,0.35); }
+.in-note-icon { width: 2.4rem; height: 2.4rem; border-radius: 9px; }
+.in-note div { display: grid; font-size: 0.82rem; line-height: 1.3; }
+
