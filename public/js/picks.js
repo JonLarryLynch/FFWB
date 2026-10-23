@@ -28,8 +28,9 @@
   function weekStatus(season, week) {
     const res = season.results[String(week)];
     const hasResults = !!res && Object.keys(res).length > 0;
-    // The page may have been open since before kickoff, so check the clock here too.
-    if (season.openWeeks.includes(week) && !kickedOff(season, week)) return { open: true, label: 'This week' };
+    // The page may have been open since before kickoff, so check the clock here too. Some results being in
+    // (a Friday game, say) does not close the week: late picks stay open for the games still to come.
+    if (season.openWeeks.includes(week) && !kickedOff(season, week)) return { open: true, label: hasResults ? 'This week \u00b7 under way' : 'This week' };
     if (hasResults) return { open: false, label: 'Results in' };
     if (kickedOff(season, week)) return { open: false, label: 'Kicked off' };
     if (week > season.config.currentWeek) return { open: false, label: 'Not open yet' };
@@ -345,14 +346,20 @@
     }
 
     const changed = () => { state.dirty = true; state.canOverride = false; render(); };
+    // A club whose game this week already has a result is fixed for players: it cannot be picked, moved or
+    // taken off. The commissioner can still change anything.
+    const played = (club) => !admin && !!state.season && ((state.season.results[String(state.week)] || {})[club] !== undefined);
+    const fixedMsg = (club) => { state.message = { kind: 'warn', text: club + ' has already played this week, so it is fixed now. You can still change your other picks.' }; render(); };
     // Tapping a club: once to pick it, again to make it your lock (the old lock goes back into the picks), and a
     // third time to take it off. A quick double tap goes straight to the lock.
     function tap(club) {
       if (!editable()) return;
+      if (played(club)) { fixedMsg(club); return; }
       state.message = null;
       if (state.lock === club) {
         state.lock = null;
       } else if (state.std.includes(club)) {
+        if (state.lock && played(state.lock)) { fixedMsg(state.lock); return; }
         state.std = state.std.filter((c) => c !== club);
         if (state.lock) state.std.push(state.lock);
         state.lock = club;
@@ -370,6 +377,8 @@
     // Make a pick the lock; the old lock (if any) goes back into the picks.
     function makeLock(club) {
       if (!editable() || state.lock === club) return;
+      if (played(club)) { fixedMsg(club); return; }
+      if (state.lock && played(state.lock)) { fixedMsg(state.lock); return; }
       state.message = null;
       const old = state.lock;
       state.std = state.std.filter((c) => c !== club);
@@ -379,6 +388,7 @@
     }
     function unLock() {
       if (!editable() || !state.lock) return;
+      if (played(state.lock)) { fixedMsg(state.lock); return; }
       if (state.std.length >= allowed()) { state.message = { kind: 'warn', text: 'Tap one of your picks to swap it with the lock.' }; render(); return; }
       state.std.push(state.lock);
       state.lock = null;
@@ -387,6 +397,7 @@
     }
     function drop(club) {
       if (!editable()) return;
+      if (played(club)) { fixedMsg(club); return; }
       if (state.lock === club) state.lock = null; else state.std = state.std.filter((c) => c !== club);
       state.message = null;
       changed();
@@ -440,21 +451,22 @@
       const chips = [];
       const slot = (club, i) => {
         const bonusSlot = i >= R.STANDARD_PICKS;
-        const b = el('button', 'pk-slot' + (club ? ' pk-slot-on' : '') + (bonusSlot ? ' pk-slot-bonus' : ''));
+        const fixed = !!club && played(club);
+        const b = el('button', 'pk-slot' + (club ? ' pk-slot-on' : '') + (bonusSlot ? ' pk-slot-bonus' : '') + (fixed ? ' pk-slot-fixed' : ''));
         b.type = 'button';
         b.disabled = !canEdit && !club;
         if (club) {
           b.dataset.club = club;
           b.append(el('span', 'pk-slot-name', club), el('span', 'pk-slot-abbr', abbrOf(club)));
-          if (canEdit) {
+          if (canEdit && !fixed) {
             const x = el('span', 'pk-slot-x', '\u00d7');
             x.setAttribute('aria-hidden', 'true');
             x.addEventListener('click', (e) => { e.stopPropagation(); drop(club); });
             b.append(x);
           }
-          b.setAttribute('aria-label', club + '. Tap to make it your lock.');
+          b.setAttribute('aria-label', club + (fixed ? '. Already played, so fixed.' : '. Tap to make it your lock.'));
           b.addEventListener('click', (e) => { if (b.dataset.dragged) return; if (e.target.closest('.pk-slot-x')) return; makeLock(club); });
-          if (canEdit) draggable(b, club, false);
+          if (canEdit && !fixed) draggable(b, club, false);
         } else {
           b.append(el('span', 'pk-slot-empty', bonusSlot ? 'Bonus' : 'Pick ' + (i + 1)));
           b.setAttribute('aria-label', (bonusSlot ? 'Bonus pick, optional, ' : 'Pick ' + (i + 1) + ', ') + 'empty. Tap a club above to fill it.');
@@ -463,13 +475,14 @@
         return b;
       };
       for (let i = 0; i < max; i += 1) chips.push(slot(state.std[i] || null, i));
-      const lk = el('button', 'pk-slot pk-slot-lockslot' + (state.lock ? ' pk-slot-on' : ''));
+      const lockFixed = !!state.lock && played(state.lock);
+      const lk = el('button', 'pk-slot pk-slot-lockslot' + (state.lock ? ' pk-slot-on' : '') + (lockFixed ? ' pk-slot-fixed' : ''));
       lk.type = 'button';
       lk.append(el('span', 'pk-slot-lockicon', '\u{1F512}'));
       if (state.lock) {
         lk.dataset.club = state.lock;
         lk.append(el('span', 'pk-slot-name', state.lock), el('span', 'pk-slot-abbr', abbrOf(state.lock)));
-        if (canEdit) {
+        if (canEdit && !lockFixed) {
           const x = el('span', 'pk-slot-x', '\u00d7');
           x.setAttribute('aria-hidden', 'true');
           x.addEventListener('click', (e) => { e.stopPropagation(); drop(state.lock); });
@@ -659,7 +672,7 @@
       if (lockedName && window.FFWBLink && !linkBox.firstChild) linkBox.append(window.FFWBLink.form());
       help.textContent = (!showEditor ? (admin ? 'Choose a player to edit their picks.' : 'Choose your name to make your picks.')
         : lockedName ? '\u{1F512} ' + lockedName + "'s picks can only be made from " + lockedName + "'s own phone or laptop. If you are " + lockedName + ', open your personal link on this device. The commissioner can send it again.'
-        : canEdit ? 'Tap a club once to pick it, twice for your lock, and a third time to take it off. Your lock counts double. You can also drag picks around the tray.'
+        : canEdit ? 'Tap a club once to pick it, twice for your lock, and a third time to take it off. Your lock counts double. You can also drag picks around the tray.' + (!admin && Object.keys(s.results[String(state.week)] || {}).length ? ' Games already played are fixed, but the rest are still open.' : '')
           : state.week > s.config.currentWeek && !admin ? 'Week ' + state.week + " isn't open yet. You can pick it once week " + s.config.currentWeek + ' is done.'
             : 'This week is closed.' + (admin ? '' : ' Ask the commissioner if something needs fixing.')) + closesAt;
       bonus.hidden = true;
@@ -761,7 +774,8 @@
         const locks = u.locks[club] || 0;
         const tile = el('button', 'pk-tile' + (isLock ? ' pk-tile-lock' : isPick ? ' pk-tile-pick' : ''));
         tile.type = 'button';
-        tile.disabled = !canEdit;
+        tile.disabled = !canEdit || (played(club) && !isPick && !isLock);
+        if (played(club) && canEdit) tile.classList.add('pk-tile-played');
         tile.setAttribute('aria-pressed', String(isLock || isPick));
         tile.append(el('span', 'pk-tile-name', club));
         const game = fx && fx.games ? fx.games[club] : null;
@@ -830,7 +844,7 @@
       const saved = weekPicks()[String(state.week)];
       save.disabled = !canEdit || state.saving || !complete || (!state.dirty && !!saved) || (!!verdict && !verdict.ok && !(admin && override.checked));
       save.textContent = saved && state.dirty ? 'Save changes' : saved ? 'Saved' : 'Save picks';
-      clear.hidden = !canEdit || !saved;
+      clear.hidden = !canEdit || !saved || (!admin && [...(saved.standard || []), saved.lock].some((c) => c && played(c)));
       clear.disabled = state.saving || lockedOut();
       overrideWrap.hidden = !(admin && ((verdict && !verdict.ok) || state.canOverride));
       bar.hidden = !canEdit && !saved;

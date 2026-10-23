@@ -24,7 +24,7 @@ window.FFWB_RELEASES = [
           ['Planned tags', 'Clubs you planned for this week show a Planned tag on their tile.'],
           ['Your own link', 'The commissioner will text you a personal link. Open it on your phone, and on your laptop too if you pick from there. Using the home screen app? Paste the link into the box on This week. After that, only your own devices can change your picks. Keep it to yourself.'],
           ['Change alerts', 'If your picks are ever changed from anywhere but your own devices, you get a phone alert so it can be undone. Turn alerts on with the bell to get these.'],
-          ['One week at a time', 'Only this week is open. Picks still stay open after kickoff for anyone running late.'],
+          ['One week at a time', 'Only this week is open. Picks stay open after kickoff, and after the first results, for anyone running late. Games already played are fixed, so nobody can pick a winner after the fact.'],
           ['You at a glance', 'One line at the top with your rank, points, movement, lock streak and cup game.'],
           ['Smarter tiles', 'Each club shows its kickoff time, its last five results and how many of us picked it last week.'],
           ['Season calendar', 'A strip of all 38 weeks, with cup weeks and EFL weeks marked.'],

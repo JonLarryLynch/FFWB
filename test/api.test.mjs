@@ -113,13 +113,14 @@ await t('admin routes need the passcode', async () => {
   assert.equal((await call('POST', 'admin/results', { week: 8, results: {} })).status, 401);
 });
 
-await t('entering results closes the week, and a full set opens the next week', async () => {
+await t('some results keep the week open for unplayed games, and a full set opens the next week', async () => {
   const season = (await call('GET', 'season', null, { 'x-ffwb-pass': 'letmein' })).body;
   const partial = { Arsenal: 1, Chelsea: 0.5 };
   let r = await call('POST', 'admin/results', { passcode: 'letmein', week: 8, results: partial });
   assert.equal(r.status, 200);
   assert.equal(r.body.config.currentWeek, 8);
-  assert.equal((await call('POST', 'picks', { ...good, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Leeds'] })).status, 403);
+  assert.equal((await call('POST', 'picks', { ...good, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Leeds'] })).status, 200, 'played clubs kept, an unplayed one changed');
+  assert.equal((await call('POST', 'picks', { ...good, standard: ['Leeds', 'Chelsea', 'Liverpool', 'Brighton'] })).status, 403, 'a played club cannot be dropped');
   const full = Object.fromEntries(season.config.clubs.map((c, i) => [c, [1, 0.5, 0, 'P'][i % 4]]));
   r = await call('POST', 'admin/results', { passcode: 'letmein', week: 8, results: full });
   assert.equal(r.body.config.currentWeek, 9);
@@ -380,6 +381,35 @@ await t('the commissioner can set the Kitty figures and adjustments', async () =
   r = await call('POST', 'admin/config', { passcode: 'letmein', money: { split: { first: 30, second: 50, runnerUp: 25 } } });
   assert.equal(r.status, 400, 'the split has to add up to 100');
   assert.equal((await call('POST', 'admin/config', { money: { fund: 1 } })).status, 401);
+});
+
+await t('a week stays open after its first results, and played games are fixed', async () => {
+  const fresh = memoryStore();
+  const h = createHandler(() => fresh, 'p');
+  const post = async (path, body) => { const r = await h(new Request('https://x.test/api/' + path, { method: 'POST', body: JSON.stringify(body) })); return { status: r.status, body: await r.json() }; };
+  const get = async () => (await h(new Request('https://x.test/api/season', { headers: { 'x-ffwb-pass': 'p' } }))).json();
+  const early = { player: 'tim', week: 8, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton'], lock: 'Man City' };
+  assert.equal((await post('picks', early)).status, 200);
+  // Friday night: one game is in.
+  assert.equal((await post('admin/results', { passcode: 'p', week: 8, results: { 'Ipswich Town': 0.5, 'Nottingham Forest': 0.5, Arsenal: 1 } })).status, 200);
+  const s = await get();
+  assert.deepEqual(s.openWeeks, [8], 'still open for late picks');
+  // A late picker can pick the games still to come.
+  assert.equal((await post('picks', { player: 'ben', week: 8, standard: ['Everton', 'Chelsea', 'Liverpool', 'Brighton'], lock: 'Man City' })).status, 200);
+  // But not a club whose game is already played.
+  let r = await post('picks', { player: 'sam', week: 8, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Brighton'], lock: 'Man City' });
+  assert.equal(r.status, 403);
+  assert.match(r.body.error, /Arsenal has already played/);
+  // Tim already had Arsenal: he can change his other picks, but not move or drop Arsenal.
+  assert.equal((await post('picks', { ...early, standard: ['Arsenal', 'Chelsea', 'Liverpool', 'Everton'] })).status, 200);
+  assert.equal((await post('picks', { ...early, standard: ['Wolves', 'Chelsea', 'Liverpool', 'Everton'] })).status, 403, 'cannot drop a played club');
+  assert.equal((await post('picks', { ...early, standard: ['Man City', 'Chelsea', 'Liverpool', 'Everton'], lock: 'Arsenal' })).status, 403, 'cannot make a played club the lock');
+  assert.equal((await post('picks', { player: 'tim', week: 8, standard: [], lock: null })).status, 403, 'cannot clear picks with a played club in them');
+  // The commissioner can still change anything.
+  assert.equal((await post('picks', { ...early, passcode: 'p', standard: ['Wolves', 'Chelsea', 'Liverpool', 'Everton'], override: true })).status, 200);
+  // Once every result is in, the week closes and the next one opens.
+  await post('admin/results', { passcode: 'p', week: 8, results: Object.fromEntries(s.config.clubs.map((c) => [c, 1])) });
+  assert.deepEqual((await get()).openWeeks, [9]);
 });
 
 console.log(passed + ' tests passed');

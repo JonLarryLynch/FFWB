@@ -45,8 +45,9 @@
     const clock = el('div', 'hm-clock');
     const cd = fx.kickoff ? countdown(fx.kickoff) : null;
     const anyRes = Object.keys(s.results[String(w)] || {}).length > 0;
+    const isOpen = (s.openWeeks || []).includes(w);
     if (cd) clock.append(el('span', 'hm-clock-n', cd), el('span', 'hm-clock-l', 'to kickoff, ' + longWhen(fx.kickoff)));
-    else clock.append(el('span', 'hm-clock-n', anyRes ? 'Results' : fx.kickoff ? 'Live' : '–'), el('span', 'hm-clock-l', anyRes ? 'coming in' : fx.kickoff ? 'kicked off ' + longWhen(fx.kickoff) : 'Kickoff time to come'));
+    else clock.append(el('span', 'hm-clock-n', isOpen && fx.kickoff ? 'Live' : anyRes ? 'Results' : '–'), el('span', 'hm-clock-l', isOpen && fx.kickoff ? 'under way, late picks still open' : anyRes ? 'coming in' : 'Kickoff time to come'));
     hero.append(left, clock);
     out.push(card('hm-herocard', hero));
 
@@ -72,13 +73,13 @@
       if (mine.lock) chips.append(el('span', 'hm-chip hm-chip-lock', '\u{1F512} ' + mine.lock));
       if (mine.efl) chips.append(el('span', 'hm-chip hm-chip-efl', 'EFL: ' + mine.efl));
       const when = el('div', 'ffwb-note hm-saved', 'Saved ' + new Date(mine.at).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) + '.');
-      const edit = el('button', 'pk-clear', anyRes ? 'See my picks' : 'Change picks');
+      const edit = el('button', 'pk-clear', isOpen ? 'Change picks' : 'See my picks');
       edit.type = 'button';
       edit.addEventListener('click', () => go('picks'));
       picksCard.append(top, chips, when, edit);
     } else {
       const top = el('div', 'hm-status hm-todo');
-      top.append(el('span', 'hm-dot'), el('span', null, locked ? 'Picks are linked to your other device' : anyRes ? 'No picks this week' : 'You have not picked yet'));
+      top.append(el('span', 'hm-dot'), el('span', null, locked ? 'Picks are linked to your other device' : !isOpen ? 'No picks this week' : 'You have not picked yet'));
       if (locked && window.FFWBLink) {
         picksCard.append(top, el('p', 'ffwb-note', 'Your picks can only be made from devices linked to you. Open your personal link here, or paste it below.'), window.FFWBLink.form());
       } else {

@@ -10,6 +10,8 @@
   };
   const abbr = (c) => ABBR[c] || String(c).replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
   const hasResults = (season, w) => Object.keys(season.results[String(w)] || {}).length > 0;
+  // Every club has a result: the week is over. Some results (a Friday game) do not end it.
+  const allIn = (season, w) => { const r = season.results[String(w)] || {}; return season.config.clubs.every((c) => r[c] !== undefined && r[c] !== null); };
 
   // The plan for a player's half: what is still owed, how many picks are left, and anything to worry about.
   // draft: the picks on screen for `week` (not saved yet), counted as if saved.
@@ -30,7 +32,7 @@
       if (p.lock) locks[p.lock] = (locks[p.lock] || 0) + 1;
     }
     // Weeks still to pick in this half: the current week onwards, not already picked, without results.
-    const left = weeks.filter((w) => w >= season.config.currentWeek && !done.has(w) && !hasResults(season, w));
+    const left = weeks.filter((w) => w >= season.config.currentWeek && !done.has(w) && !allIn(season, w));
     const slots = left.length * (R.STANDARD_PICKS + 1);
     const clubs = season.config.clubs.map((c) => ({ club: c, have: counts[c] || 0, locks: locks[c] || 0, need: Math.max(0, R.MIN_PER_HALF - (counts[c] || 0)) }));
     const owed = clubs.reduce((a, c) => a + c.need, 0);
@@ -132,7 +134,7 @@
         const t = C ? C.TYPES[cup.type] : { name: cup.type, format: 'knockout' };
         marks.push({ type: cup.type, text: t.name + (t.format === 'knockout' && C ? ', ' + C.roundName(i, cup.weeks.length) : ', week ' + (i + 1) + ' of ' + cup.weeks.length) });
       }
-      out.push({ week: w, done: hasResults(season, w), current: w === season.config.currentWeek, efl: (season.config.eflWeeks || []).includes(w), marks, halfEnd: w === R.HALF_END });
+      out.push({ week: w, done: allIn(season, w), current: w === season.config.currentWeek, efl: (season.config.eflWeeks || []).includes(w), marks, halfEnd: w === R.HALF_END });
     }
     return out;
   }

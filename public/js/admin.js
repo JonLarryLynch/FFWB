@@ -74,14 +74,14 @@
     autoBox.checked = auto;
     const started = (w) => auto && !!fx(w).kickoff && Date.now() >= Date.parse(fx(w).kickoff);
     closedBox.replaceChildren(...Array.from({ length: R.WEEKS }, (_, i) => i + 1).map((w) => {
-      const hasResults = Object.keys(season.results[String(w)] || {}).length > 0;
+      const hasResults = season.config.clubs.every((c) => (season.results[String(w)] || {})[c] !== undefined);
       const kicked = kickedOff(season, w);
       const cls = locked.has(w) ? ' pk-weekdot-locked' : hasResults ? ' pk-weekdot-done' : kicked ? ' pk-weekdot-kicked' : reopened.has(w) && started(w) ? ' pk-weekdot-reopened' : w < season.config.currentWeek ? ' pk-weekdot-past' : '';
       const b = el('button', 'pk-weekdot' + cls, String(w));
       b.type = 'button';
       b.setAttribute('aria-pressed', String(locked.has(w)));
       const ko = fx(w).kickoff ? ' First kickoff ' + whenLong(fx(w).kickoff) + '.' : '';
-      b.title = (locked.has(w) ? 'Closed by you. Click to reopen.' : hasResults ? 'Results are in, so this week is closed.'
+      b.title = (locked.has(w) ? 'Closed by you. Click to reopen.' : hasResults ? 'All results are in, so this week is closed.'
         : kicked ? 'Kicked off, so closed. Click to reopen it for late picks.' : reopened.has(w) && started(w) ? 'Reopened by you after kickoff. Click to close it again.'
           : 'Click to close this week to picks.') + ko;
       b.addEventListener('click', async () => {

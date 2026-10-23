@@ -68,10 +68,20 @@ export function kickedOff(config, fixtures, week, now = Date.now()) {
 
 // Players pick one week at a time: only the current week is open. It closes once the commissioner closes it,
 // any result is in, or (if that setting is on) its first game kicks off and it has not been reopened.
+// A week is done once every club has a result (a postponement counts). Entering some results mid-week, say
+// for a Friday game, never closes it: late picks stay open for the games still to come.
+function allResultsIn(config, results, week) {
+  const r = results.weeks[String(week)] || {};
+  return config.clubs.every((c) => r[c] !== null && r[c] !== undefined);
+}
 function isClosed(config, results, week, fixtures) {
-  const r = results.weeks[String(week)];
-  const hasResults = !!r && Object.values(r).some((v) => v !== null && v !== undefined);
-  return week !== config.currentWeek || (config.lockedWeeks || []).includes(week) || hasResults || kickedOff(config, fixtures, week);
+  return week !== config.currentWeek || (config.lockedWeeks || []).includes(week) || allResultsIn(config, results, week) || kickedOff(config, fixtures, week);
+}
+// Clubs whose game this week already has a result. Once a game is played, players cannot add, move or take
+// off that club, so nobody can pick a winner after the fact or drop a loser.
+function playedClubs(results, week) {
+  const r = results.weeks[String(week)] || {};
+  return Object.keys(r).filter((c) => r[c] !== null && r[c] !== undefined);
 }
 const openWeeks = (config, results, fixtures) => {
   const out = [];
@@ -82,7 +92,7 @@ const openWeeks = (config, results, fixtures) => {
 // these to judge whether a player can still reach 3 picks of every club, since only one week is open at a time.
 const upcomingWeeks = (config, results) => {
   const out = [];
-  for (let w = config.currentWeek; w <= rules.WEEKS; w += 1) if (!Object.keys(results.weeks[String(w)] || {}).length) out.push(w);
+  for (let w = config.currentWeek; w <= rules.WEEKS; w += 1) if (!allResultsIn(config, results, w)) out.push(w);
   return out;
 };
 // The season in the shape the shared cup code expects.
@@ -496,6 +506,18 @@ export function createHandler(getStore, getPasscode, extras = {}) {
         }
 
         const clearing = (!body.standard || body.standard.length === 0) && !body.lock;
+        // Games already played are fixed for players: each played club stays exactly where it was.
+        if (!isAdmin) {
+          const before = all.picks[player.id].weeks[String(week)] || null;
+          const role = (p, c) => (!p ? null : p.lock === c ? 'lock' : (p.standard || []).includes(c) ? 'pick' : null);
+          const after = clearing ? null : { standard: (body.standard || []).map(String), lock: body.lock ? String(body.lock) : null };
+          const moved = playedClubs(results, week).filter((c) => role(before, c) !== role(after, c));
+          if (moved.length) {
+            const c = moved[0];
+            const was = role(before, c);
+            return fail(403, c + (moved.length > 1 ? ' and ' + (moved.length - 1) + ' more have' : ' has') + ' already played this week, so ' + (moved.length > 1 ? 'they are' : 'it is') + ' fixed: ' + (was ? 'it has to stay as your ' + (was === 'lock' ? 'lock' : 'pick') : 'it cannot be picked now') + '. Change your other picks instead, or ask the commissioner.', { played: moved });
+          }
+        }
         // The EFL pick only exists in weeks the commissioner has switched it on for.
         const eflWeek = (config.eflWeeks || []).includes(week);
         const efl = eflWeek && body.efl ? String(body.efl).trim().slice(0, 60) : null;

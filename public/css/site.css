@@ -1312,3 +1312,8 @@ html.xp-locked, html.xp-locked body { overflow: hidden; }
 .kt { grid-template-columns: minmax(0, 1fr); }
 .kt > *, .kt-more > * { min-width: 0; }
 @media (max-width: 520px) { .kt-table th, .kt-table td { padding-left: 0.35rem; padding-right: 0.35rem; font-size: 0.82rem; } }
+
+/* Played games: fixed for players. */
+.pk-slot-fixed { border-style: solid; cursor: default; opacity: 0.85; }
+.pk-slot-fixed::after { content: 'played'; position: absolute; bottom: 0.1rem; font-size: 0.55rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-fg-muted); }
+.pk-tile-played:disabled { opacity: 0.55; }
