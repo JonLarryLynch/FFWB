@@ -33,7 +33,7 @@
   }
 
   const CARDS = [
-    { art: trayArt, kicker: '1 of 3', title: 'Pick four, lock one', text: 'Each week, pick 4 clubs plus a lock. A win is 1 point, a draw a half, and your lock counts double. Tap clubs to fill your tray, then tap a pick to make it your lock. Nobody sees your picks until the first kickoff.' },
+    { art: trayArt, kicker: '1 of 3', title: 'Pick four, lock one', text: 'Each week, pick 4 clubs plus a lock. A win is 1 point, a draw a half, and your lock counts double. Tap a club once to pick it and twice to make it your lock. Nobody sees your picks until the first kickoff.' },
     { art: mapArt, kicker: '2 of 3', title: 'Three of every club, every half', text: 'Every club needs 3 of your picks each half, and no club can be your lock more than 4 times a half. The Map on the Picks tab shows what you still owe, and you can tick squares to plan ahead.' },
     { art: alertArt, kicker: '3 of 3', title: 'Never miss a week', text: 'Tap the bell at the top for phone alerts: when a week opens, a reminder if you have not picked, and the reveal at kickoff. Add the site to your home screen and it works like an app.' },
   ];

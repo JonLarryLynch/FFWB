@@ -345,16 +345,26 @@
     }
 
     const changed = () => { state.dirty = true; state.canOverride = false; render(); };
-    // Tapping a club: add it to the next empty slot (picks first, then the lock), or take it off if it is in.
+    // Tapping a club: once to pick it, again to make it your lock (the old lock goes back into the picks), and a
+    // third time to take it off. A quick double tap goes straight to the lock.
     function tap(club) {
       if (!editable()) return;
       state.message = null;
-      if (state.lock === club) state.lock = null;
-      else if (state.std.includes(club)) state.std = state.std.filter((c) => c !== club);
-      else if (state.std.length < R.STANDARD_PICKS) state.std.push(club);
-      else if (!state.lock) state.lock = club;
-      else if (state.std.length < allowed()) state.std.push(club);
-      else { state.message = { kind: 'warn', text: 'Your tray is full. Take a pick off (\u00d7) to swap one in.' }; render(); return; }
+      if (state.lock === club) {
+        state.lock = null;
+      } else if (state.std.includes(club)) {
+        state.std = state.std.filter((c) => c !== club);
+        if (state.lock) state.std.push(state.lock);
+        state.lock = club;
+      } else if (state.std.length < allowed()) {
+        state.std.push(club);
+      } else if (!state.lock) {
+        state.lock = club;
+      } else {
+        state.message = { kind: 'warn', text: 'You already have ' + allowed() + ' picks and a lock. Tap one of them, or use \u00d7 in the tray, to take it off first.' };
+        render();
+        return;
+      }
       changed();
     }
     // Make a pick the lock; the old lock (if any) goes back into the picks.
@@ -649,7 +659,7 @@
       if (lockedName && window.FFWBLink && !linkBox.firstChild) linkBox.append(window.FFWBLink.form());
       help.textContent = (!showEditor ? (admin ? 'Choose a player to edit their picks.' : 'Choose your name to make your picks.')
         : lockedName ? '\u{1F512} ' + lockedName + "'s picks can only be made from " + lockedName + "'s own phone or laptop. If you are " + lockedName + ', open your personal link on this device. The commissioner can send it again.'
-        : canEdit ? 'Tap clubs to fill your tray. Tap a pick in the tray (or drag it to the gold slot) to make it your lock. Your lock counts double.'
+        : canEdit ? 'Tap a club once to pick it, twice for your lock, and a third time to take it off. Your lock counts double. You can also drag picks around the tray.'
           : state.week > s.config.currentWeek && !admin ? 'Week ' + state.week + " isn't open yet. You can pick it once week " + s.config.currentWeek + ' is done.'
             : 'This week is closed.' + (admin ? '' : ' Ask the commissioner if something needs fixing.')) + closesAt;
       bonus.hidden = true;

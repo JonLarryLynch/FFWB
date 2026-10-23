@@ -27,7 +27,7 @@ try {
 
 const failures = [];
 const step = async (name, fn) => {
-  try { await fn(); console.log('ok  ' + name); } catch (err) { failures.push(name + ': ' + err.message.split('\n')[0]); console.log('FAIL ' + name + ': ' + err.message.split('\n')[0]); }
+  try { await fn(); console.log('ok  ' + name); } catch (err) { if (process.env.SMOKE_DEBUG) console.log(err.message.slice(0, 900)); failures.push(name + ': ' + err.message.split('\n')[0]); console.log('FAIL ' + name + ': ' + err.message.split('\n')[0]); }
 };
 const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
 
@@ -45,7 +45,8 @@ async function page(setup) {
 const closePopups = (pg) => pg.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
 
 try {
-  const pg = await page(() => { localStorage.setItem('ffwb-seen-release', 'x'); });
+  // A returning player: the latest What's new is already seen, so it does not pop up over the test.
+  const pg = await page(() => { document.addEventListener('DOMContentLoaded', () => { try { localStorage.setItem('ffwb-seen-release', (window.FFWB_RELEASES || [])[0].id); } catch (err) { /* fine */ } }); });
   await step('the site opens on This week', async () => {
     await pg.goto(base + '/');
     await pg.waitForSelector('.hm-herocard', { timeout: 15000 });
@@ -57,7 +58,9 @@ try {
     await pg.selectOption('#player-name', 'jon');
     await pg.waitForTimeout(1200);
     await closePopups(pg);
-    for (let i = 0; i < 5; i += 1) { await (await pg.$$('.pk-tile:not([aria-pressed="true"])'))[i === 0 ? 0 : 1].click(); }
+    // Four picks with a tap each, then a double tap on a fifth club for the lock.
+    for (let i = 0; i < 4; i += 1) { await (await pg.$$('.pk-tile:not([aria-pressed="true"])'))[i === 0 ? 0 : 1].click(); }
+    await (await pg.$$('.pk-tile:not([aria-pressed="true"])'))[1].dblclick();
     const filled = await pg.$$eval('.pk-slot-on', (s) => s.length);
     expect(filled === 5, 'the tray has ' + filled + ' of 5 filled');
     await pg.click('.pk-tray .pk-save');
